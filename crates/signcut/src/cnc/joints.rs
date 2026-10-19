@@ -13,7 +13,8 @@ use super::{flatten, nesting_depths, signed_area};
 use tracedraw_core::geometry::{BezPath, ParamCurve, PathSeg, Point, Vec2};
 
 /// How to cut the fingers.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct JointSpec {
     /// Wanted finger width (mm).
     pub finger: f64,

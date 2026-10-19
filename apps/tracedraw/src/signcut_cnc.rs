@@ -1,26 +1,28 @@
-//! Sign & Cut, CNC and Laser: settings and operations (G-code, hot wire paths, finger joints, door panels and centre lines).
-//! The geometry is in `tracedraw_signcut::cnc`; the panel section is
-//! `ui/signcut_cnc.rs`. See docs/behavior/sign-and-cut-cnc.md.
+//! Sign & Cut, CNC and Laser: settings and operations (G-code, hot wire
+//! paths, finger joints, door panels and centre lines). Each operation
+//! that changes the drawing is split into a compute step (the windows'
+//! previews; the drawing is not touched) and a commit step (one undo
+//! step). The geometry is in `tracedraw_signcut::cnc`; the windows are
+//! `ui/signcut_win_cnc.rs`. See docs/behavior/sign-and-cut-cnc.md.
 
 use crate::app::App;
 use crate::i18n::{tr, trf};
-use crate::signcut::Section;
+use crate::signcut_tools::ToolId;
 use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, Point};
-use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
+use tracedraw_core::{Color, Command, Fill, PageId, Shape, ShapeId, ShapeKind, Stroke};
 use tracedraw_signcut::cnc::centerline::CenterSpec;
-use tracedraw_signcut::cnc::door::DoorSpec;
-use tracedraw_signcut::cnc::fingerbox::BoxSpec;
+use tracedraw_signcut::cnc::door::{Door, DoorSpec};
+use tracedraw_signcut::cnc::fingerbox::{BoxSpec, Panel};
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
 use tracedraw_signcut::cnc::joints::{self, JointSpec};
 
-/// The CNC and Laser section's settings and last results.
+/// The CNC and Laser tools' settings, last results and window state.
 #[derive(Debug, Clone)]
 pub struct Settings {
-    /// Machines and the one used.
-    pub machines: Vec<Machine>,
-    pub machine: usize,
-    /// Tools and the one shown in the panel.
+    /// The machine the G-code is written for.
+    pub machine: Machine,
+    /// Tools and the one shown in the Tools tab.
     pub tools: Vec<Tool>,
     pub tool: usize,
     /// Jobs by outline colour, cut in this order.
@@ -30,10 +32,12 @@ pub struct Settings {
     /// What the last export or preview amounted to.
     pub last: Option<Summary>,
     /// Tool paths of the preview and what they were made from.
-    preview_cache: Option<(PreviewKey, Vec<BezPath>)>,
-    /// Hot wire: start point on the page (mm) and the tool of its G-code.
+    preview_cache: Option<(PreviewKey, PlanPreview)>,
+    /// Hot wire: start point on the page (mm), the machine and the tool
+    /// of its G-code.
     pub wire_start_x: f64,
     pub wire_start_y: f64,
+    pub wire_machine: Machine,
     pub wire_tool: usize,
     /// Finger-joint box.
     pub box_spec: BoxSpec,
@@ -45,6 +49,8 @@ pub struct Settings {
     pub door: DoorSpec,
     /// Centre lines.
     pub centre: CenterSpec,
+    /// The windows' tabs and previews.
+    pub win: WinState,
 }
 
 /// What the preview's tool paths depend on.
@@ -52,17 +58,69 @@ pub struct Settings {
 struct PreviewKey {
     revision: u64,
     selection: Vec<ShapeId>,
-    page: tracedraw_core::PageId,
-    machine: Option<Machine>,
+    page: PageId,
+    machine: Machine,
     tools: Vec<Tool>,
     jobs: Vec<Job>,
+}
+
+/// The tool paths of the jobs for a preview, each in its job's colour,
+/// and the time they take at the tools' feeds (minutes).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PlanPreview {
+    pub paths: Vec<([u8; 3], BezPath)>,
+    pub minutes: f64,
+}
+
+/// The G-code window's tabs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GcodeTab {
+    #[default]
+    Machine,
+    Tools,
+    Jobs,
+}
+
+/// What a preview was made from: the drawing, the selection, the page
+/// and the settings. A preview is current while its stamp is.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stamp<S> {
+    revision: u64,
+    selection: Vec<ShapeId>,
+    page: PageId,
+    spec: S,
+}
+
+/// A preview with what it was made from.
+pub type Cached<S, T> = Option<(Stamp<S>, T)>;
+
+/// Finger joints worked out: each changed object with its new outline
+/// (page space) and the edges that take fingers.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Joined {
+    pub changed: Vec<(ShapeId, BezPath)>,
+    pub edges: Vec<(Point, Point)>,
+}
+
+/// The CNC windows' state: the open tab and the previews.
+#[derive(Debug, Clone, Default)]
+pub struct WinState {
+    pub gcode_tab: GcodeTab,
+    /// The job shown in the Jobs tab.
+    pub job: usize,
+    /// The colours were looked for when the G-code window first drew.
+    pub found: bool,
+    pub centre: Cached<CenterSpec, Vec<(BezPath, bool)>>,
+    pub wire: Cached<(f64, f64), Option<Vec<Point>>>,
+    pub joints: Cached<(JointSpec, bool), Result<Joined, String>>,
+    pub door: Cached<DoorSpec, Option<Door>>,
+    pub boxes: Cached<BoxSpec, Option<Vec<(Panel, BezPath)>>>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            machines: vec![Machine::router(), Machine::laser(), Machine::hot_wire()],
-            machine: 0,
+            machine: Machine::router(),
             tools: vec![
                 Tool::end_mill(3.0),
                 Tool::end_mill(6.0),
@@ -76,13 +134,39 @@ impl Default for Settings {
             preview_cache: None,
             wire_start_x: 0.0,
             wire_start_y: 0.0,
+            wire_machine: Machine::hot_wire(),
             wire_tool: 3,
             box_spec: BoxSpec::default(),
             joint: JointSpec::default(),
             joint_pair: true,
             door: DoorSpec::default(),
             centre: CenterSpec::default(),
+            win: WinState::default(),
         }
+    }
+}
+
+impl Settings {
+    /// Remove tool `i` (one always stays); jobs that used it take the
+    /// first tool, the others keep theirs.
+    pub fn remove_tool(&mut self, i: usize) -> bool {
+        if self.tools.len() <= 1 || i >= self.tools.len() {
+            return false;
+        }
+        self.tools.remove(i);
+        let fix = |t: &mut usize| {
+            if *t == i {
+                *t = 0;
+            } else if *t > i {
+                *t -= 1;
+            }
+        };
+        for j in &mut self.jobs {
+            fix(&mut j.tool);
+        }
+        fix(&mut self.wire_tool);
+        fix(&mut self.tool);
+        true
     }
 }
 
@@ -149,16 +233,22 @@ impl App {
     }
 
     /// The machine in use.
-    pub fn cnc_machine(&self) -> Option<&Machine> {
-        self.sc_cnc.machines.get(self.sc_cnc.machine)
+    pub fn cnc_machine(&self) -> &Machine {
+        &self.sc_cnc.machine
     }
 
     /// The tool paths of every switched-on job, in cutting order, from
     /// the machine's zero.
     pub fn cnc_plan(&self) -> Vec<Cut> {
-        let Some(m) = self.cnc_machine() else {
-            return Vec::new();
-        };
+        self.cnc_plan_colored()
+            .into_iter()
+            .map(|(_, c)| c)
+            .collect()
+    }
+
+    /// As [`App::cnc_plan`], each tool path with its job's colour.
+    pub fn cnc_plan_colored(&self) -> Vec<([u8; 3], Cut)> {
+        let m = self.cnc_machine();
         let size = self.page_size();
         let mut pos = Point::ZERO - m.origin.offset(size.width, size.height);
         let outlines = self.cnc_colored_outlines();
@@ -177,7 +267,7 @@ impl App {
             }
             let (more, end) = gcode::plan_job(job, tool, &paths, pos);
             pos = end;
-            cuts.extend(more);
+            cuts.extend(more.into_iter().map(|c| (job.color, c)));
         }
         cuts
     }
@@ -186,7 +276,7 @@ impl App {
     /// is nothing to cut.
     pub fn cnc_gcode(&mut self) -> Option<String> {
         let cuts = self.cnc_plan();
-        let m = self.cnc_machine()?.clone();
+        let m = self.cnc_machine().clone();
         let size = self.page_size();
         let s = gcode::summary(&m, &cuts, size.width, size.height);
         self.sc_cnc.last = Some(s);
@@ -214,27 +304,66 @@ impl App {
     /// The tool paths to show on the drawing (page space), made again
     /// only when the drawing, the selection or the settings change.
     pub fn cnc_preview(&mut self) -> Vec<BezPath> {
+        self.cnc_preview_colored()
+            .paths
+            .into_iter()
+            .map(|(_, p)| p)
+            .collect()
+    }
+
+    /// The tool paths with their jobs' colours and the time they take,
+    /// made again only when the drawing, the selection or the settings
+    /// change; `last` follows them.
+    pub fn cnc_preview_colored(&mut self) -> PlanPreview {
         let key = PreviewKey {
             revision: self.engine.revision(),
             selection: self.selection.clone(),
             page: self.page,
-            machine: self.cnc_machine().cloned(),
+            machine: self.cnc_machine().clone(),
             tools: self.sc_cnc.tools.clone(),
             jobs: self.sc_cnc.jobs.clone(),
         };
-        if let Some((k, paths)) = &self.sc_cnc.preview_cache {
+        if let Some((k, p)) = &self.sc_cnc.preview_cache {
             if *k == key {
-                return paths.clone();
+                return p.clone();
             }
         }
-        let cuts = self.cnc_plan();
-        if let Some(m) = self.cnc_machine() {
-            let size = self.page_size();
-            self.sc_cnc.last = Some(gcode::summary(m, &cuts, size.width, size.height));
+        let cuts = self.cnc_plan_colored();
+        let size = self.page_size();
+        let plain: Vec<Cut> = cuts.iter().map(|(_, c)| c.clone()).collect();
+        self.sc_cnc.last = Some(gcode::summary(
+            self.cnc_machine(),
+            &plain,
+            size.width,
+            size.height,
+        ));
+        let mut minutes = 0.0;
+        for c in &plain {
+            if let Some(t) = self.sc_cnc.tools.get(c.tool) {
+                if t.feed.is_finite() && t.feed > 0.0 {
+                    minutes += c.length() * c.depths.len().max(1) as f64 / t.feed;
+                }
+            }
         }
-        let paths: Vec<BezPath> = cuts.iter().map(|c| polyline(&c.preview(), false)).collect();
-        self.sc_cnc.preview_cache = Some((key, paths.clone()));
-        paths
+        let p = PlanPreview {
+            paths: cuts
+                .iter()
+                .map(|(col, c)| (*col, polyline(&c.preview(), false)))
+                .collect(),
+            minutes,
+        };
+        self.sc_cnc.preview_cache = Some((key, p.clone()));
+        p
+    }
+
+    /// A stamp of what the windows' previews depend on now.
+    pub fn cnc_stamp<S>(&self, spec: S) -> Stamp<S> {
+        Stamp {
+            revision: self.engine.revision(),
+            selection: self.selection.clone(),
+            page: self.page,
+            spec,
+        }
     }
 }
 
@@ -243,7 +372,7 @@ pub const HAIRLINE: f64 = 0.0762;
 
 impl App {
     /// The targets' outlines in page space, one list per object.
-    fn cnc_outlines(&self) -> Vec<BezPath> {
+    pub fn cnc_outlines(&self) -> Vec<BezPath> {
         self.cnc_colored_outlines()
             .into_iter()
             .map(|(_, p)| p)
@@ -318,15 +447,23 @@ impl App {
     }
 
     /// Add the hot wire path as one open curve. Returns its id.
+    #[cfg(test)]
     pub fn cnc_hot_wire(&mut self) -> Option<ShapeId> {
-        let Some(pts) = self.cnc_wire_points() else {
+        let pts = self.cnc_wire_points();
+        self.cnc_wire_commit(pts.as_deref())
+    }
+
+    /// Add `pts` (a hot wire path worked out before) as one open curve
+    /// with a red hairline, one undo step. Returns its id.
+    pub fn cnc_wire_commit(&mut self, pts: Option<&[Point]>) -> Option<ShapeId> {
+        let Some(pts) = pts else {
             self.status = tr("signcut.cnc_no_closed");
             return None;
         };
-        let len = tracedraw_signcut::cnc::polyline_length(&pts, false);
+        let len = tracedraw_signcut::cnc::polyline_length(pts, false);
         let ids = self.cnc_add_curves(
             "Hot Wire Path",
-            vec![(polyline(&pts, false), false)],
+            vec![(polyline(pts, false), false)],
             Color::rgb8(230, 40, 20),
             false,
         );
@@ -338,13 +475,13 @@ impl App {
         ids.first().copied()
     }
 
-    /// The hot wire path as G-code in X and Y for the machine in use.
+    /// The hot wire path as G-code in X and Y for the hot wire machine.
     pub fn cnc_wire_gcode(&mut self) -> Option<String> {
         let Some(pts) = self.cnc_wire_points() else {
             self.status = tr("signcut.cnc_no_closed");
             return None;
         };
-        let m = self.cnc_machine()?.clone();
+        let m = self.sc_cnc.wire_machine.clone();
         let tool = self.sc_cnc.tools.get(self.sc_cnc.wire_tool)?.clone();
         let size = self.page_size();
         Some(gcode::emit_xy(&m, &tool, &pts, size.width, size.height))
@@ -360,17 +497,30 @@ impl App {
 }
 
 impl App {
-    /// Add the panels of the finger-joint box, grouped, laid out from
-    /// the page's bottom left plus the gap. Returns the group's id.
-    pub fn cnc_finger_box(&mut self) -> Option<ShapeId> {
+    /// The panels of the finger-joint box laid out from the page's
+    /// bottom left plus the gap; `None` when the sizes cannot make a box.
+    pub fn cnc_box_compute(&self) -> Option<Vec<(Panel, BezPath)>> {
         let spec = self.sc_cnc.box_spec;
         let g = if spec.gap.is_finite() {
             spec.gap.max(0.0)
         } else {
             0.0
         };
-        let Some(panels) = tracedraw_signcut::cnc::fingerbox::box_panels(&spec, Point::new(g, g))
-        else {
+        tracedraw_signcut::cnc::fingerbox::box_panels(&spec, Point::new(g, g))
+    }
+
+    /// Add the panels of the finger-joint box, grouped. Returns the
+    /// group's id.
+    #[cfg(test)]
+    pub fn cnc_finger_box(&mut self) -> Option<ShapeId> {
+        let panels = self.cnc_box_compute();
+        self.cnc_box_commit(panels)
+    }
+
+    /// Add `panels` (worked out before) as closed red curves in one
+    /// group, one undo step.
+    pub fn cnc_box_commit(&mut self, panels: Option<Vec<(Panel, BezPath)>>) -> Option<ShapeId> {
+        let Some(panels) = panels else {
             self.status = tr("signcut.cnc_box_bad");
             return None;
         };
@@ -416,32 +566,73 @@ impl App {
         ids.iter().filter_map(|id| doc.shape_on_page(*id)).collect()
     }
 
-    /// Cut finger joints: into the nearest straight edges of two
-    /// objects (mating patterns), or into every long straight edge of
-    /// each object. One undo step; returns how many objects changed.
-    pub fn cnc_finger_joints(&mut self) -> usize {
+    /// The objects that can take finger joints, in page space (for the
+    /// preview).
+    pub fn cnc_joint_targets(&self) -> Vec<BezPath> {
+        self.cnc_editable().iter().map(|s| s.page_path()).collect()
+    }
+
+    /// Work the finger joints out: into the nearest straight edges of
+    /// two objects (mating patterns), or into every long straight edge
+    /// of each object. The drawing is not changed; `Err` says why
+    /// nothing would change.
+    pub fn cnc_joints_compute(&self) -> Result<Joined, String> {
         let shapes = self.cnc_editable();
         let spec = self.sc_cnc.joint;
-        let mut changed: Vec<(&Shape, BezPath)> = Vec::new();
+        let mut out = Joined::default();
         if self.sc_cnc.joint_pair {
             let [a, b] = &shapes[..] else {
-                self.status = tr("signcut.cnc_joint_two");
-                return 0;
+                return Err(tr("signcut.cnc_joint_two"));
             };
-            if let Some((pa, pb, _, _)) = joints::between(&a.page_path(), &b.page_path(), &spec) {
-                changed.push((a, pa));
-                changed.push((b, pb));
+            if let Some((pa, pb, ea, eb)) = joints::between(&a.page_path(), &b.page_path(), &spec) {
+                out.changed.push((a.id, pa));
+                out.changed.push((b.id, pb));
+                out.edges.push((ea.a, ea.b));
+                out.edges.push((eb.a, eb.b));
             }
         } else {
             for s in &shapes {
-                if let Some((p, _)) = joints::on_all_edges(&s.page_path(), &spec) {
-                    changed.push((s, p));
+                let path = s.page_path();
+                if let Some((p, _)) = joints::on_all_edges(&path, &spec) {
+                    out.changed.push((s.id, p));
+                    out.edges.extend(
+                        joints::straight_edges(&path, spec.min_length)
+                            .into_iter()
+                            .map(|e| (e.a, e.b)),
+                    );
                 }
             }
         }
-        let cmds: Vec<Command> = changed
+        if out.changed.is_empty() {
+            return Err(tr("signcut.cnc_joint_none"));
+        }
+        Ok(out)
+    }
+
+    /// Cut finger joints. One undo step; returns how many objects
+    /// changed.
+    #[cfg(test)]
+    pub fn cnc_finger_joints(&mut self) -> usize {
+        let j = self.cnc_joints_compute();
+        self.cnc_joints_commit(j)
+    }
+
+    /// Replace the outlines of the objects of `joined` (worked out
+    /// before) in one undo step. Returns how many objects changed.
+    pub fn cnc_joints_commit(&mut self, joined: Result<Joined, String>) -> usize {
+        let joined = match joined {
+            Ok(j) => j,
+            Err(e) => {
+                self.status = e;
+                return 0;
+            }
+        };
+        let doc = self.doc();
+        let cmds: Vec<Command> = joined
+            .changed
             .iter()
-            .filter_map(|(s, p)| {
+            .filter_map(|(id, p)| {
+                let s = doc.shape_on_page(*id)?;
                 let det = s.transform.determinant();
                 (det.is_finite() && det.abs() > 1e-12).then(|| Command::SetShapeKind {
                     shape: s.id,
@@ -466,21 +657,39 @@ impl App {
 }
 
 impl App {
-    /// Draw a door panel: in the box of the one selected object, else
-    /// of the panel's size centred on the page. Outer and inner outlines
-    /// red, grooves blue, grouped, one undo step. Returns the group.
-    pub fn cnc_door(&mut self) -> Option<ShapeId> {
+    /// The door's outer box: the one selected object's, else the
+    /// panel's size centred on the page.
+    pub fn cnc_door_rect(&self) -> tracedraw_core::geometry::Rect {
         let spec = self.sc_cnc.door;
         let doc = self.doc();
-        let rect = match &self.selection[..] {
+        match &self.selection[..] {
             [id] => doc.shape_on_page(*id).map(|s| s.bounds()),
             _ => None,
         }
         .unwrap_or_else(|| {
             let c = self.page_rect().center();
             tracedraw_core::geometry::Rect::from_center_size(c, (spec.width, spec.height))
-        });
-        let Some(d) = tracedraw_signcut::cnc::door::door(&spec, rect) else {
+        })
+    }
+
+    /// Work the door out in its box; `None` when the frame leaves no
+    /// inner panel.
+    pub fn cnc_door_compute(&self) -> Option<Door> {
+        tracedraw_signcut::cnc::door::door(&self.sc_cnc.door, self.cnc_door_rect())
+    }
+
+    /// Draw a door panel: in the box of the one selected object, else
+    /// of the panel's size centred on the page. Outer and inner outlines
+    /// red, grooves blue, grouped, one undo step. Returns the group.
+    #[cfg(test)]
+    pub fn cnc_door(&mut self) -> Option<ShapeId> {
+        let d = self.cnc_door_compute();
+        self.cnc_door_commit(d)
+    }
+
+    /// Add a door worked out before, one undo step.
+    pub fn cnc_door_commit(&mut self, d: Option<Door>) -> Option<ShapeId> {
+        let Some(d) = d else {
             self.status = tr("signcut.cnc_door_bad");
             return None;
         };
@@ -495,10 +704,10 @@ impl App {
 }
 
 impl App {
-    /// Add the centre lines of the targets' closed shapes (each drawn
-    /// object on its own, holes by even-odd) as curves with a blue
-    /// hairline, grouped, in one undo step. Returns how many lines.
-    pub fn cnc_center_lines(&mut self) -> usize {
+    /// The centre lines of the targets' closed shapes (each drawn object
+    /// on its own, holes by even-odd), page space, with whether each
+    /// closes. The drawing is not changed.
+    pub fn cnc_center_compute(&self) -> Vec<(BezPath, bool)> {
         let spec = self.sc_cnc.centre;
         let mut paths = Vec::new();
         for p in self.cnc_outlines() {
@@ -506,6 +715,20 @@ impl App {
                 paths.push((polyline(&pts, closed), closed));
             }
         }
+        paths
+    }
+
+    /// Add the centre lines of the targets' closed shapes as curves with
+    /// a blue hairline, grouped, in one undo step. Returns how many
+    /// lines.
+    #[cfg(test)]
+    pub fn cnc_center_lines(&mut self) -> usize {
+        let paths = self.cnc_center_compute();
+        self.cnc_center_commit(paths)
+    }
+
+    /// Add centre lines worked out before, one undo step.
+    pub fn cnc_center_commit(&mut self, paths: Vec<(BezPath, bool)>) -> usize {
         let n = paths.len();
         if n == 0 {
             self.status = tr("signcut.cnc_no_center");
@@ -565,32 +788,23 @@ pub(crate) fn polyline(pts: &[Point], closed: bool) -> BezPath {
     p
 }
 
-/// Tools > Sign & Cut > CNC and Laser.
+/// Tools > Sign & Cut > CNC and Laser: each item opens its tool window.
 pub fn menu(app: &mut App, ui: &mut Ui) {
     use crate::ui::menus::item;
     let doc = app.has_document() && !app.show_welcome;
     if item(ui, "menu.tools.signcut_cnc_gcode", "", doc) {
-        app.open_signcut(Section::Cnc);
-        if app.sc_cnc.jobs.is_empty() {
-            app.cnc_find_colors();
+        app.open_signcut(crate::signcut::Section::Cnc);
+    }
+    for (key, t) in [
+        ("menu.tools.signcut_cnc_hot_wire", ToolId::HotWire),
+        ("menu.tools.signcut_cnc_box", ToolId::FingerJointBox),
+        ("menu.tools.signcut_cnc_joints", ToolId::FingerJoints),
+        ("menu.tools.signcut_cnc_door", ToolId::DoorPanels),
+        ("menu.tools.signcut_cnc_center", ToolId::CentreLine),
+    ] {
+        if item(ui, key, "", doc) {
+            app.signcut_tool(t);
         }
-    }
-    if item(ui, "menu.tools.signcut_cnc_hot_wire", "", doc) {
-        app.open_signcut(Section::Cnc);
-        app.cnc_hot_wire();
-    }
-    if item(ui, "menu.tools.signcut_cnc_box", "", doc) {
-        app.open_signcut(Section::Cnc);
-    }
-    if item(ui, "menu.tools.signcut_cnc_joints", "", doc) {
-        app.open_signcut(Section::Cnc);
-    }
-    if item(ui, "menu.tools.signcut_cnc_door", "", doc) {
-        app.open_signcut(Section::Cnc);
-    }
-    if item(ui, "menu.tools.signcut_cnc_center", "", doc) {
-        app.open_signcut(Section::Cnc);
-        app.cnc_center_lines();
     }
 }
 
@@ -656,6 +870,57 @@ mod tests {
     }
 
     #[test]
+    fn gcode_preview_has_job_colours_and_a_time() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 10.0, 10.0, 20.0, 20.0);
+        outline(&mut app, a, Color::rgb8(255, 0, 0));
+        app.cnc_find_colors();
+        app.sc_cnc.jobs[0].side = gcode::Side::On;
+        app.sc_cnc.jobs[0].depth = 3.0;
+        let p = app.cnc_preview_colored();
+        assert_eq!(p.paths.len(), 1);
+        assert_eq!(p.paths[0].0, [255, 0, 0]);
+        // 80 mm in two passes (deepest pass 1.5 mm) at 1200 mm/min.
+        assert!((p.minutes - 160.0 / 1200.0).abs() < 1e-9, "{}", p.minutes);
+    }
+
+    #[test]
+    fn removing_a_tool_keeps_the_jobs_on_their_tools() {
+        let mut s = Settings::default();
+        let mut j = Job::new([0, 0, 0]);
+        j.tool = 2;
+        s.jobs.push(j.clone());
+        j.tool = 1;
+        s.jobs.push(j);
+        assert!(s.remove_tool(1));
+        assert_eq!(s.tools.len(), 3);
+        assert_eq!(s.jobs[0].tool, 1);
+        assert_eq!(s.jobs[1].tool, 0);
+        assert_eq!(s.wire_tool, 2);
+        assert!(!s.remove_tool(9));
+        while s.tools.len() > 1 {
+            assert!(s.remove_tool(0));
+        }
+        assert!(!s.remove_tool(0));
+    }
+
+    #[test]
+    fn settings_round_trip_as_presets() {
+        let mut m = Machine::laser();
+        m.decimals = 4;
+        let v = serde_json::to_value(&m).expect("json");
+        assert_eq!(serde_json::from_value::<Machine>(v).ok(), Some(m));
+        // Missing fields take their defaults.
+        let b: BoxSpec = serde_json::from_str(r#"{"width": 300.0}"#).expect("box");
+        assert_eq!(b.width, 300.0);
+        assert_eq!(b.thickness, BoxSpec::default().thickness);
+        let d: DoorSpec = serde_json::from_str(r#"{"inner": "Arch"}"#).expect("door");
+        assert_eq!(d.inner, tracedraw_signcut::cnc::door::InnerShape::Arch);
+        let j: Job = serde_json::from_str("{}").expect("job");
+        assert_eq!(j, Job::default());
+    }
+
+    #[test]
     fn gcode_follows_the_selection_and_opens_groups() {
         let mut app = App::headless();
         let a = rect(&mut app, 0.0, 0.0, 10.0, 10.0);
@@ -697,6 +962,7 @@ mod tests {
         app.select(vec![a, b]);
         let g = app.cnc_wire_gcode().expect("G-code");
         assert!(!g.contains('Z') && g.contains("G1 X"));
+        assert!(g.starts_with("(Hot wire)"));
         // Nothing closed: nothing added.
         let mut line = BezPath::new();
         line.move_to((0.0, 50.0));
@@ -742,6 +1008,8 @@ mod tests {
         app.select(vec![a]);
         assert_eq!(app.cnc_finger_joints(), 0);
         app.select(vec![a, b]);
+        let j = app.cnc_joints_compute().expect("joints");
+        assert_eq!(j.edges.len(), 2);
         assert_eq!(app.cnc_finger_joints(), 2);
         assert_eq!(app.engine.undo_label(), Some("Finger Joints"));
         let pa = app.doc().shape_on_page(a).expect("a");
@@ -755,6 +1023,7 @@ mod tests {
         app.sc_cnc.joint_pair = false;
         app.sc_cnc.joint.min_length = 50.0;
         app.select(vec![c]);
+        assert_eq!(app.cnc_joints_compute().expect("joints").edges.len(), 2);
         assert_eq!(app.cnc_finger_joints(), 1);
         let m = tracedraw_signcut::measure::measure(&[vec![app
             .doc()

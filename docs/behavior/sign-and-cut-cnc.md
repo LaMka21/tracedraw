@@ -3,23 +3,24 @@
 Tool paths for routers, lasers and hot wire foam cutters, and generators
 of parts made on them. The geometry is in `tracedraw-signcut`
 (`crates/signcut/src/cnc/`); the operations and their settings are in
-`apps/tracedraw/src/signcut_cnc.rs`, the panel section in
-`ui/signcut_cnc.rs`.
+`apps/tracedraw/src/signcut_cnc.rs`, the windows in
+`ui/signcut_win_cnc.rs` and `ui/signcut_win_cnc/gcode.rs`.
 
-Open it from the panel's CNC and Laser section, which has one block
-per tool (G-code export, Hot wire path, Finger-joint box, Finger joints
-on edges, Door panel, Centre line from shapes), or from Tools > Sign &
-Cut > CNC and Laser: Export G-code..., Hot Wire Path, Finger-Joint
-Box..., Finger Joints on Edges..., Door Panel... and Centre Line. Each
-item opens the panel at this section; Hot Wire Path and Centre Line
-also run at once with the current settings, Export G-code... finds the
-outline colours when there are no jobs yet. Every value is in millimetres in the model and shown in the
-document's units; feeds are in mm/min. Settings live for the session
-(they are not saved with the document or between runs).
+Each tool has a window of its own (see "Windows" below), opened from the
+Sign & Cut toolbar (Sign Making > G-code; Construct > Centre Line; CAD
+and Machining > Hot Wire Path, Finger-Joint Box, Finger Joints, Door
+Panels), from the Sign & Cut panel, or from Tools > Sign & Cut > CNC and
+Laser: Export G-code..., Hot Wire Path, Finger-Joint Box..., Finger
+Joints on Edges..., Door Panel... and Centre Line. Every value is in
+millimetres in the model and shown in the document's units; feeds are
+in mm/min. The machine, the finger-joint box and the door can be saved
+as presets (kept between runs, see `sign-and-cut-windows.md`); the
+other settings live for the session (they are not saved with the
+document or between runs).
 
 ## Which objects
 
-Like the rest of the panel: the selection, or with nothing selected
+Like the other Sign & Cut tools: the selection, or with nothing selected
 every visible, unlocked object of the page's layers. Groups are opened
 into their members, a clip frame counts by its frame, text by its glyph
 outlines. Each member keeps its own outline colour.
@@ -28,9 +29,10 @@ outlines. Each member keeps its own outline colour.
 
 ### Machines
 
-A list of machines (Router, Laser, Hot wire at first); the one picked is
-used. **+** adds a copy of the current one, **-** removes it (one always
-stays). Machine settings:
+The machine is chosen with the preset row of the G-code window: the
+presets Router, Laser and Hot wire are offered whenever the machine
+preset list is empty, Router at first; Save in the preset row keeps the
+machine as it is under a name. Machine settings:
 
 | Setting | Router | Laser | Hot wire |
 |---|---|---|---|
@@ -56,13 +58,15 @@ stays). Machine settings:
 - Decimals: 0 to 6, fixed (`X10.000`); `-0` is written `0`. Feeds and
   speeds are written as whole numbers (one decimal if they have one).
 - When the tool paths leave the table (in machine coordinates, the
-  table placed at the zero point's corner) the panel says so in red;
+  table placed at the zero point's corner) the window's strip says so;
   the file is still written.
 
 ### Tools
 
 A list of tools (End mill 3 mm, End mill 6 mm, Laser beam, Hot wire at
-first), **+** adds a copy. Each has a name, diameter, speed or power
+first). Add a copy adds a copy of the shown tool; Remove deletes it (one
+always stays; jobs that used it take the first tool, the others keep
+theirs). Each has a name, diameter, speed or power
 (`{rpm}`), feed and plunge (mm/min), deepest pass (0: no limit), safe
 height, and an optional park position (machine coordinates) visited at
 the end. End mills: 18000 rpm, feed 1200, plunge 300, deepest pass half
@@ -105,12 +109,15 @@ plunge and retract. At the end: retract, park position if set, footer.
 Only `G0` and `G1` are written; lead-in arcs are 8 short lines. Curves
 are flattened within 0.02 mm.
 
-**Export G-code...** saves the text through the save dialog (`.nc`,
+**Save G-code...** saves the text through the save dialog (`.nc`,
 also `.gcode`, `.ngc`, `.tap`; a download in the browser). **Show the
 tool paths** (on at first) draws the paths, lead-ins included, on the
-drawing while the G-code block is open; they are made again only when
-the drawing, the selection or a setting changes. The panel gives the number of tool paths and their
-length over all passes. Nothing in the drawing changes; no undo step.
+drawing while the G-code window is open; they are made again only when
+the drawing, the selection or a setting changes. The window gives the
+number of tool paths, their length over all passes and the time they
+take at the tools' feeds (length of each path times its passes over the
+feed; travel, plunges and acceleration not counted). Nothing in the
+drawing changes; no undo step.
 
 ## Hot wire path
 
@@ -131,11 +138,11 @@ through every closed outline of the objects (open curves are ignored).
   it, cuts that outline (and its own branches) and comes back the same
   way. It ends at the start point. Its length is the sum of the
   outlines plus twice the sum of the connections.
-- **Make the Path** (also Tools > Sign & Cut > CNC and Laser > Hot Wire
-  Path) adds it as one open curve with a red hairline outline, selected,
+- OK adds it as one open curve with a red hairline outline, selected,
   in one undo step ("Hot Wire Path"); the status line gives its length.
-- **Export Hot Wire G-code...** writes the same path in X and Y only for
-  the machine in use (its Z axis ignored): header, `G0` to the start
+- **Save G-code...** writes the same path in X and Y only for the
+  machine chosen in the window (Hot wire at first; any machine preset;
+  its Z axis ignored): header, `G0` to the start
   point, beam (heat) on with the chosen tool (Hot wire at first: feed
   300 mm/min, `{rpm}` 50), `G1` along the path, beam off, footer.
 
@@ -165,7 +172,7 @@ finger width 10 mm, kerf 0.1 mm, gap 5 mm, closed top.
 - Layout: front, back, left and right in a row above bottom and top,
   starting at the page's bottom left plus the gap, panels a gap (plus
   the kerf) apart.
-- **Make the Box** adds the panels as closed curves with a red hairline
+- OK adds the panels as closed curves with a red hairline
   outline in one group, selected, one undo step ("Finger-Joint Box").
   Sizes that cannot make a box (a side not longer than 2 T, a thickness
   or finger width of 0) add nothing and say so.
@@ -223,7 +230,7 @@ grooves (first groove 10 mm inside, then every 5 mm).
   by the first distance, then each by the spacing more (sharp corners
   for a square panel, round otherwise); one that vanishes ends the
   row. Grooves with a distance that is not positive are skipped.
-- **Make the Door** adds the outer and inner outlines (red hairline)
+- OK adds the outer and inner outlines (red hairline)
   and the grooves (blue hairline, for an engraving job of their own in
   the G-code export) as closed curves in one group, selected, one undo
   step ("Door Panel"). A frame that leaves no inner panel adds nothing
@@ -261,16 +268,111 @@ is treated on its own, its subpaths by even-odd (holes).
 - Results: lines end about half a stroke width before square ends (as
   a medial axis does); round a reflex corner the line keeps its
   distance from it.
-- **Make Centre Lines** (also Tools > Sign & Cut > CNC and Laser >
-  Centre Line) adds the lines as open curves (closed ones round holes)
+- OK adds the lines as open curves (closed ones round holes)
   with a blue hairline, grouped, selected, one undo step ("Centre
   Line"); the status line gives their number.
+
+## Windows
+
+Every window has the dialog look of the Sign & Cut windows, can be
+resized, and works on the objects it sees when a button is pressed.
+The windows with Apply, OK and Cancel share one layout: a white preview
+at the left with the yellow status strip under it, the settings column
+at the right (group boxes, then the Units row), a thin progress bar that
+is full while the preview shows the drawing and the settings as they
+are, and Apply, OK, Cancel at the bottom right.
+
+- **Apply** works the result out into the preview (and puts the strip's
+  text in the status line); nothing in the drawing changes. A preview is
+  made from the drawing, the selection, the page and the settings; when
+  any of them changes it is out of date. Hot Wire Path, Finger Joints,
+  Finger-Joint Box and Door Panels are quick: their preview is worked
+  out again as soon as it is out of date. Centre Line is slow on large
+  shapes: its preview waits for Apply and, out of date, shows the
+  objects only.
+- **OK** applies the previewed result when it is current, else works it
+  out first, in one undo step (labels as above), and closes.
+- **Cancel** (or the close button) closes; nothing changes.
+
+In the previews, the objects are grey, cut lines red, grooves, centre
+lines and the edges that take fingers blue.
+
+### G-code
+
+About 1000 x 700. At the left the preview: the objects in grey, the
+tool paths in their jobs' colours (too light colours in blue), the
+machine's table as a grey rectangle and its zero point as a red circle;
+under it the size of the tool paths. The strip: "Tool paths: n  Cut
+length: l  About t min", with the off-table warning after it, or why
+there is nothing to cut. At the right the machine preset row (see
+Machines), the tabs Machine, Tools and Jobs, and Units.
+
+- Machine: group Machine (Name, Table width, Table height, Zero point,
+  Z axis), group Output (Decimals 0 to 6, Comments), group G-code lines
+  (Header, Footer, Tool change, Beam on and Beam off, the beam lines
+  greyed while the machine has a Z axis).
+- Tools: group Tools (the tool shown, Add a copy, Remove), group Tool
+  (Name, Diameter, Speed or power, Feed, Plunge, Deepest pass, Safe
+  height, park position with X and Y).
+- Jobs: a table of the jobs (switched on, colour swatch and `#rrggbb`,
+  tool, depth; a click on the colour picks the job), Find Colours, move
+  up, move down, Remove; then group Job #rrggbb for the picked job
+  (Tool, Depth, Passes, Cut side, Direction, Inner outlines first,
+  Lead-in and its length, Bridges with their length and height).
+- When the window first draws and there are no jobs, it finds the
+  outline colours.
+- Bottom: Save G-code... and Show the tool paths at the left, Close at
+  the right.
+
+### Hot Wire Path
+
+About 820 x 520. Preview: the objects, the path in red and the start
+point as a red circle; under it the path's length. Strip: "Closed
+outlines: n  Path length: l". Settings: group Start point (X, Y), group
+G-code (Machine: one of the machine presets, Hot wire at first; Tool:
+Hot wire at first). Bottom left: Save G-code... (the path in X and Y).
+
+### Finger Joints
+
+About 820 x 520. Preview: the objects that can take fingers in grey,
+their new outlines in black and the edges that take fingers in blue.
+Strip: "Objects changed: n  Edges: e", or why nothing would change (two
+objects needed, no edge long enough). Settings: group Edges (Method:
+Two objects or Every long edge, with the method's description; Minimum
+edge length), group Fingers (Finger width, Depth (mating thickness),
+Cut the end fingers).
+
+### Centre Line
+
+About 820 x 520. Preview: the objects and, after Apply, the centre
+lines in blue. Strip: "Closed outlines: n. Press Apply..." before
+Apply, "Centre lines: n" after. Settings: group Centre line
+(Tolerance, Remove branches shorter than).
+
+### Finger-Joint Box
+
+About 900 x 600. Preview: the panels as they will be laid out; under it
+the outside size W x D x H and the fingers per edge (along the width,
+the depth and the height). Strip: "Panels: n  Laid out: w x h". Settings:
+the preset row (tool key `finger_joint_box`), group Box size (Width,
+Depth, Height, Inside sizes, Open top), group Material (Material
+thickness, Finger width, Kerf), group Layout (Gap between parts).
+
+### Door Panels
+
+About 900 x 600. Preview: the selected object (when exactly one is
+selected) in grey, the outer and inner outlines red, the grooves blue;
+under it the door's size. Strip: "Door: w x h  Grooves: n". Settings:
+the preset row (tool key `door_panels`), group Door size (Width and
+Height, greyed while one object gives the size), group Frame and panel
+(Frame width, Inner panel: Square corners, Rounded corners with the
+Corner radius, or Arched top with the Arch rise), group Grooves (Groove
+lines, First groove inside, Groove spacing, greyed without grooves).
 
 ## Limits
 
 - G-code: no arcs (`G2`/`G3`), no pocketing or ramped plunges; tools
-  can be added but not removed (jobs refer to them by place); machines,
-  tools and jobs are not kept between runs.
+  and jobs are not kept between runs (machines are, as presets).
 - The hot wire path keeps each outline's drawn direction and does not
   avoid crossing other outlines with its straight connections (they
   are the shortest ones, which normally run through waste).
@@ -317,4 +419,14 @@ is treated on its own, its subpaths by even-odd (holes).
   `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
   `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
   `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`,
-  `signcut_cnc::tests::hot_wire_path_is_one_open_curve_in_one_step`.
+  `signcut_cnc::tests::hot_wire_path_is_one_open_curve_in_one_step`,
+  `signcut_cnc::tests::gcode_preview_has_job_colours_and_a_time`,
+  `signcut_cnc::tests::removing_a_tool_keeps_the_jobs_on_their_tools`,
+  `signcut_cnc::tests::settings_round_trip_as_presets`.
+- Windows: `ui::signcut_win_cnc::tests::every_window_draws_every_tab_and_method`
+  (every tab of G-code, both joint methods, the three inner panel
+  shapes, and every window on an empty page),
+  `gcode_preview_shows_tool_paths_and_the_table`,
+  `machine_presets_offer_the_built_in_machines`,
+  `apply_previews_and_changes_nothing`, `ok_applies_in_one_undo_step`,
+  `ok_without_apply_works_it_out_and_cancel_changes_nothing`.
