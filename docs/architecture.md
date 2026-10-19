@@ -11,7 +11,7 @@ apps/tracedraw, apps/tracedraw-cli
 crates/io  ---------> crates/render
         |                   |
         v                   v
-crates/cdr, crates/text --> crates/core
+crates/cdr, crates/text, crates/signcut --> crates/core
 ```
 
 ## core
@@ -95,6 +95,15 @@ re-renders when something changed.
 - PDF writer: hand-written PDF 1.4, one page per page, paths, RGB and
   CMYK fills, axial and radial shadings with stitching functions,
   ExtGState opacity, images, patterns and textures as images.
+
+## signcut
+
+Geometry for sign making and cut files, on page-space outlines:
+`measure.rs` (outline length, area with holes), `cleanup.rs` (duplicate
+objects, edges shared by outlines), `crossings.rs` (outlines crossing
+themselves or each other), `sizing.rs` (Set Size, Reference Scale,
+Replace). The app's `signcut.rs` turns its results into commands; see
+`docs/behavior/sign-and-cut.md`.
 
 ## apps/tracedraw
 

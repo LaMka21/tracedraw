@@ -854,6 +854,8 @@ pub struct App {
     pub snap: crate::snap::SnapSettings,
     /// The Corners docker's operation and sizes.
     pub corners: crate::corners::CornersSettings,
+    /// The Sign & Cut panel's settings and last results.
+    pub signcut: crate::signcut::SignCutSettings,
     /// The Join Curves docker's joint, gap tolerance and radius.
     pub join_settings: crate::corners::JoinSettings,
     /// Outlines a docker previews on the canvas this frame (page space).
@@ -1338,10 +1340,11 @@ pub enum DockerTab {
     Comments,
     AiGenerate,
     Effects,
+    SignCut,
 }
 
 impl DockerTab {
-    pub const ALL: [DockerTab; 41] = [
+    pub const ALL: [DockerTab; 42] = [
         DockerTab::Properties,
         DockerTab::Objects,
         DockerTab::Hints,
@@ -1383,6 +1386,7 @@ impl DockerTab {
         DockerTab::PictureMosaic,
         DockerTab::Shelf,
         DockerTab::Effects,
+        DockerTab::SignCut,
     ];
 
     /// Window > Panels, in groups divided by separators, in the order of
@@ -1408,6 +1412,7 @@ impl DockerTab {
             DockerTab::Shaping,
             DockerTab::Corners,
             DockerTab::JoinCurves,
+            DockerTab::SignCut,
         ],
         &[
             DockerTab::Text,
@@ -1483,6 +1488,7 @@ impl DockerTab {
             DockerTab::Comments => "docker.comments",
             DockerTab::AiGenerate => "docker.ai_generate",
             DockerTab::Effects => "docker.effects",
+            DockerTab::SignCut => "docker.signcut",
         }
     }
 
@@ -1703,6 +1709,7 @@ impl App {
             snap: crate::snap::SnapSettings::default(),
             snap_mark: std::cell::Cell::new(None),
             corners: Default::default(),
+            signcut: Default::default(),
             join_settings: Default::default(),
             docker_preview: Vec::new(),
             docker_preview_point: None,

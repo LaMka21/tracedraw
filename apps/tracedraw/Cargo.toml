@@ -21,6 +21,7 @@ tracedraw-cdr.workspace = true
 tracedraw-io.workspace = true
 tracedraw-text.workspace = true
 tracedraw-render.workspace = true
+tracedraw-signcut.workspace = true
 kurbo.workspace = true
 tiny-skia.workspace = true
 serde.workspace = true

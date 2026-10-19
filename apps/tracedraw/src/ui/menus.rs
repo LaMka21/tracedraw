@@ -2995,10 +2995,49 @@ fn tools_menu(app: &mut App, ui: &mut Ui) {
     if item(ui, "menu.tools.border_and_grommet", "", true) {
         app.dialog = Dialog::BorderGrommet(Default::default());
     }
+    sub(ui, "menu.tools.signcut", |ui| signcut_items(app, ui));
     sep(ui);
     let doc = app.has_document() && !app.show_welcome;
     if item(ui, "menu.tools.time_tracker", "", doc) {
         app.dialog = Dialog::TimeTracker(Default::default());
+    }
+}
+
+/// Tools > Sign & Cut: each item opens the panel at its section; the
+/// searches that need no settings run at once.
+fn signcut_items(app: &mut App, ui: &mut Ui) {
+    use crate::signcut::Section;
+    let doc = app.has_document() && !app.show_welcome;
+    if item(ui, "menu.tools.signcut_panel", "", true) {
+        app.open_signcut(Section::Measure);
+    }
+    sep(ui);
+    if item(ui, "menu.tools.signcut_measure", "", doc) {
+        app.open_signcut(Section::Measure);
+        app.signcut_measure();
+    }
+    sep(ui);
+    if item(ui, "menu.tools.signcut_duplicates", "", doc) {
+        app.open_signcut(Section::Cleanup);
+        app.signcut_find_duplicates();
+    }
+    if item(ui, "menu.tools.signcut_duplicate_edges", "", doc) {
+        app.open_signcut(Section::Cleanup);
+        app.signcut_remove_duplicate_edges();
+    }
+    if item(ui, "menu.tools.signcut_crossings", "", doc) {
+        app.open_signcut(Section::Cleanup);
+        app.signcut_find_crossings();
+    }
+    sep(ui);
+    if item(ui, "menu.tools.signcut_set_size", "", doc) {
+        app.open_signcut(Section::Size);
+    }
+    if item(ui, "menu.tools.signcut_reference_scale", "", doc) {
+        app.open_signcut(Section::Size);
+    }
+    if item(ui, "menu.tools.signcut_replace", "", doc) {
+        app.open_signcut(Section::Size);
     }
 }
 

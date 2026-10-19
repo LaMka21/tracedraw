@@ -3913,6 +3913,7 @@ dependencies = [
  "tracedraw-core",
  "tracedraw-io",
  "tracedraw-render",
+ "tracedraw-signcut",
  "tracedraw-text",
  "ureq",
  "wasm-bindgen",
@@ -3993,6 +3994,13 @@ version = "0.9.4"
 dependencies = [
  "log",
  "tiny-skia",
+ "tracedraw-core",
+]
+
+[[package]]
+name = "tracedraw-signcut"
+version = "0.9.4"
+dependencies = [
  "tracedraw-core",
 ]
 

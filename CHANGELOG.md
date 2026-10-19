@@ -6,6 +6,13 @@ full, row-by-row status.
 
 ## Unreleased
 
+- Tools > Sign & Cut and the Sign & Cut panel: outline length and
+  area (holes taken away), Find Duplicates, Remove Duplicate Edges (each
+  shared edge cut once), Find Crossings (marked on the drawing), Set
+  Size with maximum and minimum sizes, Reference Scale to bring a drawing
+  to real size, and Replace with a master object. The geometry is in the
+  new `tracedraw-signcut` crate.
+
 ## 0.9.4 (2026-10-19)
 
 - Color Management Settings: Document and Default tabs, the drawing's

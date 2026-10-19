@@ -32,7 +32,7 @@ The product name is **TraceDraw** in prose; machine names are `tracedraw`
    `CLEANROOM.md` and the details in `docs/cdr-format.md`. Bundle only
    original or openly licensed assets and list them in `ATTRIBUTION.md`.
 4. **Layering is enforced by review.** `core` has no workspace deps; `cdr`,
-   `text` and `render` depend on `core` only; `io` depends on `core` and
+   `text`, `render` and `signcut` depend on `core` only; `io` depends on `core` and
    `render` (rasterised fills in exports); egui stays in `apps/`.
 5. **Tests are the gate.** Every change comes with tests. Format code
    gets round-trip and malformed-input tests.
@@ -49,6 +49,7 @@ crates/core   geometry.rs, document.rs, command.rs, engine.rs, style.rs,
 crates/cdr    container.rs (RIFF/ZIP), riff.rs (chunk tree), parse.rs
 crates/text   font database, shaping, outlines
 crates/render CPU rasteriser
+crates/signcut measuring, cut-file clean-up and sizing (sign making)
 crates/io     svg.rs, pdf.rs, lib.rs (native format)
 apps/tracedraw    main.rs, app.rs, interaction.rs, canvas.rs, ops.rs,
                   tools.rs, tools2.rs, ui/ (menus, toolbar, toolbox,

@@ -6,6 +6,7 @@ members = [
     "crates/io",
     "crates/text",
     "crates/render",
+    "crates/signcut",
     "apps/tracedraw",
     "apps/tracedraw-cli",
 ]
@@ -25,6 +26,7 @@ tracedraw-cdr = { path = "crates/cdr" }
 tracedraw-io = { path = "crates/io" }
 tracedraw-text = { path = "crates/text" }
 tracedraw-render = { path = "crates/render" }
+tracedraw-signcut = { path = "crates/signcut" }
 
 kurbo = { version = "0.13", features = ["serde"] }
 tiny-skia = "0.12"

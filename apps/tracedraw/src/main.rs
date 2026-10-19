@@ -105,6 +105,7 @@ mod settings;
 mod shape_tool;
 mod shelf;
 mod shortcuts;
+mod signcut;
 mod snap;
 mod snap_points;
 mod spell;

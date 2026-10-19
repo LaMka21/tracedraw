@@ -67,6 +67,7 @@ pub fn show(app: &mut App, ui: &mut Ui, tab: DockerTab) {
         DockerTab::Comments => crate::ui::comments_docker::comments_docker(app, ui),
         DockerTab::AiGenerate => crate::ui::ai_generate_docker::ai_generate(app, ui),
         DockerTab::Effects => crate::ui::effects_docker::effects_docker(app, ui),
+        DockerTab::SignCut => crate::ui::signcut_docker::signcut(app, ui),
         _ => {}
     }
 }

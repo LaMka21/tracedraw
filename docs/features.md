@@ -6,7 +6,7 @@ checked screenshot behind it.
 "partial" names what is missing. "baked" means the result is applied once
 instead of staying live and editable. The goal is every row at "works".
 
-Counts: works 191, partial 4 (`.cdr` content coverage; CMX import; print preview; print merge), missing 1 (system windows), not applicable 4, icons close but not pixel-identical.
+Counts: works 192, partial 4 (`.cdr` content coverage; CMX import; print preview; print merge), missing 1 (system windows), not applicable 4, icons close but not pixel-identical.
 
 ## 1. Selection and navigation
 
@@ -248,6 +248,7 @@ Counts: works 191, partial 4 (`.cdr` content coverage; CMX import; print preview
 | Help > Updates and a daily check at start (Options > Global > General): a newer release offers its download for this system, its notes, or skipping it; a Linux AppImage installs it in place after checking its digest | works (see `behavior/updates.md`) |
 | Help > Highlight What's New: the menus mark the rows new in this version and the menus leading to them | works (see `behavior/whats-new.md`) |
 | Border and Grommet (large-format finishing) | works |
+| Sign & Cut panel (Tools > Sign & Cut): outline length and area with holes, Find Duplicates, Remove Duplicate Edges, Find Crossings, Set Size with maximum and minimum, Reference Scale, Replace with a master object | works (see `behavior/sign-and-cut.md`) |
 | Vector Mosaic (vector mosaics): density, scale, screen angle, keep original, limit colors, uniform, opacity and luminosity tracking, merge adjacent, weld adjacent overlap, circle, square and custom tiles | works (see `behavior/vector-mosaic.md`); made at once rather than in the background |
 | Picture Mosaic (bitmap mosaics from an image library folder): columns and rows from the shape, blending, duplicates with tile spacing, Single, Stack and Array composition, Stretch and Remove edges, document, custom, tile and output size priorities, keep original | works (see `behavior/picture-mosaic.md`); a library is one folder, read on worker threads |
 | Bitmap plug-ins (third-party filters) | not applicable: no plug-in host; the built-in bitmap effects cover the stock filters |
@@ -275,7 +276,7 @@ Counts: works 191, partial 4 (`.cdr` content coverage; CMX import; print preview
 |---|---|
 | Menu bar, standard toolbar (icons, Open/Undo/Redo lists, zoom box, view toggles, Snap Off, Snap To, Launch), property bar (stacked fields, page bar, object bar with object origin, shape parts, outline part, zoom bar), toolbox with flyouts, rulers, document tabs, bottom palette, panel tab strip, navigator, status bar | works |
 | Icons | painted vector icons, one per tool, close in style; not pixel-identical |
-| Panels (41): Effects (the effect stack: switch each effect off and on, reorder, remove; see `behavior/effects-docker.md`), Properties, Objects, Hints, Transformations, Undo, Align and Distribute, Shaping, Step and Repeat, Text, Glyphs, Colour, Colour Styles, Object Styles, Find and Replace, Scripts, Palettes, Lens, Blend, Contour, Envelope, Extrude, Bevel, Brush Strokes, Bitmap Mask, Object Data, Links, Symbols, Pages, Guidelines, Fonts, Font Sampler, Corners, Join Curves, Coordinates, Vector Mosaic, Picture Mosaic, Shelf, Export, Comments, AI Generate (with Draw with words) | works |
+| Panels (42): Effects (the effect stack: switch each effect off and on, reorder, remove; see `behavior/effects-docker.md`), Properties, Objects, Hints, Transformations, Undo, Align and Distribute, Shaping, Step and Repeat, Text, Glyphs, Colour, Colour Styles, Object Styles, Find and Replace, Scripts, Palettes, Lens, Blend, Contour, Envelope, Extrude, Bevel, Brush Strokes, Bitmap Mask, Object Data, Links, Symbols, Pages, Guidelines, Fonts, Font Sampler, Corners, Join Curves, Coordinates, Vector Mosaic, Picture Mosaic, Shelf, Export, Comments, AI Generate (with Draw with words), Sign & Cut | works |
 | Welcome Screen with tabs | works |
 | About box with the banner, icon, facts (author, license, source code, co-author) and copyright; opens from the Welcome Screen too (see `behavior/about-and-startup.md`) | works |
 | Splash screen while starting (artwork, status, progress), then the main window maximized or at its kept size; can be turned off (see `behavior/about-and-startup.md`) | works |

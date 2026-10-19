@@ -23,7 +23,7 @@ Pages: `ai-drawing.md`, `align-distribute.md`, `brush-strokes.md`, `bitmap-effec
 `plt.md`, `vector-mosaic.md`,
 `clip-frame.md`, `bitmap-tracing.md`, `psd-import.md`,
 `rulers-grid-guidelines.md`, `shape-tool.md`, `shape-tools.md`,
-`shaping.md`, `shelf.md`, `shortcuts.md`, `area-fill.md`, `snapping.md`, `status-bar.md`,
+`shaping.md`, `shelf.md`, `sign-and-cut.md`, `shortcuts.md`, `area-fill.md`, `snapping.md`, `status-bar.md`,
 `straighten-image.md`,
 `symmetry.md`, `table.md`, `text-import.md`, `text.md`, `toolbars.md`,
 `toolbox.md`, `transformations.md`, `transparency.md`, `vector-pattern-fill.md`, `web.md`,
