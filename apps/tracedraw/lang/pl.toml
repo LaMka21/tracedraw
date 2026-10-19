@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Pierwszy rowek do wewnątrz" # mt
 signcut.cnc_door_groove_spacing = "Odstęp rowków" # mt
 signcut.cnc_door_make = "Utwórz drzwi" # mt
 signcut.cnc_door_bad = "Rama nie zostawia miejsca na płycinę." # mt
+menu.tools.signcut_cnc_center = "Linia środkowa" # mt
+signcut.cnc_center = "Linia środkowa z kształtów" # mt
+signcut.cnc_center_hint = "Przybliżona linia środkowa zamkniętych kształtów (grube linie, litery) jako krzywe, do grawerowania i neonu." # mt
+signcut.cnc_center_prune = "Usuń gałęzie krótsze niż" # mt
+signcut.cnc_center_make = "Utwórz linie środkowe" # mt
+signcut.cnc_no_center = "Nie znaleziono linii środkowej: zaznacz zamknięte kształty." # mt
+signcut.cnc_center_done = "Dodano linii środkowych: {n}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty i wzory" # mt

@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Première rainure à l'intérieur" # mt
 signcut.cnc_door_groove_spacing = "Espacement des rainures" # mt
 signcut.cnc_door_make = "Créer la porte" # mt
 signcut.cnc_door_bad = "Le cadre ne laisse pas de place au panneau intérieur." # mt
+menu.tools.signcut_cnc_center = "Ligne médiane" # mt
+signcut.cnc_center = "Ligne médiane des formes" # mt
+signcut.cnc_center_hint = "Une ligne médiane approchée des formes fermées (traits épais, lettres) en courbes, pour la gravure et le néon." # mt
+signcut.cnc_center_prune = "Supprimer les branches plus courtes que" # mt
+signcut.cnc_center_make = "Créer les lignes médianes" # mt
+signcut.cnc_no_center = "Aucune ligne médiane trouvée : sélectionnez des formes fermées." # mt
+signcut.cnc_center_done = "{n} ligne(s) médiane(s) ajoutée(s)." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effets et motifs" # mt

@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "第一条凹槽内缩" # mt
 signcut.cnc_door_groove_spacing = "凹槽间距" # mt
 signcut.cnc_door_make = "生成门板" # mt
 signcut.cnc_door_bad = "框太宽, 没有内板的空间。" # mt
+menu.tools.signcut_cnc_center = "中心线" # mt
+signcut.cnc_center = "从形状生成中心线" # mt
+signcut.cnc_center_hint = "闭合形状 (粗笔画、字母) 的近似中心线, 生成为曲线, 用于雕刻和霓虹。" # mt
+signcut.cnc_center_prune = "删除短于此长度的分支" # mt
+signcut.cnc_center_make = "生成中心线" # mt
+signcut.cnc_no_center = "未找到中心线: 请选择闭合形状。" # mt
+signcut.cnc_center_done = "已添加 {n} 条中心线。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "效果和图案" # mt

@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "প্রথম খাঁজ ভিতরে" 
 signcut.cnc_door_groove_spacing = "খাঁজের ব্যবধান" # mt
 signcut.cnc_door_make = "দরজা তৈরি করুন" # mt
 signcut.cnc_door_bad = "ফ্রেম ভিতরের প্যানেলের জন্য জায়গা রাখে না।" # mt
+menu.tools.signcut_cnc_center = "কেন্দ্ররেখা" # mt
+signcut.cnc_center = "আকৃতি থেকে কেন্দ্ররেখা" # mt
+signcut.cnc_center_hint = "বন্ধ আকৃতির (মোটা স্ট্রোক, অক্ষর) আনুমানিক কেন্দ্ররেখা বক্ররেখা হিসেবে, খোদাই ও নিয়নের জন্য।" # mt
+signcut.cnc_center_prune = "এর চেয়ে ছোট শাখা সরান" # mt
+signcut.cnc_center_make = "কেন্দ্ররেখা তৈরি করুন" # mt
+signcut.cnc_no_center = "কোনো কেন্দ্ররেখা পাওয়া যায়নি: বন্ধ আকৃতি নির্বাচন করুন।" # mt
+signcut.cnc_center_done = "{n}টি কেন্দ্ররেখা যোগ হয়েছে।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "ইফেক্ট ও প্যাটার্ন" # mt

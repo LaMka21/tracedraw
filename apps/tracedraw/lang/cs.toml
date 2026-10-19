@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "První drážka uvnitř" # mt
 signcut.cnc_door_groove_spacing = "Rozestup drážek" # mt
 signcut.cnc_door_make = "Vytvořit dvířka" # mt
 signcut.cnc_door_bad = "Rám nenechává místo pro výplň." # mt
+menu.tools.signcut_cnc_center = "Středová čára" # mt
+signcut.cnc_center = "Středová čára z tvarů" # mt
+signcut.cnc_center_hint = "Přibližná středová čára uzavřených tvarů (silné tahy, písmena) jako křivky, pro gravírování a neon." # mt
+signcut.cnc_center_prune = "Odstranit větve kratší než" # mt
+signcut.cnc_center_make = "Vytvořit středové čáry" # mt
+signcut.cnc_no_center = "Žádná středová čára: vyberte uzavřené tvary." # mt
+signcut.cnc_center_done = "Přidáno středových čar: {n}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty a vzory" # mt

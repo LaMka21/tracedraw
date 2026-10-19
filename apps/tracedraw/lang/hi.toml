@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "पहला खांचा भीतर" # m
 signcut.cnc_door_groove_spacing = "खांचों का अंतर" # mt
 signcut.cnc_door_make = "दरवाज़ा बनाएँ" # mt
 signcut.cnc_door_bad = "फ़्रेम भीतरी पैनल के लिए जगह नहीं छोड़ता।" # mt
+menu.tools.signcut_cnc_center = "केंद्र रेखा" # mt
+signcut.cnc_center = "आकृतियों से केंद्र रेखा" # mt
+signcut.cnc_center_hint = "बंद आकृतियों (मोटी रेखाएँ, अक्षर) की अनुमानित केंद्र रेखा वक्रों के रूप में, उत्कीर्णन और नियॉन के लिए।" # mt
+signcut.cnc_center_prune = "इससे छोटी शाखाएँ हटाएँ" # mt
+signcut.cnc_center_make = "केंद्र रेखाएँ बनाएँ" # mt
+signcut.cnc_no_center = "कोई केंद्र रेखा नहीं मिली: बंद आकृतियाँ चुनें।" # mt
+signcut.cnc_center_done = "{n} केंद्र रेखाएँ जोड़ी गईं।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt

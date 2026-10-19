@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Erste Nut innen" # mt
 signcut.cnc_door_groove_spacing = "Nutabstand" # mt
 signcut.cnc_door_make = "Front erzeugen" # mt
 signcut.cnc_door_bad = "Der Rahmen lässt keinen Platz für die Füllung." # mt
+menu.tools.signcut_cnc_center = "Mittellinie" # mt
+signcut.cnc_center = "Mittellinie aus Formen" # mt
+signcut.cnc_center_hint = "Eine ungefähre Mittellinie geschlossener Formen (dicke Striche, Buchstaben) als Kurven, zum Gravieren und für Neon." # mt
+signcut.cnc_center_prune = "Äste entfernen kürzer als" # mt
+signcut.cnc_center_make = "Mittellinien erzeugen" # mt
+signcut.cnc_no_center = "Keine Mittellinie gefunden: geschlossene Formen auswählen." # mt
+signcut.cnc_center_done = "{n} Mittellinie(n) hinzugefügt." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effekte und Muster" # mt

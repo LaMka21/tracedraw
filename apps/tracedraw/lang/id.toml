@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Alur pertama ke dalam" # mt
 signcut.cnc_door_groove_spacing = "Jarak alur" # mt
 signcut.cnc_door_make = "Buat pintu" # mt
 signcut.cnc_door_bad = "Bingkai tidak menyisakan ruang untuk panel dalam." # mt
+menu.tools.signcut_cnc_center = "Garis tengah" # mt
+signcut.cnc_center = "Garis tengah dari bentuk" # mt
+signcut.cnc_center_hint = "Garis tengah perkiraan dari bentuk tertutup (goresan tebal, huruf) sebagai kurva, untuk gravir dan neon." # mt
+signcut.cnc_center_prune = "Hapus cabang lebih pendek dari" # mt
+signcut.cnc_center_make = "Buat garis tengah" # mt
+signcut.cnc_no_center = "Tidak ada garis tengah: pilih bentuk tertutup." # mt
+signcut.cnc_center_done = "{n} garis tengah ditambahkan." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efek dan pola" # mt

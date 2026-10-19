@@ -223,6 +223,43 @@ grooves (first groove 10 mm inside, then every 5 mm).
   step ("Door Panel"). A frame that leaves no inner panel adds nothing
   and says so.
 
+## Centre line from shapes
+
+An approximate centre line (medial axis) of closed shapes such as thick
+strokes and letters, for single-line engraving and neon. Defaults:
+tolerance 0.2 mm, remove branches shorter than 2 mm. Each drawn object
+is treated on its own, its subpaths by even-odd (holes).
+
+- Sampling: the closed subpaths are flattened within a quarter of the
+  tolerance and sampled at a spacing of the tolerance, coarser for
+  large shapes so that one shape has at most 6000 samples (spacing =
+  max(tolerance, perimeter / 6000)). Each sample is moved by at most a
+  thousandth of the spacing (a fixed pattern) so that points on one
+  circle do not make the triangulation ambiguous.
+- The samples are triangulated (Delaunay, Bowyer-Watson with a sweep
+  along x). Triangles whose centroid lies inside the shape count;
+  slivers (three samples following each other along the outline, or a
+  triangle less high than 5 % of the spacing) are left out. Each
+  triangle stands for its circumcentre (its centroid when the
+  circumcentre lies outside the shape or farther from it than its
+  longest side); triangles sharing a side are joined.
+- Pruning: a branch from a free end to a junction is removed when it
+  is shorter than the prune length or than 1.5 times the half width at
+  the junction (this takes off the branches into convex corners, about
+  1.41 half widths long); a junction always keeps one branch. Repeated
+  until nothing changes.
+- The rest is split into lines between ends and junctions (round a
+  hole: a closed loop) and simplified within the tolerance
+  (Douglas-Peucker); lines shorter than the tolerance or the prune
+  length are dropped.
+- Results: lines end about half a stroke width before square ends (as
+  a medial axis does); round a reflex corner the line keeps its
+  distance from it.
+- **Make Centre Lines** (also Tools > Sign & Cut > CNC and Laser >
+  Centre Line) adds the lines as open curves (closed ones round holes)
+  with a blue hairline, grouped, selected, one undo step ("Centre
+  Line"); the status line gives their number.
+
 ## Checks
 
 - `tracedraw_signcut::cnc::tests::*`: flattening with non-finite points,
@@ -250,7 +287,12 @@ grooves (first groove 10 mm inside, then every 5 mm).
 - `tracedraw_signcut::cnc::door::tests::*`: square panel with grooves,
   rounded corners by area, the arch by its crown and area (and the half
   circle limit), a frame too wide and non-finite values.
-- `signcut_cnc::tests::door_panel_fills_the_selected_box_or_the_page_centre`,
+- `tracedraw_signcut::cnc::centerline::tests::*`: a bar has one line
+  down its middle, a square ring and a round ring have one closed loop
+  half way between, an L keeps both arms, a long bar within the sample
+  cap, empty and non-finite input.
+- `signcut_cnc::tests::centre_lines_of_a_bar_and_a_ring_in_one_step`,
+  `signcut_cnc::tests::door_panel_fills_the_selected_box_or_the_page_centre`,
   `signcut_cnc::tests::finger_joints_rewrite_two_objects_in_one_step`,
   `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
   `signcut_cnc::tests::gcode_jobs_by_outline_colour`,

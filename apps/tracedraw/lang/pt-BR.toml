@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Primeira ranhura para dentro" # mt
 signcut.cnc_door_groove_spacing = "Espaçamento das ranhuras" # mt
 signcut.cnc_door_make = "Criar a porta" # mt
 signcut.cnc_door_bad = "O quadro não deixa espaço para o painel interno." # mt
+menu.tools.signcut_cnc_center = "Linha central" # mt
+signcut.cnc_center = "Linha central das formas" # mt
+signcut.cnc_center_hint = "Uma linha central aproximada de formas fechadas (traços grossos, letras) como curvas, para gravação e neon." # mt
+signcut.cnc_center_prune = "Remover ramos menores que" # mt
+signcut.cnc_center_make = "Criar linhas centrais" # mt
+signcut.cnc_no_center = "Nenhuma linha central encontrada: selecione formas fechadas." # mt
+signcut.cnc_center_done = "{n} linha(s) central(is) adicionada(s)." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efeitos e padrões" # mt

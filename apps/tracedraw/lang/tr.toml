@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "İlk oluk içeride" # mt
 signcut.cnc_door_groove_spacing = "Oluk aralığı" # mt
 signcut.cnc_door_make = "Kapıyı oluştur" # mt
 signcut.cnc_door_bad = "Çerçeve iç panele yer bırakmıyor." # mt
+menu.tools.signcut_cnc_center = "Orta çizgi" # mt
+signcut.cnc_center = "Şekillerden orta çizgi" # mt
+signcut.cnc_center_hint = "Kapalı şekillerin (kalın çizgiler, harfler) yaklaşık orta çizgisi eğri olarak, kazıma ve neon için." # mt
+signcut.cnc_center_prune = "Şundan kısa dalları kaldır" # mt
+signcut.cnc_center_make = "Orta çizgileri oluştur" # mt
+signcut.cnc_no_center = "Orta çizgi bulunamadı: kapalı şekiller seçin." # mt
+signcut.cnc_center_done = "{n} orta çizgi eklendi." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efektler ve desenler" # mt

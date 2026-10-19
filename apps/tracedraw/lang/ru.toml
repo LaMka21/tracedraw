@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Первая канавка внутрь" # mt
 signcut.cnc_door_groove_spacing = "Шаг канавок" # mt
 signcut.cnc_door_make = "Создать дверцу" # mt
 signcut.cnc_door_bad = "Рамка не оставляет места для филёнки." # mt
+menu.tools.signcut_cnc_center = "Осевая линия" # mt
+signcut.cnc_center = "Осевая линия фигур" # mt
+signcut.cnc_center_hint = "Приблизительная осевая линия замкнутых фигур (толстые штрихи, буквы) в виде кривых, для гравировки и неона." # mt
+signcut.cnc_center_prune = "Удалять ветви короче" # mt
+signcut.cnc_center_make = "Создать осевые линии" # mt
+signcut.cnc_no_center = "Осевая линия не найдена: выделите замкнутые фигуры." # mt
+signcut.cnc_center_done = "Добавлено осевых линий: {n}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Эффекты и узоры" # mt

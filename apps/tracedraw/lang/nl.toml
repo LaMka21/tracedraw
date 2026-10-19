@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Eerste groef binnen" # mt
 signcut.cnc_door_groove_spacing = "Groefafstand" # mt
 signcut.cnc_door_make = "Deur maken" # mt
 signcut.cnc_door_bad = "Het kader laat geen ruimte voor het binnenpaneel." # mt
+menu.tools.signcut_cnc_center = "Hartlijn" # mt
+signcut.cnc_center = "Hartlijn uit vormen" # mt
+signcut.cnc_center_hint = "Een benaderde hartlijn van gesloten vormen (dikke lijnen, letters) als curven, voor graveren en neon." # mt
+signcut.cnc_center_prune = "Takken korter dan verwijderen" # mt
+signcut.cnc_center_make = "Hartlijnen maken" # mt
+signcut.cnc_no_center = "Geen hartlijn gevonden: selecteer gesloten vormen." # mt
+signcut.cnc_center_done = "{n} hartlijn(en) toegevoegd." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effecten en patronen" # mt

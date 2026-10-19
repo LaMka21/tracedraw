@@ -21,6 +21,27 @@ pub fn section(app: &mut App, ui: &mut Ui) {
     sub(ui, "signcut.cnc_box", |ui| finger_box(app, ui));
     sub(ui, "signcut.cnc_joints", |ui| finger_joints(app, ui));
     sub(ui, "signcut.cnc_door", |ui| door(app, ui));
+    sub(ui, "signcut.cnc_center", |ui| centre_line(app, ui));
+}
+
+fn centre_line(app: &mut App, ui: &mut Ui) {
+    let u = app.units;
+    dim(ui, tr("signcut.cnc_center_hint"));
+    let c = &mut app.sc_cnc.centre;
+    egui::Grid::new("cnc_center_grid")
+        .num_columns(2)
+        .spacing([8.0, 3.0])
+        .show(ui, |ui| {
+            row(ui, "signcut.tolerance", |ui| {
+                length_field(ui, u, &mut c.tolerance, 0.01);
+            });
+            row(ui, "signcut.cnc_center_prune", |ui| {
+                length_field(ui, u, &mut c.prune, 0.0);
+            });
+        });
+    if ui.button(tr("signcut.cnc_center_make")).clicked() {
+        app.cnc_center_lines();
+    }
 }
 
 fn door(app: &mut App, ui: &mut Ui) {

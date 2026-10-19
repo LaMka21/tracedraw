@@ -8,6 +8,7 @@ use crate::signcut::Section;
 use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, Point};
 use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
+use tracedraw_signcut::cnc::centerline::CenterSpec;
 use tracedraw_signcut::cnc::door::DoorSpec;
 use tracedraw_signcut::cnc::fingerbox::BoxSpec;
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
@@ -42,6 +43,8 @@ pub struct Settings {
     pub joint_pair: bool,
     /// Door panels.
     pub door: DoorSpec,
+    /// Centre lines.
+    pub centre: CenterSpec,
 }
 
 /// What the preview's tool paths depend on.
@@ -78,6 +81,7 @@ impl Default for Settings {
             joint: JointSpec::default(),
             joint_pair: true,
             door: DoorSpec::default(),
+            centre: CenterSpec::default(),
         }
     }
 }
@@ -490,6 +494,34 @@ impl App {
     }
 }
 
+impl App {
+    /// Add the centre lines of the targets' closed shapes (each drawn
+    /// object on its own, holes by even-odd) as curves with a blue
+    /// hairline, grouped, in one undo step. Returns how many lines.
+    pub fn cnc_center_lines(&mut self) -> usize {
+        let spec = self.sc_cnc.centre;
+        let mut paths = Vec::new();
+        for p in self.cnc_outlines() {
+            for (pts, closed) in tracedraw_signcut::cnc::centerline::center_lines(&p, &spec) {
+                paths.push((polyline(&pts, closed), closed));
+            }
+        }
+        let n = paths.len();
+        if n == 0 {
+            self.status = tr("signcut.cnc_no_center");
+            return 0;
+        }
+        if self
+            .cnc_add_curves("Centre Line", paths, GROOVE_BLUE, true)
+            .is_empty()
+        {
+            return 0;
+        }
+        self.status = trf("signcut.cnc_center_done", &[("n", &n.to_string())]);
+        n
+    }
+}
+
 /// Outline colour of generated engraving and groove lines.
 pub const GROOVE_BLUE: Color = Color::Rgb {
     r: 0.1,
@@ -555,6 +587,10 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
     }
     if item(ui, "menu.tools.signcut_cnc_door", "", doc) {
         app.open_signcut(Section::Cnc);
+    }
+    if item(ui, "menu.tools.signcut_cnc_center", "", doc) {
+        app.open_signcut(Section::Cnc);
+        app.cnc_center_lines();
     }
 }
 
@@ -758,5 +794,50 @@ mod tests {
         app.select(vec![r]);
         app.sc_cnc.door.frame = 200.0;
         assert!(app.cnc_door().is_none());
+    }
+
+    #[test]
+    fn centre_lines_of_a_bar_and_a_ring_in_one_step() {
+        let mut app = App::headless();
+        let bar = rect(&mut app, 0.0, 0.0, 100.0, 10.0);
+        use tracedraw_core::geometry::Shape as _;
+        let mut ring = Rect::new(0.0, 50.0, 40.0, 90.0).to_path(0.01);
+        ring.extend(Rect::new(10.0, 60.0, 30.0, 80.0).to_path(0.01));
+        let r = app
+            .new_shape(ShapeKind::Path {
+                path: ring,
+                closed: true,
+            })
+            .expect("ring");
+        app.select(vec![bar, r]);
+        assert_eq!(app.cnc_center_lines(), 2);
+        assert_eq!(app.engine.undo_label(), Some("Centre Line"));
+        let g = app.selection[0];
+        let s = app.doc().shape_on_page(g).expect("group");
+        let ShapeKind::Group { children } = &s.kind else {
+            panic!("not a group");
+        };
+        assert!(matches!(
+            children[0].kind,
+            ShapeKind::Path { closed: false, .. }
+        ));
+        assert!(matches!(
+            children[1].kind,
+            ShapeKind::Path { closed: true, .. }
+        ));
+        let b = children[0].page_path().bounding_box();
+        assert!((b.center().y - 5.0).abs() < 0.3 && (b.width() - 90.0).abs() < 1.5);
+        // Nothing closed: nothing added.
+        let mut line = BezPath::new();
+        line.move_to((0.0, 150.0));
+        line.line_to((10.0, 150.0));
+        let l = app
+            .new_shape(ShapeKind::Path {
+                path: line,
+                closed: false,
+            })
+            .expect("line");
+        app.select(vec![l]);
+        assert_eq!(app.cnc_center_lines(), 0);
     }
 }

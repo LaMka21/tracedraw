@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "أول تجويف للداخل" # mt
 signcut.cnc_door_groove_spacing = "تباعد التجاويف" # mt
 signcut.cnc_door_make = "إنشاء الباب" # mt
 signcut.cnc_door_bad = "لا يترك الإطار مكاناً للوح الداخلي." # mt
+menu.tools.signcut_cnc_center = "خط المركز" # mt
+signcut.cnc_center = "خط المركز من الأشكال" # mt
+signcut.cnc_center_hint = "خط مركز تقريبي للأشكال المغلقة (خطوط سميكة، حروف) كمنحنيات، للحفر والنيون." # mt
+signcut.cnc_center_prune = "إزالة الفروع الأقصر من" # mt
+signcut.cnc_center_make = "إنشاء خطوط المركز" # mt
+signcut.cnc_no_center = "لم يُعثر على خط مركز: حدد أشكالاً مغلقة." # mt
+signcut.cnc_center_done = "أضيف {n} من خطوط المركز." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "المؤثرات والأنماط" # mt

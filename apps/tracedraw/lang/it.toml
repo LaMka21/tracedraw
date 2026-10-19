@@ -4572,6 +4572,13 @@ signcut.cnc_door_groove_offset = "Prima scanalatura all'interno" # mt
 signcut.cnc_door_groove_spacing = "Distanza scanalature" # mt
 signcut.cnc_door_make = "Crea l'anta" # mt
 signcut.cnc_door_bad = "Il telaio non lascia spazio al pannello interno." # mt
+menu.tools.signcut_cnc_center = "Linea mediana" # mt
+signcut.cnc_center = "Linea mediana dalle forme" # mt
+signcut.cnc_center_hint = "Una linea mediana approssimata delle forme chiuse (tratti spessi, lettere) come curve, per incisione e neon." # mt
+signcut.cnc_center_prune = "Rimuovi rami più corti di" # mt
+signcut.cnc_center_make = "Crea linee mediane" # mt
+signcut.cnc_no_center = "Nessuna linea mediana trovata: selezionare forme chiuse." # mt
+signcut.cnc_center_done = "{n} linea/e mediana/e aggiunta/e." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effetti e motivi" # mt
