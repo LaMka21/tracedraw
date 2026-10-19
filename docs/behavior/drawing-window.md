@@ -33,7 +33,11 @@ From the left, after the ruler's width:
    buttons add a page of the current size next to the current page and
    make it current.
 2. The page tabs: one slanted tab per page, the current one white; a click
-   goes to the page, a double click renames it.
+   goes to the page, a double click renames it. A right click goes to the
+   page and opens its menu: Insert Page Before, Insert Page After,
+   Duplicate Page, Rename Page and Delete Page (greyed out when the
+   drawing has one page), each acting on that page as the Layout menu's
+   commands do, as one undo step.
 3. A dotted splitter: dragging it shares the row between the page tabs and
    the horizontal scrollbar (45 % for the tabs by default).
 4. The horizontal scrollbar.
@@ -112,3 +116,6 @@ window shows.
 - `ui::menus::tests::window_new_window_opens_a_second_window`
 - `ui::window_bars::tests::insert_page_before_and_after_the_current_one`
 - `ui::window_bars::tests::the_page_border_and_shadow_are_hit_but_not_the_page_inside`
+- `ui::window_bars::tests::a_right_click_on_a_page_tab_takes_the_page_and_opens_its_menu`
+- `ui::window_bars::tests::a_page_tabs_menu_acts_on_its_page`
+- `ui::window_bars::tests::the_last_page_is_not_deleted_from_its_tab`

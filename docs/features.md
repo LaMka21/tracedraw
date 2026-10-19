@@ -29,7 +29,7 @@ Counts: works 191, partial 4 (`.cdr` content coverage; CMX import; print preview
 | Snapping modes (node, intersection, midpoint, quadrant, tangent, perpendicular, edge, center, text baseline) with snap location marks and screen tips; moves carry the grabbed point (Options > Snapping) | works (see `behavior/snapping.md`) |
 | View modes: Wireframe (every object a hairline in its outline colour, no fills, outline widths, opacity or effects, bitmaps grey boxes, clip frame contents unclipped), Normal, Enhanced, Pixels (document pixels shown as blocks when zoomed in, see `behavior/rulers-grid-guidelines.md`); full-screen preview (F9); preview selected only | works |
 | Page sorter view | works |
-| Navigator and page tabs | works |
+| Navigator and page tabs; a page tab's right-click menu (insert before and after, duplicate, rename, delete) | works (see `behavior/drawing-window.md`) |
 
 ## 2. Drawing
 

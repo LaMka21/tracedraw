@@ -390,6 +390,7 @@ fn page_tabs(app: &mut App, ui: &mut Ui, area: Rect) {
     let mut x = area.min.x + 4.0;
     let mut clicked = None;
     let mut double = None;
+    let mut action = None;
     for (i, name) in names.iter().enumerate() {
         let galley = ui.painter().layout_no_wrap(
             name.clone(),
@@ -440,10 +441,22 @@ fn page_tabs(app: &mut App, ui: &mut Ui, area: Rect) {
         } else if resp.clicked() {
             clicked = Some(i);
         }
+        // A right click takes the page and opens its menu.
+        if resp.secondary_clicked() {
+            clicked = Some(i);
+        }
+        resp.context_menu(|ui| {
+            if let Some(a) = page_tab_menu(ui, names.len()) {
+                action = Some((i, a));
+            }
+        });
         x += w - slant;
     }
     if let Some(i) = clicked {
         app.goto_page(i);
+    }
+    if let Some((i, a)) = action {
+        page_tab_action(app, i, a);
     }
     if let Some(i) = double {
         // Double-clicking a page tab renames the page.
@@ -458,9 +471,159 @@ fn page_tabs(app: &mut App, ui: &mut Ui, area: Rect) {
     }
 }
 
+/// What the menu of a page tab does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageTabAction {
+    InsertBefore,
+    InsertAfter,
+    Duplicate,
+    Rename,
+    Delete,
+}
+
+/// The menu of a page tab (right click): the page commands of the Layout
+/// menu for that page. `pages` is the drawing's page count; the last page
+/// cannot be deleted.
+fn page_tab_menu(ui: &mut Ui, pages: usize) -> Option<PageTabAction> {
+    use crate::ui::menus::item;
+    let mut out = None;
+    if item(ui, "context.page_insert_before", "", true) {
+        out = Some(PageTabAction::InsertBefore);
+    }
+    if item(ui, "context.page_insert_after", "", true) {
+        out = Some(PageTabAction::InsertAfter);
+    }
+    if item(ui, "menu.layout.duplicate_page", "", true) {
+        out = Some(PageTabAction::Duplicate);
+    }
+    if item(ui, "menu.layout.rename_page", "", true) {
+        out = Some(PageTabAction::Rename);
+    }
+    ui.separator();
+    if item(ui, "menu.layout.delete_page", "", pages > 1) {
+        out = Some(PageTabAction::Delete);
+    }
+    out
+}
+
+/// Carry out a page tab's menu command on page `i` (made current first).
+pub fn page_tab_action(app: &mut App, i: usize, action: PageTabAction) {
+    app.goto_page(i);
+    match action {
+        PageTabAction::InsertBefore => app.insert_page(false),
+        PageTabAction::InsertAfter => app.insert_page(true),
+        PageTabAction::Duplicate => {
+            let page = app.page;
+            app.run(tracedraw_core::Command::DuplicatePage { page });
+        }
+        PageTabAction::Rename => {
+            let name = app
+                .doc()
+                .page(app.page)
+                .map(|p| p.name.clone())
+                .unwrap_or_default();
+            app.dialog = crate::ui::dialogs::Dialog::RenamePage { name };
+        }
+        PageTabAction::Delete => {
+            if app.doc().pages.len() > 1 {
+                app.delete_page();
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{page_tab_action, PageTabAction};
     use crate::app::App;
+
+    fn three_pages() -> App {
+        let mut app = App::headless();
+        app.insert_page(true);
+        app.insert_page(true);
+        app.goto_page(0);
+        app
+    }
+
+    fn page_ids(app: &App) -> Vec<tracedraw_core::PageId> {
+        app.doc().pages.iter().map(|p| p.id).collect()
+    }
+
+    #[test]
+    fn a_page_tabs_menu_acts_on_its_page() {
+        let mut app = three_pages();
+        let ids = page_ids(&app);
+        // Delete the second page from its tab while the first is current.
+        page_tab_action(&mut app, 1, PageTabAction::Delete);
+        assert_eq!(page_ids(&app), vec![ids[0], ids[2]]);
+        app.undo();
+        assert_eq!(page_ids(&app), ids, "one undo step brings it back");
+
+        page_tab_action(&mut app, 2, PageTabAction::InsertBefore);
+        assert_eq!(app.doc().pages.len(), 4);
+        assert_eq!(app.page_index(), 2);
+        assert_eq!(app.doc().pages[3].id, ids[2]);
+
+        page_tab_action(&mut app, 0, PageTabAction::InsertAfter);
+        assert_eq!(app.page_index(), 1);
+        assert_eq!(app.doc().pages[0].id, ids[0]);
+
+        page_tab_action(&mut app, 0, PageTabAction::Duplicate);
+        assert_eq!(app.doc().pages.len(), 6);
+
+        page_tab_action(&mut app, 3, PageTabAction::Rename);
+        assert_eq!(app.page_index(), 3);
+        assert!(matches!(
+            app.dialog,
+            crate::ui::dialogs::Dialog::RenamePage { .. }
+        ));
+    }
+
+    #[test]
+    fn the_last_page_is_not_deleted_from_its_tab() {
+        let mut app = App::headless();
+        page_tab_action(&mut app, 0, PageTabAction::Delete);
+        assert_eq!(app.doc().pages.len(), 1);
+    }
+
+    #[test]
+    fn a_right_click_on_a_page_tab_takes_the_page_and_opens_its_menu() {
+        use egui::{Event, Modifiers, PointerButton};
+        let ctx = crate::theme::ui_context();
+        let mut app = three_pages();
+        let frame = |app: &mut App, events: Vec<Event>| {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1600.0, 1000.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let mut out = ctx.run_ui(input, |ui| crate::ui::root(app, ui));
+            out.textures_delta.clear();
+        };
+        for _ in 0..3 {
+            frame(&mut app, Vec::new());
+        }
+        let tab = ctx
+            .read_response(egui::Id::new(("page_tab", 2usize)))
+            .expect("the third page's tab is drawn")
+            .rect
+            .center();
+        let button = |pressed| Event::PointerButton {
+            pos: tab,
+            button: PointerButton::Secondary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        frame(&mut app, vec![Event::PointerMoved(tab)]);
+        frame(&mut app, vec![button(true)]);
+        frame(&mut app, vec![button(false)]);
+        frame(&mut app, Vec::new());
+        assert_eq!(app.page_index(), 2);
+        assert!(egui::Popup::is_any_open(&ctx), "the tab's menu is open");
+    }
 
     #[test]
     fn insert_page_before_and_after_the_current_one() {

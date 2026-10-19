@@ -6,6 +6,8 @@ full, row-by-row status.
 
 ## Unreleased
 
+- A right click on a page tab opens the page's menu: insert a page
+  before or after it, duplicate, rename or delete it.
 - Document Properties: language, title, subject, author, copyright,
   tags, notes and a rating list, applied on OK in one undo step, over a
   report of the file, the document, its colour settings, objects and
