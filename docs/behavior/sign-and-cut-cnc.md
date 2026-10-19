@@ -6,9 +6,14 @@ of parts made on them. The geometry is in `tracedraw-signcut`
 `apps/tracedraw/src/signcut_cnc.rs`, the panel section in
 `ui/signcut_cnc.rs`.
 
-Open it from Tools > Sign & Cut > CNC and Laser (each item opens the
-Sign & Cut panel at this section) or from the panel's CNC and Laser
-section. Every value is in millimetres in the model and shown in the
+Open it from the panel's CNC and Laser section, which has one block
+per tool (G-code export, Hot wire path, Finger-joint box, Finger joints
+on edges, Door panel, Centre line from shapes), or from Tools > Sign &
+Cut > CNC and Laser: Export G-code..., Hot Wire Path, Finger-Joint
+Box..., Finger Joints on Edges..., Door Panel... and Centre Line. Each
+item opens the panel at this section; Hot Wire Path and Centre Line
+also run at once with the current settings, Export G-code... finds the
+outline colours when there are no jobs yet. Every value is in millimetres in the model and shown in the
 document's units; feeds are in mm/min. Settings live for the session
 (they are not saved with the document or between runs).
 
@@ -102,8 +107,9 @@ are flattened within 0.02 mm.
 
 **Export G-code...** saves the text through the save dialog (`.nc`,
 also `.gcode`, `.ngc`, `.tap`; a download in the browser). **Show the
-tool paths** draws the paths, lead-ins included, on the drawing while
-the panel shows. The panel gives the number of tool paths and their
+tool paths** (on at first) draws the paths, lead-ins included, on the
+drawing while the G-code block is open; they are made again only when
+the drawing, the selection or a setting changes. The panel gives the number of tool paths and their
 length over all passes. Nothing in the drawing changes; no undo step.
 
 ## Hot wire path
@@ -259,6 +265,20 @@ is treated on its own, its subpaths by even-odd (holes).
   Centre Line) adds the lines as open curves (closed ones round holes)
   with a blue hairline, grouped, selected, one undo step ("Centre
   Line"); the status line gives their number.
+
+## Limits
+
+- G-code: no arcs (`G2`/`G3`), no pocketing or ramped plunges; tools
+  can be added but not removed (jobs refer to them by place); machines,
+  tools and jobs are not kept between runs.
+- The hot wire path keeps each outline's drawn direction and does not
+  avoid crossing other outlines with its straight connections (they
+  are the shortest ones, which normally run through waste).
+- Finger joints work on straight edges only, at right angles, without
+  kerf allowance (the box has one).
+- The centre line is an approximation within about the sample spacing;
+  very thin parts (thinner than a few sample spacings) may lose their
+  line.
 
 ## Checks
 
