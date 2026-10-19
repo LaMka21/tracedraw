@@ -8,7 +8,10 @@
 //!   (below the bottom edge) or behind (above it, mostly hidden by the
 //!   object).
 
-use tracedraw_core::geometry::{Affine, Rect, Vec2};
+use super::region::{Region, FLATTEN_TOL};
+use crate::subpaths;
+use tracedraw_core::geometry::{Affine, BezPath, Rect, Vec2};
+use tracedraw_core::shaping::{self, Op};
 
 /// Steepest floor slant, degrees either way.
 pub const MAX_SKEW: f64 = 80.0;
@@ -90,10 +93,75 @@ pub fn shadow_transform(bounds: Rect, spec: &ShadowSpec) -> Option<Affine> {
     }
 }
 
+/// The area an object covers, as one closed path: the object's outline
+/// when it is a single path of closed subpaths (curves kept), otherwise
+/// the closed subpaths of every outline welded together (flattened,
+/// 0.02 mm). Open subpaths cover nothing. Empty when nothing is closed.
+pub fn shadow_outline(outlines: &[BezPath]) -> BezPath {
+    if let [one] = outlines {
+        let parts = subpaths(one);
+        let finite = one
+            .elements()
+            .iter()
+            .filter_map(|e| e.end_point())
+            .all(|p| p.x.is_finite() && p.y.is_finite());
+        if !parts.is_empty() && finite && parts.iter().all(|s| s.closed) {
+            let mut p = BezPath::new();
+            for s in parts {
+                p.extend(s.path);
+                if !matches!(
+                    p.elements().last(),
+                    Some(tracedraw_core::geometry::PathEl::ClosePath)
+                ) {
+                    p.close_path();
+                }
+            }
+            return p;
+        }
+    }
+    let mut acc: Option<BezPath> = None;
+    for o in outlines {
+        let r = Region::from_paths(std::slice::from_ref(o), FLATTEN_TOL);
+        if r.is_empty() {
+            continue;
+        }
+        let p = r.to_path();
+        acc = Some(match acc {
+            None => shaping::overlay(&p, &BezPath::new(), Op::Weld),
+            Some(a) => shaping::overlay(&a, &p, Op::Weld),
+        });
+    }
+    acc.unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tracedraw_core::geometry::Point;
+    use tracedraw_core::geometry::{Point, Shape as _};
+
+    #[test]
+    fn the_outline_keeps_curves_or_welds_pieces() {
+        let c = tracedraw_core::geometry::Circle::new((0.0, 0.0), 5.0).to_path(0.01);
+        let one = shadow_outline(std::slice::from_ref(&c));
+        assert_eq!(one, c);
+        // Two overlapping squares weld into one outline.
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0).to_path(0.01);
+        let b = Rect::new(5.0, 0.0, 15.0, 10.0).to_path(0.01);
+        let w = shadow_outline(&[a, b]);
+        assert!((w.area().abs() - 150.0).abs() < 1e-6, "{}", w.area());
+        // Open lines cover nothing.
+        let mut open = BezPath::new();
+        open.move_to((0.0, 0.0));
+        open.line_to((10.0, 0.0));
+        assert!(shadow_outline(&[open.clone()]).elements().is_empty());
+        assert!(shadow_outline(&[]).elements().is_empty());
+        let mut bad = BezPath::new();
+        bad.move_to((f64::NAN, 0.0));
+        bad.line_to((1.0, 1.0));
+        bad.line_to((0.0, 1.0));
+        bad.close_path();
+        assert!(shadow_outline(&[bad, open]).elements().is_empty());
+    }
 
     #[test]
     fn a_wall_shadow_moves_by_the_distance() {

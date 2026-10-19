@@ -29,4 +29,4 @@ pub use puzzle::{puzzle, PuzzleSpec, TabShape};
 pub use region::Region;
 pub use rng::Rng;
 pub use scatter::{scatter, ScatterSpec};
-pub use shadow::{shadow_transform, ShadowKind, ShadowSpec};
+pub use shadow::{shadow_outline, shadow_transform, ShadowKind, ShadowSpec};
