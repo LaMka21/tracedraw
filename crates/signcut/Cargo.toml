@@ -7,3 +7,4 @@ description = "Sign making and cutting tools for TraceDraw: measuring, cut-file 
 
 [dependencies]
 tracedraw-core.workspace = true
+serde.workspace = true

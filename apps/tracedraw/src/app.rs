@@ -856,6 +856,19 @@ pub struct App {
     pub corners: crate::corners::CornersSettings,
     /// The Sign & Cut panel's settings and last results.
     pub signcut: crate::signcut::SignCutSettings,
+    /// The open Sign & Cut tool windows, and the one to bring forward.
+    pub sc_windows: crate::signcut_tools::Windows,
+    pub sc_windows_raise: Option<crate::signcut_tools::ToolId>,
+    /// Named presets of the Sign & Cut windows.
+    pub sc_presets: crate::ui::signcut_kit::PresetStore,
+    /// What the Sign & Cut windows mark on the drawing, for the next frame.
+    pub sc_overlay: Vec<tracedraw_core::geometry::BezPath>,
+    /// The nesting windows' previews.
+    pub sc_win_nest: crate::ui::signcut_win_nest::States,
+    /// Reduce Nodes' tolerance (mm).
+    pub sc_reduce_tolerance: f64,
+    /// Window > Toolbars > Sign & Cut.
+    pub show_signcut_toolbar: bool,
     pub sc_cut: crate::signcut_cut::Settings,
     pub sc_nest: crate::signcut_nest::Settings,
     pub sc_calc: crate::signcut_calc::Settings,
@@ -1716,6 +1729,13 @@ impl App {
             snap_mark: std::cell::Cell::new(None),
             corners: Default::default(),
             signcut: Default::default(),
+            sc_windows: Default::default(),
+            sc_windows_raise: None,
+            sc_presets: Default::default(),
+            sc_overlay: Vec::new(),
+            sc_win_nest: Default::default(),
+            sc_reduce_tolerance: 0.1,
+            show_signcut_toolbar: true,
             sc_cut: Default::default(),
             sc_nest: Default::default(),
             sc_calc: Default::default(),

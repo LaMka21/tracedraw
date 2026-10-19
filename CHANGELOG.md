@@ -12,6 +12,32 @@ full, row-by-row status.
   Size with maximum and minimum sizes, Reference Scale to bring a drawing
   to real size, and Replace with a master object. The geometry is in the
   new `tracedraw-signcut` crate.
+- The Sign & Cut toolbar: nine buttons with menus of the tools (Window >
+  Toolbars > Sign & Cut); the Sign & Cut panel lists every tool; tools open
+  windows that do not block the drawing, with presets, previews and Apply,
+  OK and Cancel.
+- Sign & Cut, Nesting: place the selection on sheets or a roll by bounding
+  boxes or true outlines (spacing, margin, start corner, turns, small parts
+  in holes, a time-limited search), with sheet frames and a usage report,
+  previewed in its window before it is applied; Fill Sheet fills a sheet
+  with copies.
+- Sign & Cut, Cutting: weeding lines, boxes and frame; bridges; a cut order
+  optimizer; plotter output as HPGL with profiles, knife offset, overcut,
+  passes and weed frame, saved as `.plt` or sent to a port; print and cut
+  registration marks with a cut contour; crop marks as objects.
+- Sign & Cut, Calculations: cutting time from machine profiles, cost from
+  editable material and service price lists (CSV import and export, kept
+  across restarts), volume, weight and edge area from a density list.
+- Sign & Cut, Sign Making: LED modules in letters with power, price and a
+  power supply suggestion; neon tubes with support holes; sign box flat
+  patterns; letter return strips; acrylic moulds; smart divide into
+  overlapping named tiles; carrier outlines.
+- Sign & Cut, CNC and Laser: G-code export with machines, tools and jobs by
+  outline colour, a hot wire path, a finger-joint box, finger joints on
+  straight edges, door panels and centre lines from closed shapes.
+- Sign & Cut, Effects and Patterns: hatching inside shapes, grids and
+  dividing lines, jigsaw puzzles, circle fill, cast shadows on a wall or
+  the floor, and random copies inside a container, repeatable by seed.
 
 ## 0.9.4 (2026-10-19)
 

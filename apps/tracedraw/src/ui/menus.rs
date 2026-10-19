@@ -3213,6 +3213,14 @@ fn window_menu(app: &mut App, ui: &mut Ui) {
         }
         if check(
             ui,
+            "menu.window.toolbar_signcut",
+            "",
+            app.show_signcut_toolbar,
+        ) {
+            app.show_signcut_toolbar = !app.show_signcut_toolbar;
+        }
+        if check(
+            ui,
             "menu.window.toolbar_transform",
             "",
             app.show_transform_toolbar,

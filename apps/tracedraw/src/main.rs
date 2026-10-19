@@ -112,6 +112,7 @@ mod signcut_cut;
 mod signcut_fx;
 mod signcut_nest;
 mod signcut_sign;
+mod signcut_tools;
 mod snap;
 mod snap_points;
 mod spell;

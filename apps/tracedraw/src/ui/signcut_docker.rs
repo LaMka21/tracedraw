@@ -4,41 +4,39 @@
 
 use crate::app::{App, Units};
 use crate::i18n::{tr, trf};
-use crate::signcut::{Section, CROSSING_MARK_PX};
+use crate::signcut::CROSSING_MARK_PX;
 use crate::theme::Tokens;
 use egui::{RichText, Ui};
 use tracedraw_core::geometry::{Circle, Shape as _};
 use tracedraw_signcut::sizing::{Anchor, RefMeasure, ReplaceFit, SizeRule};
 
+/// The panel: every Sign & Cut tool by toolbar group; a click opens its
+/// window (or the panel or dialog TraceDraw has for it).
 pub fn signcut(app: &mut App, ui: &mut Ui) {
-    let open = app.signcut.open.take();
-    let header = |key: &str, section: Section| {
-        let h = egui::CollapsingHeader::new(RichText::new(tr(key)).strong())
-            .id_salt(("signcut", key))
-            .default_open(section == Section::Measure);
-        match open {
-            Some(s) if s == section => h.open(Some(true)),
-            _ => h,
+    use crate::signcut_tools::Group;
+    app.signcut.open = None;
+    let doc = app.has_document() && !app.show_welcome;
+    for g in Group::ALL {
+        if g.tools().is_empty() {
+            continue;
         }
-    };
-    header("signcut.measure", Section::Measure).show(ui, |ui| measure(app, ui));
-    header("signcut.cleanup", Section::Cleanup).show(ui, |ui| cleanup(app, ui));
-    header("signcut.size", Section::Size).show(ui, |ui| size(app, ui));
-    header("signcut.area_cut", Section::Cut)
-        .show(ui, |ui| crate::ui::signcut_cut::section(app, ui));
-    header("signcut.area_nest", Section::Nest)
-        .show(ui, |ui| crate::ui::signcut_nest::section(app, ui));
-    header("signcut.area_calc", Section::Calc)
-        .show(ui, |ui| crate::ui::signcut_calc::section(app, ui));
-    header("signcut.area_sign", Section::Sign)
-        .show(ui, |ui| crate::ui::signcut_sign::section(app, ui));
-    header("signcut.area_cnc", Section::Cnc)
-        .show(ui, |ui| crate::ui::signcut_cnc::section(app, ui));
-    header("signcut.area_fx", Section::Fx).show(ui, |ui| crate::ui::signcut_fx::section(app, ui));
-    // Mark the crossings found, while the drawing is as it was.
-    let r = CROSSING_MARK_PX / f64::from(app.view.zoom.max(1e-3));
-    for p in app.signcut_crossing_marks() {
-        app.docker_preview.push(Circle::new(p, r).to_path(0.01));
+        crate::ui::chrome::section(ui, &tr(g.key()));
+        for t in g.tools() {
+            ui.horizontal(|ui| {
+                let (r, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
+                crate::ui::signcut_toolbar::draw_icon(ui.painter(), r, g);
+                let open = app.sc_windows.is_open(*t);
+                if ui
+                    .add_enabled(
+                        doc,
+                        egui::Button::new(t.title()).selected(open).frame(false),
+                    )
+                    .clicked()
+                {
+                    app.signcut_tool(*t);
+                }
+            });
+        }
     }
 }
 
@@ -80,7 +78,7 @@ pub(crate) fn fmt_area(u: Units, mm2: f64) -> String {
     )
 }
 
-fn measure(app: &mut App, ui: &mut Ui) {
+pub(crate) fn measure(app: &mut App, ui: &mut Ui) {
     let u = app.units;
     dim(
         ui,
@@ -138,7 +136,12 @@ fn measure(app: &mut App, ui: &mut Ui) {
         });
 }
 
-fn cleanup(app: &mut App, ui: &mut Ui) {
+pub(crate) fn cleanup(app: &mut App, ui: &mut Ui) {
+    // Mark the crossings found, while the drawing is as it was.
+    let r = CROSSING_MARK_PX / f64::from(app.view.zoom.max(1e-3));
+    for p in app.signcut_crossing_marks() {
+        app.docker_preview.push(Circle::new(p, r).to_path(0.01));
+    }
     let u = app.units;
     ui.horizontal(|ui| {
         ui.label(tr("signcut.tolerance"));
@@ -203,7 +206,7 @@ pub(crate) fn anchor_picker(ui: &mut Ui, id: &str, anchor: &mut Anchor) {
     });
 }
 
-fn size(app: &mut App, ui: &mut Ui) {
+pub(crate) fn size(app: &mut App, ui: &mut Ui) {
     let u = app.units;
     let has = !app.selection.is_empty();
     // Set Size.

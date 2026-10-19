@@ -78,8 +78,16 @@ pub mod signcut_cnc;
 pub mod signcut_cut;
 pub mod signcut_docker;
 pub mod signcut_fx;
-pub mod signcut_nest;
+pub mod signcut_kit;
 pub mod signcut_sign;
+pub mod signcut_toolbar;
+pub mod signcut_win_calc;
+pub mod signcut_win_cnc;
+pub mod signcut_win_cut;
+pub mod signcut_win_fx;
+pub mod signcut_win_nest;
+pub mod signcut_win_sign;
+pub mod signcut_windows;
 pub mod status;
 pub mod straighten_dialog;
 pub mod symmetry_bar;
@@ -205,6 +213,8 @@ pub fn root(app: &mut App, ui: &mut Ui) {
     // Dockers set their canvas previews again each frame they are shown;
     // the document palette says where it is when it is drawn.
     app.docker_preview.clear();
+    // What the Sign & Cut windows marked last frame.
+    app.docker_preview.append(&mut app.sc_overlay);
     app.doc_palette_rect = None;
     app.docker_preview_point = None;
     let ctx = ui.ctx().clone();
@@ -379,6 +389,11 @@ pub fn root(app: &mut App, ui: &mut Ui) {
         Panel::top("transform_toolbar")
             .frame(bar())
             .show(ui, |ui| toolbar::transform_toolbar(app, ui));
+    }
+    if app.show_signcut_toolbar && app.has_document() && !app.show_welcome {
+        Panel::top("signcut_toolbar")
+            .frame(bar())
+            .show(ui, |ui| signcut_toolbar::toolbar(app, ui));
     }
     if app.settings.time_tracker.show_bar {
         Panel::top("time_tracker_toolbar")
@@ -568,6 +583,7 @@ pub fn root(app: &mut App, ui: &mut Ui) {
         effect_picker::show(app, &ctx);
         crate::perspective_draw::show_bar(app, &ctx);
     }
+    signcut_windows::show(app, &ctx);
     dialogs::show(app, &ctx);
 }
 

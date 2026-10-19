@@ -26,7 +26,7 @@ use tracedraw_core::geometry::{Affine, Point, Rect, Vec2};
 pub const SHEET_GAP: f64 = 20.0;
 
 /// The corner the layout starts from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Corner {
     #[default]
     BottomLeft,
@@ -53,7 +53,7 @@ impl Corner {
 }
 
 /// Which way a roll's length runs on the page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum RollDir {
     /// The length runs to the right, the roll width up the page.
     #[default]
@@ -64,7 +64,8 @@ pub enum RollDir {
 
 /// The material: sheets of `width` x `height`, or a roll of `width`
 /// with no end.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct SheetSpec {
     /// Sheet width (along x), or the roll width.
     pub width: f64,

@@ -446,7 +446,7 @@ fn message_box_with(
 
 /// The white title bar: title at the left, the close button at the right.
 /// Returns true when the close button was clicked.
-fn title_bar(ui: &mut Ui, bar: Rect, title: &str, id: &str) -> bool {
+pub(crate) fn title_bar(ui: &mut Ui, bar: Rect, title: &str, id: &str) -> bool {
     let painter = ui.painter();
     painter.rect_filled(bar, 0.0, crate::theme::Tokens::title_bar());
     painter.text(

@@ -94,11 +94,37 @@ impl Default for SignCutSettings {
 pub const CROSSING_MARK_PX: f64 = 6.0;
 
 impl App {
-    /// Open the Sign & Cut panel at `section`.
+    /// Open the window of a Sign & Cut section (the menus of the areas
+    /// call this): its main tool's window.
     pub fn open_signcut(&mut self, section: Section) {
-        self.show_dockers = true;
-        self.docker_tab = crate::app::DockerTab::SignCut;
-        self.signcut.open = Some(section);
+        use crate::signcut_tools::ToolId;
+        let t = match section {
+            Section::Measure => ToolId::Perimeter,
+            Section::Cleanup => ToolId::FindDuplicates,
+            Section::Size => ToolId::SetSize,
+            Section::Cut => ToolId::PlotterOutput,
+            Section::Nest => match self.sc_nest.tool {
+                crate::signcut_nest::Tool::Rects => ToolId::RectNesting,
+                crate::signcut_nest::Tool::Shapes => ToolId::ShapeNesting,
+                crate::signcut_nest::Tool::Fill => ToolId::FillSheet,
+            },
+            Section::Calc => ToolId::Cost,
+            Section::Sign => {
+                use crate::signcut_sign::Tool as S;
+                match self.sc_sign.open {
+                    Some(S::Neon) => ToolId::NeonTubes,
+                    Some(S::SignBox) => ToolId::SignBox,
+                    Some(S::Returns) => ToolId::LetterReturns,
+                    Some(S::Mould) => ToolId::AcrylicMould,
+                    Some(S::Tiles) => ToolId::SmartDivide,
+                    Some(S::Carrier) => ToolId::Carrier,
+                    _ => ToolId::LedModules,
+                }
+            }
+            Section::Cnc => ToolId::GCode,
+            Section::Fx => ToolId::Effects,
+        };
+        self.signcut_tool(t);
     }
 
     /// The objects the tools work on, in stacking order (bottom first):

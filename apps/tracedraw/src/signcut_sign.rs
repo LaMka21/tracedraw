@@ -197,8 +197,8 @@ const PT_PER_MM: f64 = 72.0 / 25.4;
 impl App {
     /// Open the panel at the Sign Making section, `tool`'s header open.
     pub fn open_sign_tool(&mut self, tool: Tool) {
-        self.open_signcut(crate::signcut::Section::Sign);
         self.sc_sign.open = Some(tool);
+        self.open_signcut(crate::signcut::Section::Sign);
     }
 
     /// The selected objects the tools work on, in stacking order, locked
@@ -1036,6 +1036,8 @@ mod tests {
         let mut app = App::headless();
         app.open_sign_tool(Tool::Tiles);
         assert_eq!(app.sc_sign.open, Some(Tool::Tiles));
-        assert_eq!(app.signcut.open, Some(crate::signcut::Section::Sign));
+        assert!(app
+            .sc_windows
+            .is_open(crate::signcut_tools::ToolId::SmartDivide));
     }
 }

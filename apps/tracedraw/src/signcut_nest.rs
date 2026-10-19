@@ -14,7 +14,7 @@ use tracedraw_signcut::nest::shapes::{self, Rotations, ShapeSettings};
 use tracedraw_signcut::nest::{Corner, Layout, RollDir, SheetSpec};
 
 /// The three tools of the section.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Tool {
     #[default]
     Rects,
@@ -39,8 +39,27 @@ pub struct Report {
     pub stopped_by_time: bool,
 }
 
-/// The Nesting section's settings and last results.
+/// A layout worked out but not applied yet (what the Nesting window
+/// previews): the objects, their outlines where they are now, the
+/// material and where each goes.
 #[derive(Debug, Clone)]
+pub struct Computed {
+    pub tool: Tool,
+    /// The drawing's revision it was worked out at.
+    pub revision: u64,
+    pub ids: Vec<ShapeId>,
+    pub outlines: Vec<Vec<tracedraw_core::geometry::BezPath>>,
+    pub spec: SheetSpec,
+    /// Rectangle and shape nesting.
+    pub layout: Layout,
+    /// Fill Sheet: the page-space transform of each place (the block's
+    /// first place included).
+    pub copies: Vec<tracedraw_core::geometry::Affine>,
+}
+
+/// The Nesting section's settings and last results.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Settings {
     pub tool: Tool,
     /// Sheets take the page's size.
@@ -66,6 +85,7 @@ pub struct Settings {
     pub fill_rotate: bool,
     /// Fill Sheet: at most this many copies (0: as many as fit).
     pub fill_limit: usize,
+    #[serde(skip)]
     pub report: Option<Report>,
 }
 
@@ -166,59 +186,105 @@ impl App {
     }
 
     /// Place the selected objects by their bounding boxes. One undo step.
+    #[cfg(test)]
     pub fn nest_rectangles(&mut self) -> Option<Layout> {
-        let ids = self.nest_targets();
-        if ids.is_empty() {
-            self.status = tr("signcut.nest_select");
-            return None;
-        }
-        let parts = self.nest_parts(&ids);
-        let items: Vec<RectItem> = parts
-            .iter()
-            .map(|(s, o)| RectItem {
-                bounds: outline_bounds(o).unwrap_or_else(|| s.bounds()),
-                area: measure::measure_object(o).area,
-            })
-            .collect();
-        let settings = RectSettings {
-            sheet: self.nest_sheet(),
-            rotate: self.sc_nest.rotate90,
-        };
-        let layout = rects::nest_rects(&items, &settings);
-        let ids: Vec<ShapeId> = parts.iter().map(|(s, _)| s.id).collect();
-        self.nest_apply("Nest Rectangles", Tool::Rects, &ids, &layout)
-            .then_some(layout)
+        let c = self.nest_compute(Tool::Rects)?;
+        self.nest_commit(&c).then_some(c.layout)
     }
 
     /// Place the selected objects by their true outlines. One undo step.
+    #[cfg(test)]
     pub fn nest_shapes(&mut self) -> Option<Layout> {
+        let c = self.nest_compute(Tool::Shapes)?;
+        self.nest_commit(&c).then_some(c.layout)
+    }
+
+    /// Work out where `tool` would put the selected objects, changing
+    /// nothing: what the Nesting window previews. `None` (with a status
+    /// line) when nothing is selected.
+    pub fn nest_compute(&mut self, tool: Tool) -> Option<Computed> {
         let ids = self.nest_targets();
         if ids.is_empty() {
             self.status = tr("signcut.nest_select");
             return None;
         }
         let parts = self.nest_parts(&ids);
+        let ids: Vec<ShapeId> = parts.iter().map(|(s, _)| s.id).collect();
         let outlines: Vec<Vec<_>> = parts.iter().map(|(_, o)| o.clone()).collect();
         let n = &self.sc_nest;
-        let settings = ShapeSettings {
-            sheet: self.nest_sheet(),
-            rotations: n.rotations,
-            holes: n.holes,
-            tolerance: n.tolerance,
-            rounds: if n.improve { n.rounds } else { 0 },
-            seed: n.seed,
+        let mut c = Computed {
+            tool,
+            revision: self.engine.revision(),
+            ids,
+            outlines,
+            spec: if tool == Tool::Fill {
+                self.nest_plain_sheet()
+            } else {
+                self.nest_sheet()
+            },
+            layout: Layout::default(),
+            copies: Vec::new(),
         };
-        let limit = if n.time_limit.is_finite() {
-            n.time_limit.clamp(0.0, 600.0)
-        } else {
-            5.0
-        };
-        let start = web_time::Instant::now();
-        let mut out_of_time = || start.elapsed().as_secs_f64() > limit;
-        let layout = shapes::nest_shapes(&outlines, &settings, &mut out_of_time);
-        let ids: Vec<ShapeId> = parts.iter().map(|(s, _)| s.id).collect();
-        self.nest_apply("Nest Shapes", Tool::Shapes, &ids, &layout)
-            .then_some(layout)
+        match tool {
+            Tool::Rects => {
+                let items: Vec<RectItem> = parts
+                    .iter()
+                    .map(|(s, o)| RectItem {
+                        bounds: outline_bounds(o).unwrap_or_else(|| s.bounds()),
+                        area: measure::measure_object(o).area,
+                    })
+                    .collect();
+                let settings = RectSettings {
+                    sheet: c.spec,
+                    rotate: n.rotate90,
+                };
+                c.layout = rects::nest_rects(&items, &settings);
+            }
+            Tool::Shapes => {
+                let settings = ShapeSettings {
+                    sheet: c.spec,
+                    rotations: n.rotations,
+                    holes: n.holes,
+                    tolerance: n.tolerance,
+                    rounds: if n.improve { n.rounds } else { 0 },
+                    seed: n.seed,
+                };
+                let limit = if n.time_limit.is_finite() {
+                    n.time_limit.clamp(0.0, 600.0)
+                } else {
+                    5.0
+                };
+                let start = web_time::Instant::now();
+                let mut out_of_time = || start.elapsed().as_secs_f64() > limit;
+                c.layout = shapes::nest_shapes(&c.outlines, &settings, &mut out_of_time);
+            }
+            Tool::Fill => {
+                let bounds = parts
+                    .iter()
+                    .filter_map(|(s, o)| outline_bounds(o).or_else(|| Some(s.bounds())))
+                    .reduce(|a, b| a.union(b))?;
+                let settings = FillSettings {
+                    sheet: c.spec,
+                    gap: n.gap,
+                    rotate: n.fill_rotate,
+                    limit: n.fill_limit,
+                };
+                c.copies = fill::fill_sheet(bounds, &settings)
+                    .iter()
+                    .map(|k| k.transform)
+                    .collect();
+            }
+        }
+        Some(c)
+    }
+
+    /// Apply a computed layout to the drawing: one undo step.
+    pub fn nest_commit(&mut self, c: &Computed) -> bool {
+        match c.tool {
+            Tool::Rects => self.nest_apply("Nest Rectangles", Tool::Rects, &c.ids, &c.layout),
+            Tool::Shapes => self.nest_apply("Nest Shapes", Tool::Shapes, &c.ids, &c.layout),
+            Tool::Fill => self.nest_fill_commit(&c.ids, &c.copies) > 0,
+        }
     }
 
     /// Move the objects as `layout` says, add the sheet frames, report.
@@ -305,28 +371,22 @@ impl App {
     /// Fill the sheet with copies of the selection, as one block, in a
     /// grid. The selection moves to the first place. One undo step.
     /// Returns the number of places filled (the original's included).
+    #[cfg(test)]
     pub fn nest_fill(&mut self) -> usize {
-        let ids = self.nest_targets();
-        if ids.is_empty() {
-            self.status = tr("signcut.nest_select");
-            return 0;
-        }
-        let parts = self.nest_parts(&ids);
-        let Some(bounds) = parts
-            .iter()
-            .filter_map(|(s, o)| outline_bounds(o).or_else(|| Some(s.bounds())))
-            .reduce(|a, b| a.union(b))
-        else {
+        let Some(c) = self.nest_compute(Tool::Fill) else {
             return 0;
         };
-        let n = &self.sc_nest;
-        let settings = FillSettings {
-            sheet: self.nest_plain_sheet(),
-            gap: n.gap,
-            rotate: n.fill_rotate,
-            limit: n.fill_limit,
-        };
-        let copies = fill::fill_sheet(bounds, &settings);
+        self.nest_fill_commit(&c.ids, &c.copies)
+    }
+
+    /// Fill Sheet's step: the block of `ids` to the first place, copies of
+    /// it at the others.
+    fn nest_fill_commit(
+        &mut self,
+        ids: &[ShapeId],
+        copies: &[tracedraw_core::geometry::Affine],
+    ) -> usize {
+        let parts = self.nest_parts(ids);
         let report = Report {
             tool: Tool::Fill,
             placed: copies.len(),
@@ -346,7 +406,7 @@ impl App {
         let ids: Vec<ShapeId> = parts.iter().map(|(s, _)| s.id).collect();
         let mut cmds = vec![Command::TransformShapes {
             shapes: ids.clone(),
-            transform: first.transform,
+            transform: *first,
         }];
         let doc = self.doc();
         let layers: Vec<Option<tracedraw_core::LayerId>> = parts
@@ -364,7 +424,7 @@ impl App {
                 };
                 let id = self.engine.new_shape_id();
                 let mut copy = crate::app::reid_pub(s.clone(), id, &mut self.engine);
-                copy.transform = c.transform * s.transform;
+                copy.transform = *c * s.transform;
                 copy.uid = None;
                 cmds.push(Command::AddShape { layer, shape: copy });
                 new_ids.push(id);
@@ -617,43 +677,6 @@ mod tests {
         app.sc_nest.tolerance = f64::INFINITY;
         app.sc_nest.time_limit = f64::NAN;
         assert!(app.nest_shapes().is_none());
-    }
-
-    /// The section draws every tool, before and after a run, and shows
-    /// the material on the drawing.
-    #[test]
-    fn the_section_draws_each_tool() {
-        let ctx = crate::theme::ui_context();
-        let mut app = App::headless();
-        let a = rect(&mut app, 300.0, 300.0, 20.0, 20.0);
-        app.select(vec![a]);
-        let frame = |app: &mut App| {
-            app.docker_preview.clear();
-            let input = egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,
-                    egui::vec2(400.0, 900.0),
-                )),
-                ..Default::default()
-            };
-            let mut out = ctx.run_ui(input, |ui| crate::ui::signcut_nest::section(app, ui));
-            out.textures_delta.clear();
-            // egui may run a frame more than once.
-            assert!(!app.docker_preview.is_empty());
-        };
-        for tool in [Tool::Rects, Tool::Shapes, Tool::Fill] {
-            app.sc_nest.tool = tool;
-            frame(&mut app);
-            app.sc_nest.sheet.roll = true;
-            frame(&mut app);
-            app.sc_nest.sheet.roll = false;
-        }
-        app.sc_nest.tool = Tool::Rects;
-        assert!(app.nest_rectangles().is_some());
-        frame(&mut app);
-        let page = app.page_size();
-        let shown = app.docker_preview[0].bounding_box();
-        assert!((shown.width() - page.width).abs() < 1e-6);
     }
 
     #[test]

@@ -4001,6 +4001,7 @@ dependencies = [
 name = "tracedraw-signcut"
 version = "0.9.4"
 dependencies = [
+ "serde",
  "tracedraw-core",
 ]
 

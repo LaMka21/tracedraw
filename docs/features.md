@@ -6,7 +6,7 @@ checked screenshot behind it.
 "partial" names what is missing. "baked" means the result is applied once
 instead of staying live and editable. The goal is every row at "works".
 
-Counts: works 192, partial 4 (`.cdr` content coverage; CMX import; print preview; print merge), missing 1 (system windows), not applicable 4, icons close but not pixel-identical.
+Counts: works 199, partial 4 (`.cdr` content coverage; CMX import; print preview; print merge), missing 1 (system windows), not applicable 4, icons close but not pixel-identical.
 
 ## 1. Selection and navigation
 
@@ -249,6 +249,13 @@ Counts: works 192, partial 4 (`.cdr` content coverage; CMX import; print preview
 | Help > Highlight What's New: the menus mark the rows new in this version and the menus leading to them | works (see `behavior/whats-new.md`) |
 | Border and Grommet (large-format finishing) | works |
 | Sign & Cut panel (Tools > Sign & Cut): outline length and area with holes, Find Duplicates, Remove Duplicate Edges, Find Crossings, Set Size with maximum and minimum, Reference Scale, Replace with a master object | works (see `behavior/sign-and-cut.md`) |
+| Sign & Cut toolbar (nine groups with menus), Sign & Cut panel as a list of the tools, tool windows (presets, previews, Apply/OK/Cancel) | works (see `behavior/sign-and-cut-windows.md`) |
+| Sign & Cut, Nesting: rectangle nesting (MaxRects), true-shape nesting with holes, turns, sheets or roll and a seeded, time-limited search; Fill Sheet with turned copies in the leftover strip; a window with a preview | works (see `behavior/sign-and-cut-nest.md`) |
+| Sign & Cut, Cutting: weeding lines, boxes and frame; bridges; cut order optimizer; HPGL plotter output with profiles, knife offset, overcut, passes and weed frame, saved or sent to a port; print and cut registration marks with a cut contour; crop marks as objects | works (see `behavior/sign-and-cut-cut.md`) |
+| Sign & Cut, Calculations: cutting time from profiles, cost from material and service price lists (CSV import and export, kept across restarts), volume, weight and edge area | works (see `behavior/sign-and-cut-calc.md`) |
+| Sign & Cut, Sign Making: LED module layout with power and power supply, neon tubes, sign box flat pattern, letter returns, acrylic mould, smart divide into named tiles, carrier outline | works (see `behavior/sign-and-cut-sign.md`) |
+| Sign & Cut, CNC and Laser: G-code export with machines, tools and jobs by outline colour, hot wire path, finger-joint box, finger joints on straight edges, door panels, centre lines from closed shapes | works (see `behavior/sign-and-cut-cnc.md`) |
+| Sign & Cut, Effects and Patterns: hatching (parallel, snake, grid), grids and dividing lines, jigsaw puzzle, circle fill, cast shadow on a wall or the floor, random copies in a container | works (see `behavior/sign-and-cut-fx.md`) |
 | Vector Mosaic (vector mosaics): density, scale, screen angle, keep original, limit colors, uniform, opacity and luminosity tracking, merge adjacent, weld adjacent overlap, circle, square and custom tiles | works (see `behavior/vector-mosaic.md`); made at once rather than in the background |
 | Picture Mosaic (bitmap mosaics from an image library folder): columns and rows from the shape, blending, duplicates with tile spacing, Single, Stack and Array composition, Stretch and Remove edges, document, custom, tile and output size priorities, keep original | works (see `behavior/picture-mosaic.md`); a library is one folder, read on worker threads |
 | Bitmap plug-ins (third-party filters) | not applicable: no plug-in host; the built-in bitmap effects cover the stock filters |
