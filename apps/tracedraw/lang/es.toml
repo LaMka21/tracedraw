@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Penetración:" # mt
 signcut.cnc_max_depth = "Pasada más profunda:" # mt
 signcut.cnc_safe_z = "Altura segura:" # mt
 signcut.cnc_park = "Ir a una posición de reposo al final (coordenadas de máquina)" # mt
+menu.tools.signcut_cnc_hot_wire = "Trayectoria de hilo caliente" # mt
+signcut.cnc_hot_wire = "Trayectoria de hilo caliente" # mt
+signcut.cnc_wire_hint = "Una trayectoria continua por los contornos cerrados: entrada desde el punto inicial, cada contorno una vez, las uniones cortadas de ida y vuelta." # mt
+signcut.cnc_wire_start = "Punto inicial:" # mt
+signcut.cnc_wire_make = "Crear la trayectoria" # mt
+signcut.cnc_wire_export = "Exportar código G de hilo caliente..." # mt
+signcut.cnc_no_closed = "No se encontraron contornos cerrados." # mt
+signcut.cnc_wire_done = "Trayectoria de hilo caliente añadida: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efectos y patrones" # mt

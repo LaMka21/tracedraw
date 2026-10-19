@@ -7,7 +7,7 @@ use crate::i18n::{tr, trf};
 use crate::signcut::Section;
 use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, Point};
-use tracedraw_core::{Fill, Shape, ShapeId, ShapeKind};
+use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
 
 /// The CNC and Laser section's settings and last results.
@@ -27,6 +27,10 @@ pub struct Settings {
     pub last: Option<Summary>,
     /// Tool paths of the preview and what they were made from.
     preview_cache: Option<(PreviewKey, Vec<BezPath>)>,
+    /// Hot wire: start point on the page (mm) and the tool of its G-code.
+    pub wire_start_x: f64,
+    pub wire_start_y: f64,
+    pub wire_tool: usize,
 }
 
 /// What the preview's tool paths depend on.
@@ -56,6 +60,9 @@ impl Default for Settings {
             preview: true,
             last: None,
             preview_cache: None,
+            wire_start_x: 0.0,
+            wire_start_y: 0.0,
+            wire_tool: 3,
         }
     }
 }
@@ -182,15 +189,7 @@ impl App {
         let Some(text) = self.cnc_gcode() else {
             return;
         };
-        crate::files::Dialog::new()
-            .add_filter("G-code", &["nc", "gcode", "ngc", "tap"])
-            .set_file_name("job.nc")
-            .save_file(self, move |app, path| {
-                app.status = match crate::files::write(&path, text) {
-                    Ok(()) => trf("status.exported", &[("path", &path.display().to_string())]),
-                    Err(e) => e.to_string(),
-                };
-            });
+        save_gcode(self, text, "job.nc");
     }
 
     /// The tool paths to show on the drawing (page space), made again
@@ -220,6 +219,129 @@ impl App {
     }
 }
 
+/// Width of the hairline outline given to new curves (mm).
+pub const HAIRLINE: f64 = 0.0762;
+
+impl App {
+    /// The targets' outlines in page space, one list per object.
+    fn cnc_outlines(&self) -> Vec<BezPath> {
+        self.cnc_colored_outlines()
+            .into_iter()
+            .map(|(_, p)| p)
+            .collect()
+    }
+
+    /// Add `paths` (page space) as new curves with a hairline outline of
+    /// `color` and no fill, grouped when there are several and `group`
+    /// is on, in one undo step named `label`. The new objects are
+    /// selected; returns their ids (the group's when grouped).
+    pub(crate) fn cnc_add_curves(
+        &mut self,
+        label: &'static str,
+        paths: Vec<(BezPath, bool)>,
+        color: Color,
+        group: bool,
+    ) -> Vec<ShapeId> {
+        let paths: Vec<(BezPath, bool)> = paths
+            .into_iter()
+            .filter(|(p, _)| !p.elements().is_empty())
+            .collect();
+        let Some(layer) = self.active_layer() else {
+            return Vec::new();
+        };
+        if paths.is_empty() {
+            return Vec::new();
+        }
+        let mut shapes: Vec<Shape> = paths
+            .into_iter()
+            .map(|(path, closed)| {
+                let id = self.engine.new_shape_id();
+                let mut s = Shape::new(id, ShapeKind::Path { path, closed });
+                s.fill = Fill::None;
+                s.stroke = Some(Stroke::new(color, HAIRLINE));
+                s
+            })
+            .collect();
+        if group && shapes.len() > 1 {
+            let gid = self.engine.new_shape_id();
+            let children = std::mem::take(&mut shapes);
+            shapes.push(Shape::new(gid, ShapeKind::Group { children }));
+        }
+        let ids: Vec<ShapeId> = shapes.iter().map(|s| s.id).collect();
+        let cmds: Vec<Command> = shapes
+            .into_iter()
+            .map(|shape| Command::AddShape { layer, shape })
+            .collect();
+        if let Err(e) = self.engine.run_batch(label, &cmds) {
+            self.status = e.to_string();
+            return Vec::new();
+        }
+        self.select(ids.clone());
+        ids
+    }
+
+    /// The hot wire path through the targets' closed outlines from the
+    /// start point.
+    pub fn cnc_wire_points(&self) -> Option<Vec<Point>> {
+        let start = Point::new(self.sc_cnc.wire_start_x, self.sc_cnc.wire_start_y);
+        tracedraw_signcut::cnc::hotwire::wire_path(&self.cnc_outlines(), start)
+    }
+
+    /// Add the hot wire path as one open curve. Returns its id.
+    pub fn cnc_hot_wire(&mut self) -> Option<ShapeId> {
+        let Some(pts) = self.cnc_wire_points() else {
+            self.status = tr("signcut.cnc_no_closed");
+            return None;
+        };
+        let len = tracedraw_signcut::cnc::polyline_length(&pts, false);
+        let ids = self.cnc_add_curves(
+            "Hot Wire Path",
+            vec![(polyline(&pts, false), false)],
+            Color::rgb8(230, 40, 20),
+            false,
+        );
+        let u = self.units;
+        self.status = trf(
+            "signcut.cnc_wire_done",
+            &[("len", &format!("{:.2} {}", u.world_from_mm(len), u.short()))],
+        );
+        ids.first().copied()
+    }
+
+    /// The hot wire path as G-code in X and Y for the machine in use.
+    pub fn cnc_wire_gcode(&mut self) -> Option<String> {
+        let Some(pts) = self.cnc_wire_points() else {
+            self.status = tr("signcut.cnc_no_closed");
+            return None;
+        };
+        let m = self.cnc_machine()?.clone();
+        let tool = self.sc_cnc.tools.get(self.sc_cnc.wire_tool)?.clone();
+        let size = self.page_size();
+        Some(gcode::emit_xy(&m, &tool, &pts, size.width, size.height))
+    }
+
+    /// Save the hot wire G-code to a file.
+    pub fn cnc_export_wire_gcode(&mut self) {
+        let Some(text) = self.cnc_wire_gcode() else {
+            return;
+        };
+        save_gcode(self, text, "hot-wire.nc");
+    }
+}
+
+/// Offer `text` for saving as a G-code file named `name`.
+fn save_gcode(app: &mut App, text: String, name: &str) {
+    crate::files::Dialog::new()
+        .add_filter("G-code", &["nc", "gcode", "ngc", "tap"])
+        .set_file_name(name)
+        .save_file(app, move |app, path| {
+            app.status = match crate::files::write(&path, text) {
+                Ok(()) => trf("status.exported", &[("path", &path.display().to_string())]),
+                Err(e) => e.to_string(),
+            };
+        });
+}
+
 /// A polyline as a path.
 pub(crate) fn polyline(pts: &[Point], closed: bool) -> BezPath {
     let mut p = BezPath::new();
@@ -246,13 +368,16 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
             app.cnc_find_colors();
         }
     }
+    if item(ui, "menu.tools.signcut_cnc_hot_wire", "", doc) {
+        app.open_signcut(Section::Cnc);
+        app.cnc_hot_wire();
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use tracedraw_core::geometry::Rect;
-    use tracedraw_core::{Color, Command, Stroke};
 
     fn rect(app: &mut App, x: f64, y: f64, w: f64, h: f64) -> ShapeId {
         app.new_shape(ShapeKind::Rect {
@@ -332,5 +457,37 @@ mod tests {
         assert_eq!(app.cnc_plan().len(), 2);
         app.select(vec![]);
         assert_eq!(app.cnc_plan().len(), 3);
+    }
+
+    #[test]
+    fn hot_wire_path_is_one_open_curve_in_one_step() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 10.0, 0.0, 10.0, 10.0);
+        let b = rect(&mut app, 25.0, 0.0, 10.0, 10.0);
+        app.select(vec![a, b]);
+        let id = app.cnc_hot_wire().expect("a path");
+        assert_eq!(app.selection, vec![id]);
+        let s = app.doc().shape_on_page(id).expect("shape");
+        assert!(matches!(s.kind, ShapeKind::Path { closed: false, .. }));
+        let len = tracedraw_signcut::measure::length(&s.page_path());
+        // Two outlines once, 10 mm in and 5 mm between, each twice.
+        assert!((len - (80.0 + 2.0 * 15.0)).abs() < 1e-6, "{len}");
+        assert_eq!(app.engine.undo_label(), Some("Hot Wire Path"));
+        // XY G-code: no Z moves.
+        app.select(vec![a, b]);
+        let g = app.cnc_wire_gcode().expect("G-code");
+        assert!(!g.contains('Z') && g.contains("G1 X"));
+        // Nothing closed: nothing added.
+        let mut line = BezPath::new();
+        line.move_to((0.0, 50.0));
+        line.line_to((10.0, 50.0));
+        let l = app
+            .new_shape(ShapeKind::Path {
+                path: line,
+                closed: false,
+            })
+            .expect("line");
+        app.select(vec![l]);
+        assert!(app.cnc_hot_wire().is_none());
     }
 }

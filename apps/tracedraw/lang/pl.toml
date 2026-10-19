@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Zagłębianie:" # mt
 signcut.cnc_max_depth = "Najgłębsze przejście:" # mt
 signcut.cnc_safe_z = "Bezpieczna wysokość:" # mt
 signcut.cnc_park = "Na końcu przejdź do pozycji parkowania (współrzędne maszyny)" # mt
+menu.tools.signcut_cnc_hot_wire = "Ścieżka gorącego drutu" # mt
+signcut.cnc_hot_wire = "Ścieżka gorącego drutu" # mt
+signcut.cnc_wire_hint = "Jedna ciągła ścieżka przez zamknięte kontury: wejście od punktu startowego, każdy kontur raz, połączenia cięte tam i z powrotem." # mt
+signcut.cnc_wire_start = "Punkt startowy:" # mt
+signcut.cnc_wire_make = "Utwórz ścieżkę" # mt
+signcut.cnc_wire_export = "Eksportuj G-code gorącego drutu..." # mt
+signcut.cnc_no_closed = "Nie znaleziono zamkniętych konturów." # mt
+signcut.cnc_wire_done = "Dodano ścieżkę gorącego drutu: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty i wzory" # mt

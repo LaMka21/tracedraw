@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Affondamento:" # mt
 signcut.cnc_max_depth = "Passata più profonda:" # mt
 signcut.cnc_safe_z = "Altezza di sicurezza:" # mt
 signcut.cnc_park = "Andare in posizione di parcheggio alla fine (coordinate macchina)" # mt
+menu.tools.signcut_cnc_hot_wire = "Percorso a filo caldo" # mt
+signcut.cnc_hot_wire = "Percorso a filo caldo" # mt
+signcut.cnc_wire_hint = "Un percorso continuo attraverso i contorni chiusi: ingresso dal punto iniziale, ogni contorno una volta, i collegamenti tagliati andata e ritorno." # mt
+signcut.cnc_wire_start = "Punto iniziale:" # mt
+signcut.cnc_wire_make = "Crea il percorso" # mt
+signcut.cnc_wire_export = "Esporta G-code filo caldo..." # mt
+signcut.cnc_no_closed = "Nessun contorno chiuso trovato." # mt
+signcut.cnc_wire_done = "Percorso a filo caldo aggiunto: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effetti e motivi" # mt

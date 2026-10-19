@@ -106,6 +106,33 @@ tool paths** draws the paths, lead-ins included, on the drawing while
 the panel shows. The panel gives the number of tool paths and their
 length over all passes. Nothing in the drawing changes; no undo step.
 
+## Hot wire path
+
+For foam cutting with a wire that cannot be lifted: one open curve
+through every closed outline of the objects (open curves are ignored).
+
+- Start point: X 0, Y 0 (the page's bottom left) at first, in page
+  coordinates.
+- The outlines (flattened within 0.05 mm; each subpath on its own, so a
+  hole is an outline of its own) are joined into a tree: starting from
+  the start point, the outline with the shortest straight connection to
+  the start point or to an outline already joined is joined next
+  (Prim). Connections run between the nearest points (node to segment
+  either way).
+- The path goes from the start point to the entry of the first outline,
+  follows each outline once in its drawn direction from its entry round
+  to it again, and where a connection leaves an outline goes out along
+  it, cuts that outline (and its own branches) and comes back the same
+  way. It ends at the start point. Its length is the sum of the
+  outlines plus twice the sum of the connections.
+- **Make the Path** (also Tools > Sign & Cut > CNC and Laser > Hot Wire
+  Path) adds it as one open curve with a red hairline outline, selected,
+  in one undo step ("Hot Wire Path"); the status line gives its length.
+- **Export Hot Wire G-code...** writes the same path in X and Y only for
+  the machine in use (its Z axis ignored): header, `G0` to the start
+  point, beam (heat) on with the chosen tool (Hot wire at first: feed
+  300 mm/min, `{rpm}` 50), `G1` along the path, beam off, footer.
+
 ## Checks
 
 - `tracedraw_signcut::cnc::tests::*`: flattening with non-finite points,
@@ -119,5 +146,9 @@ length over all passes. Nothing in the drawing changes; no undo step.
   passes below their top, tool radius offsets, inner outlines first and
   directions, lead-ins from the waste side, tool changes and the table
   check, non-finite input.
+- `tracedraw_signcut::cnc::hotwire::tests::*`: one square from a start
+  point, three squares joined by their shortest connections cut twice, a
+  hole entered from its outline, nothing closed or non-finite input.
 - `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
-  `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`.
+  `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`,
+  `signcut_cnc::tests::hot_wire_path_is_one_open_curve_in_one_step`.

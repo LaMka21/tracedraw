@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Dalma:" # mt
 signcut.cnc_max_depth = "En derin geçiş:" # mt
 signcut.cnc_safe_z = "Güvenli yükseklik:" # mt
 signcut.cnc_park = "Sonda park konumuna git (makine koordinatları)" # mt
+menu.tools.signcut_cnc_hot_wire = "Sıcak tel yolu" # mt
+signcut.cnc_hot_wire = "Sıcak tel yolu" # mt
+signcut.cnc_wire_hint = "Kapalı anahatlardan geçen tek sürekli yol: başlangıç noktasından giriş, her anahat bir kez, bağlantılar gidiş-dönüş kesilir." # mt
+signcut.cnc_wire_start = "Başlangıç noktası:" # mt
+signcut.cnc_wire_make = "Yolu oluştur" # mt
+signcut.cnc_wire_export = "Sıcak tel G kodunu dışa aktar..." # mt
+signcut.cnc_no_closed = "Kapalı anahat bulunamadı." # mt
+signcut.cnc_wire_done = "Sıcak tel yolu eklendi: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efektler ve desenler" # mt

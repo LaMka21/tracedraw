@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "प्लंज:" # mt
 signcut.cnc_max_depth = "सबसे गहरा पास:" # mt
 signcut.cnc_safe_z = "सुरक्षित ऊँचाई:" # mt
 signcut.cnc_park = "अंत में पार्क स्थिति पर जाएँ (मशीन निर्देशांक)" # mt
+menu.tools.signcut_cnc_hot_wire = "हॉट वायर पथ" # mt
+signcut.cnc_hot_wire = "हॉट वायर पथ" # mt
+signcut.cnc_wire_hint = "बंद आउटलाइनों से होकर एक निरंतर पथ: आरंभ बिंदु से प्रवेश, हर आउटलाइन एक बार, जोड़ आने-जाने में कटते हैं।" # mt
+signcut.cnc_wire_start = "आरंभ बिंदु:" # mt
+signcut.cnc_wire_make = "पथ बनाएँ" # mt
+signcut.cnc_wire_export = "हॉट वायर G-code निर्यात करें..." # mt
+signcut.cnc_no_closed = "कोई बंद आउटलाइन नहीं मिली।" # mt
+signcut.cnc_wire_done = "हॉट वायर पथ जोड़ा गया: {len}।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt

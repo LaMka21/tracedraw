@@ -17,6 +17,49 @@ pub fn section(app: &mut App, ui: &mut Ui) {
         }),
     );
     sub(ui, "signcut.cnc_gcode", |ui| gcode(app, ui));
+    sub(ui, "signcut.cnc_hot_wire", |ui| hot_wire(app, ui));
+}
+
+/// A combo box over the tool list.
+fn tool_combo(ui: &mut Ui, id: &str, tools: &[Tool], current: &mut usize) {
+    let name = tools
+        .get(*current)
+        .map(|t| t.name.clone())
+        .unwrap_or_default();
+    egui::ComboBox::from_id_salt(id)
+        .selected_text(name)
+        .width(150.0)
+        .show_ui(ui, |ui| {
+            for (k, t) in tools.iter().enumerate() {
+                ui.selectable_value(current, k, &t.name);
+            }
+        });
+}
+
+fn hot_wire(app: &mut App, ui: &mut Ui) {
+    let u = app.units;
+    dim(ui, tr("signcut.cnc_wire_hint"));
+    let s = &mut app.sc_cnc;
+    egui::Grid::new("cnc_wire_grid")
+        .num_columns(2)
+        .spacing([8.0, 3.0])
+        .show(ui, |ui| {
+            row(ui, "signcut.cnc_wire_start", |ui| {
+                ui.label("X");
+                length_field(ui, u, &mut s.wire_start_x, -1_000_000.0);
+                ui.label("Y");
+                length_field(ui, u, &mut s.wire_start_y, -1_000_000.0);
+            });
+            row(ui, "signcut.cnc_tool", |ui| {
+                tool_combo(ui, "cnc_wire_tool", &s.tools, &mut s.wire_tool);
+            });
+        });
+    if ui.button(tr("signcut.cnc_wire_make")).clicked() {
+        app.cnc_hot_wire();
+    }
+    if ui.button(tr("signcut.cnc_wire_export")).clicked() {
+        app.cnc_export_wire_gcode();
+    }
 }
 
 /// A collapsing block of the section.

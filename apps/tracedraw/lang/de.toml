@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Eintauchen:" # mt
 signcut.cnc_max_depth = "Tiefster Durchgang:" # mt
 signcut.cnc_safe_z = "Sicherheitshöhe:" # mt
 signcut.cnc_park = "Am Ende in die Parkposition fahren (Maschinenkoordinaten)" # mt
+menu.tools.signcut_cnc_hot_wire = "Heißdrahtweg" # mt
+signcut.cnc_hot_wire = "Heißdrahtweg" # mt
+signcut.cnc_wire_hint = "Ein durchgehender Weg durch die geschlossenen Konturen: vom Startpunkt hinein, jede Kontur einmal, die Verbindungen hin und zurück geschnitten." # mt
+signcut.cnc_wire_start = "Startpunkt:" # mt
+signcut.cnc_wire_make = "Weg erzeugen" # mt
+signcut.cnc_wire_export = "Heißdraht-G-Code exportieren..." # mt
+signcut.cnc_no_closed = "Keine geschlossenen Konturen gefunden." # mt
+signcut.cnc_wire_done = "Heißdrahtweg hinzugefügt: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effekte und Muster" # mt

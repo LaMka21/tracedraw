@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Insteken:" # mt
 signcut.cnc_max_depth = "Diepste doorgang:" # mt
 signcut.cnc_safe_z = "Veilige hoogte:" # mt
 signcut.cnc_park = "Aan het eind naar een parkeerpositie (machinecoördinaten)" # mt
+menu.tools.signcut_cnc_hot_wire = "Hittedraadpad" # mt
+signcut.cnc_hot_wire = "Hittedraadpad" # mt
+signcut.cnc_wire_hint = "Eén doorlopend pad door de gesloten omtrekken: in vanaf het startpunt, elke omtrek één keer, de verbindingen heen en terug gesneden." # mt
+signcut.cnc_wire_start = "Startpunt:" # mt
+signcut.cnc_wire_make = "Pad maken" # mt
+signcut.cnc_wire_export = "Hittedraad-G-code exporteren..." # mt
+signcut.cnc_no_closed = "Geen gesloten omtrekken gevonden." # mt
+signcut.cnc_wire_done = "Hittedraadpad toegevoegd: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effecten en patronen" # mt

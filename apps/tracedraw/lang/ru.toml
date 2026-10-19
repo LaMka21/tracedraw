@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Врезание:" # mt
 signcut.cnc_max_depth = "Наибольший проход:" # mt
 signcut.cnc_safe_z = "Безопасная высота:" # mt
 signcut.cnc_park = "В конце перейти в точку парковки (координаты станка)" # mt
+menu.tools.signcut_cnc_hot_wire = "Траектория горячей струны" # mt
+signcut.cnc_hot_wire = "Траектория горячей струны" # mt
+signcut.cnc_wire_hint = "Одна непрерывная траектория по замкнутым контурам: вход от начальной точки, каждый контур один раз, перемычки туда и обратно." # mt
+signcut.cnc_wire_start = "Начальная точка:" # mt
+signcut.cnc_wire_make = "Создать траекторию" # mt
+signcut.cnc_wire_export = "Экспорт G-кода горячей струны..." # mt
+signcut.cnc_no_closed = "Замкнутые контуры не найдены." # mt
+signcut.cnc_wire_done = "Траектория горячей струны добавлена: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Эффекты и узоры" # mt

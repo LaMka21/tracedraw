@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "突っ込み速度:" # mt
 signcut.cnc_max_depth = "1 パスの最大深さ:" # mt
 signcut.cnc_safe_z = "安全高さ:" # mt
 signcut.cnc_park = "最後に待機位置へ移動 (機械座標)" # mt
+menu.tools.signcut_cnc_hot_wire = "ホットワイヤー経路" # mt
+signcut.cnc_hot_wire = "ホットワイヤー経路" # mt
+signcut.cnc_wire_hint = "閉じた輪郭を通る 1 本の連続経路: 開始点から入り、各輪郭を 1 回、接続は往復で切ります。" # mt
+signcut.cnc_wire_start = "開始点:" # mt
+signcut.cnc_wire_make = "経路を作成" # mt
+signcut.cnc_wire_export = "ホットワイヤー G コードを書き出し..." # mt
+signcut.cnc_no_closed = "閉じた輪郭がありません。" # mt
+signcut.cnc_wire_done = "ホットワイヤー経路を追加しました: {len}。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "効果とパターン" # mt

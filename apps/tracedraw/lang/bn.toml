@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "প্লাঞ্জ:" # mt
 signcut.cnc_max_depth = "গভীরতম পাস:" # mt
 signcut.cnc_safe_z = "নিরাপদ উচ্চতা:" # mt
 signcut.cnc_park = "শেষে পার্ক অবস্থানে যান (মেশিন স্থানাঙ্ক)" # mt
+menu.tools.signcut_cnc_hot_wire = "হট ওয়্যার পথ" # mt
+signcut.cnc_hot_wire = "হট ওয়্যার পথ" # mt
+signcut.cnc_wire_hint = "বন্ধ আউটলাইনের মধ্য দিয়ে একটি নিরবচ্ছিন্ন পথ: শুরু বিন্দু থেকে ঢোকা, প্রতিটি আউটলাইন একবার, সংযোগগুলো যাওয়া-আসা কাটা।" # mt
+signcut.cnc_wire_start = "শুরু বিন্দু:" # mt
+signcut.cnc_wire_make = "পথ তৈরি করুন" # mt
+signcut.cnc_wire_export = "হট ওয়্যার G-code রপ্তানি..." # mt
+signcut.cnc_no_closed = "কোনো বন্ধ আউটলাইন পাওয়া যায়নি।" # mt
+signcut.cnc_wire_done = "হট ওয়্যার পথ যোগ হয়েছে: {len}।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "ইফেক্ট ও প্যাটার্ন" # mt

@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Zanoření:" # mt
 signcut.cnc_max_depth = "Nejhlubší průchod:" # mt
 signcut.cnc_safe_z = "Bezpečná výška:" # mt
 signcut.cnc_park = "Na konci najet do parkovací polohy (souřadnice stroje)" # mt
+menu.tools.signcut_cnc_hot_wire = "Dráha horkého drátu" # mt
+signcut.cnc_hot_wire = "Dráha horkého drátu" # mt
+signcut.cnc_wire_hint = "Jedna souvislá dráha uzavřenými obrysy: vjezd od počátečního bodu, každý obrys jednou, spojnice tam a zpět." # mt
+signcut.cnc_wire_start = "Počáteční bod:" # mt
+signcut.cnc_wire_make = "Vytvořit dráhu" # mt
+signcut.cnc_wire_export = "Exportovat G-code horkého drátu..." # mt
+signcut.cnc_no_closed = "Nenalezeny žádné uzavřené obrysy." # mt
+signcut.cnc_wire_done = "Dráha horkého drátu přidána: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty a vzory" # mt

@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "Penurunan:" # mt
 signcut.cnc_max_depth = "Lintasan terdalam:" # mt
 signcut.cnc_safe_z = "Tinggi aman:" # mt
 signcut.cnc_park = "Ke posisi parkir di akhir (koordinat mesin)" # mt
+menu.tools.signcut_cnc_hot_wire = "Jalur kawat panas" # mt
+signcut.cnc_hot_wire = "Jalur kawat panas" # mt
+signcut.cnc_wire_hint = "Satu jalur menerus melalui garis tertutup: masuk dari titik awal, tiap garis sekali, sambungan dipotong pergi dan pulang." # mt
+signcut.cnc_wire_start = "Titik awal:" # mt
+signcut.cnc_wire_make = "Buat jalur" # mt
+signcut.cnc_wire_export = "Ekspor G-code kawat panas..." # mt
+signcut.cnc_no_closed = "Tidak ada garis tertutup." # mt
+signcut.cnc_wire_done = "Jalur kawat panas ditambahkan: {len}." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efek dan pola" # mt

@@ -4527,6 +4527,14 @@ signcut.cnc_plunge = "下刀:" # mt
 signcut.cnc_max_depth = "每遍最大深度:" # mt
 signcut.cnc_safe_z = "安全高度:" # mt
 signcut.cnc_park = "结束时移到停靠位置 (机床坐标)" # mt
+menu.tools.signcut_cnc_hot_wire = "热线切割路径" # mt
+signcut.cnc_hot_wire = "热线切割路径" # mt
+signcut.cnc_wire_hint = "一条穿过闭合轮廓的连续路径: 从起点进入, 每个轮廓一次, 连接线往返切割。" # mt
+signcut.cnc_wire_start = "起点:" # mt
+signcut.cnc_wire_make = "生成路径" # mt
+signcut.cnc_wire_export = "导出热线 G 代码..." # mt
+signcut.cnc_no_closed = "未找到闭合轮廓。" # mt
+signcut.cnc_wire_done = "已添加热线路径: {len}。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "效果和图案" # mt
