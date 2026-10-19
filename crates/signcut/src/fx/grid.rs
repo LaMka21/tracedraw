@@ -11,7 +11,8 @@ pub const MAX_CELLS: usize = 100_000;
 pub const MAX_LINES: usize = 10_000;
 
 /// The settings of a grid.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct GridSpec {
     pub cols: usize,
     pub rows: usize,

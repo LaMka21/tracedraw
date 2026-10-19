@@ -17,7 +17,7 @@ pub const MAX_LINES: usize = 20_000;
 pub const MIN_SPACING: f64 = 0.05;
 
 /// How the lines are joined.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum HatchStyle {
     /// Separate parallel lines.
     #[default]
@@ -29,7 +29,8 @@ pub enum HatchStyle {
 }
 
 /// The settings of the hatching.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct HatchSpec {
     pub style: HatchStyle,
     /// Direction of the lines, degrees counter-clockwise from the x axis.

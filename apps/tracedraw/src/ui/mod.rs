@@ -76,7 +76,6 @@ pub mod shelf_docker;
 pub mod signcut_calc;
 pub mod signcut_cut;
 pub mod signcut_docker;
-pub mod signcut_fx;
 pub mod signcut_kit;
 pub mod signcut_sign;
 pub mod signcut_toolbar;

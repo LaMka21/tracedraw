@@ -5,14 +5,18 @@ shapes, grids and dividing lines, jigsaw puzzles, circle fills, flat cast
 shadows and random copies. The geometry is in
 `crates/signcut/src/fx/` (`tracedraw_signcut::fx`); the operations and
 their settings are in `apps/tracedraw/src/signcut_fx.rs` (`app.sc_fx`),
-the panel section in `apps/tracedraw/src/ui/signcut_fx.rs`.
+the windows in `apps/tracedraw/src/ui/signcut_win_fx.rs` (see
+[Windows](#windows)).
 
-Open it from Window > Panels > Sign & Cut, section Effects and Patterns,
-or from Tools > Sign & Cut > Effects and Patterns: Effects and Patterns
-Panel, Hatch Selected Shapes, Create Grid, Create Lines, Make Puzzle,
-Fill with Circles, Add Cast Shadow and Random Copies. Each menu item
-opens the panel at the section and runs at once with the panel's
-settings. The settings last for the session (they are not saved).
+Three tool windows hold them: **Effects** (puzzle, circle fill, cast
+shadow, random copies), **Hatching Lines** and **Grid** (grid or
+dividing lines). Open them from the Effects and Patterns button of the
+Sign & Cut toolbar, from the Sign & Cut panel, or from Tools > Sign &
+Cut > Effects and Patterns: Hatch Selected Shapes opens Hatching Lines;
+Create Grid and Create Lines open Grid with that method; Make Puzzle,
+Fill with Circles, Add Cast Shadow and Random Copies open Effects with
+that method. The settings last for the session; presets keep them
+across sessions.
 
 ## Common rules
 
@@ -39,7 +43,8 @@ settings. The settings last for the session (they are not saved).
 
 ## Hatching lines
 
-Settings: Style Lines, Snake or Grid (Lines); Angle (0 degrees, counter-
+Settings: method Parallel lines, Snake or Grid (parallel); Angle (0
+degrees, counter-
 clockwise from the x axis); Spacing (2 mm, at least 0.05 mm); Inset
 (0 mm).
 
@@ -71,9 +76,8 @@ clockwise from the x axis); Spacing (2 mm, at least 0.05 mm); Inset
 
 Grid settings: Columns (4) and Rows (3), 1 to 1000 each and at most
 100 000 cells; Fill the selection's box (off); Cell width and Cell
-height (20 mm each); Bottom left (x, y) (10 mm, 10 mm); As lines or As
-rectangles (lines); Show on the drawing (off: draws the grid's lines on
-the page while the section is open).
+height (20 mm each); Left (x) and Bottom (y) of the grid (10 mm, 10 mm);
+As lines or As rectangles (lines).
 
 - Without Fill the selection's box (or with nothing selected) the grid
   starts at the bottom-left point with the given cells. With it, the
@@ -84,7 +88,7 @@ the page while the section is open).
   one rectangle per cell, row by row from the bottom.
 - One group on the active layer. Undo label "Grid".
 
-Lines across: Count (3, 1 to 10 000), Horizontal or Vertical
+Dividing lines: Count (3, 1 to 10 000), Direction Horizontal or Vertical
 (horizontal). n lines divide the selection's bounding box (or the page
 with nothing selected) into n + 1 equal strips: at y0 + h i / (n + 1)
 for i = 1..n (x likewise). One curve per line, one group on the active
@@ -192,6 +196,78 @@ least 1 %); Minimum distance (0 mm); Seed.
   line says "n of count copies placed": fewer when no more fit. Undo
   label "Random Copies".
 
+## Windows
+
+The three windows share one layout (see sign-and-cut-windows.md for the
+window chrome, group boxes, presets and units):
+
+- At the left a white preview of the result on the objects it works on,
+  resizable with the window: the objects as they are in grey; after
+  Apply the result in black over them (a shadow in its own colour, under
+  the object). Random copies also show their container (or the page) in
+  dark grey; Grid shows the page unless the grid fills the selection.
+  Under the preview a yellow strip says "Select one or more objects
+  first", "Objects selected: n. Press Apply to preview the result." (Grid:
+  "Press Apply to preview the result.") or, after Apply, what the result
+  holds ("12 puzzle piece(s). Press OK to add it to the drawing.").
+- At the right: the preset row, the method list, the method's settings
+  in titled group boxes, and Units. The method list is a tall drop-down:
+  its button shows the chosen method's small picture, the caption
+  Method and the name; its list shows every method with its picture.
+  Choosing a method shows only that method's settings.
+- Random methods (puzzle, circle fill, random copies) have Random seed
+  with a **New Seed** button under it, which picks another seed from
+  the current one.
+- Under the columns a thin bar shows full while the preview holds a
+  result of the settings, objects and drawing as they are now. At the
+  bottom: Show Original at the left (the preview shows the objects
+  without the result), Apply, OK and Cancel at the right. Apply and OK
+  are greyed while a method that needs a selection has none.
+- **Apply** works the result out with the window's method and settings
+  and shows it in the preview and on the drawing (thin lines over the
+  page while the window is open); the drawing does not change, the
+  status line says what it holds. Changing a setting, the method, the
+  selection (or the container) or the drawing makes it out of date: it
+  is dropped and the preview shows the objects again.
+- **OK** adds the previewed result when it is still current, otherwise
+  works it out and adds it, in one undo step with the operation's label,
+  and closes the window. **Cancel** closes it without changes.
+
+### Effects
+
+About 920 x 680. Preset row (tool key `effects`, it keeps the method and
+every method's settings), method list Puzzle, Circle fill, Cast shadow,
+Random copies (puzzle at first). Settings:
+
+- Puzzle: Pieces (Columns, Rows); Tabs (Tab shape Knob or Wave, Tab
+  size %, Randomness %, Random seed, New Seed); Result (Cut lines only,
+  or Separate pieces replacing the shape).
+- Circle fill: Circles (Smallest radius, Largest radius, Gap, At most,
+  Random seed, New Seed).
+- Cast shadow: Shadow (Shadow falls On a wall or On the floor; wall:
+  Direction in degrees and Distance; floor: Height %, Slant in degrees
+  and Falls in front); Fill (Color, Opacity %).
+- Random copies: Container (whether a container is set, Use Selected
+  Object as Container, Use the Page); Copies (Count, Turn from, Turn to,
+  Scale from %, Scale to %, Minimum distance, Random seed, New Seed).
+
+### Hatching Lines
+
+About 860 x 600. Preset row (tool key `hatching`), method list Parallel
+lines, Snake, Grid; Lines (Angle, Spacing, Inset); Units.
+
+### Grid
+
+About 860 x 600. Preset row (tool key `grid`), method list Grid,
+Dividing lines.
+
+- Grid: Grid (Columns, Rows); Size and position (Fill the selection's
+  box; Cell width, Cell height, Left (x), Bottom (y), greyed while the
+  grid fills the selection); Output (As lines, As rectangles).
+- Dividing lines: Count, Direction, and a note on what they divide.
+
+Neither method needs a selection, so Apply and OK always work.
+
 ## Checks
 
 Geometry (`cargo test -p tracedraw-signcut`):
@@ -229,5 +305,10 @@ Application (`cargo test -p tracedraw --bin tracedraw -- signcut`):
 - `signcut_fx::tests::circle_fill_puts_circles_inside`
 - `signcut_fx::tests::a_shadow_goes_right_behind_its_object`
 - `signcut_fx::tests::random_copies_land_inside_the_container_and_repeat_with_the_seed`
-- `ui::signcut_fx::tests::the_section_draws_in_every_mode_and_previews_the_grid`
+- `signcut_fx::tests::computing_changes_nothing_and_goes_stale_with_the_inputs`
+- `signcut_fx::tests::presets_of_the_windows_round_trip`
+- `ui::signcut_win_fx::tests::every_window_draws_every_method`
+- `ui::signcut_win_fx::tests::apply_previews_and_changes_nothing`
+- `ui::signcut_win_fx::tests::ok_adds_the_previewed_result_in_one_step`
+- `ui::signcut_windows::tests::every_tool_window_draws`
 - The menu items run in `ui::menus::tests::every_menu_item_runs_without_panicking`.

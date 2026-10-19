@@ -20,7 +20,7 @@ pub const MIN_SCALE: f64 = 0.01;
 pub const MAX_SCALE: f64 = 5.0;
 
 /// Where the shadow falls.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ShadowKind {
     #[default]
     Wall,
@@ -28,7 +28,8 @@ pub enum ShadowKind {
 }
 
 /// The settings of the shadow.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ShadowSpec {
     pub kind: ShadowKind,
     /// Wall: the direction of the move, degrees counter-clockwise from x.
