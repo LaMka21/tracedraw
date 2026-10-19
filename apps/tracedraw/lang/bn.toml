@@ -5109,3 +5109,18 @@ signcut.nw_applied = "বিন্যাস: {total}টির মধ্যে {n
 signcut.rn_tolerance = "সহনশীলতা" # mt
 signcut.rn_nothing = "নির্বাচিত কার্ভগুলো থেকে কোনো নোড সরানো যায়নি।" # mt
 signcut.rn_done = "{n}টি নোড সরানো হয়েছে।" # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"

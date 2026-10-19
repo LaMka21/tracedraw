@@ -5109,3 +5109,18 @@ signcut.nw_applied = "排版：{total} 個中已排放 {n} 個，共 {sheets} �
 signcut.rn_tolerance = "容差" # mt
 signcut.rn_nothing = "無法從所選曲線中移除任何節點。" # mt
 signcut.rn_done = "已移除 {n} 個節點。" # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"

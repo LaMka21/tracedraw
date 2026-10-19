@@ -5109,3 +5109,18 @@ signcut.nw_applied = "Anordnung: {n} von {total} auf {sheets} Bogen platziert, {
 signcut.rn_tolerance = "Toleranz" # mt
 signcut.rn_nothing = "Aus den ausgewählten Kurven konnten keine Knoten entfernt werden." # mt
 signcut.rn_done = "{n} Knoten entfernt." # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"

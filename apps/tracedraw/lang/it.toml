@@ -5109,3 +5109,18 @@ signcut.nw_applied = "Disposizione: {n} di {total} posizionati su {sheets} fogli
 signcut.rn_tolerance = "Tolleranza" # mt
 signcut.rn_nothing = "Non è stato possibile rimuovere nodi dalle curve selezionate." # mt
 signcut.rn_done = "{n} nodo/i rimosso/i." # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"

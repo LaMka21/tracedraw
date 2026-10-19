@@ -5109,3 +5109,18 @@ signcut.nw_applied = "レイアウト: {total} 個中 {n} 個を {sheets} 枚の
 signcut.rn_tolerance = "許容値" # mt
 signcut.rn_nothing = "選択したカーブから削除できるノードはありませんでした。" # mt
 signcut.rn_done = "{n} 個のノードを削除しました。" # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"

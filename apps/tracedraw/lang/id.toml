@@ -5109,3 +5109,18 @@ signcut.nw_applied = "Tata letak: {n} dari {total} ditempatkan pada {sheets} lem
 signcut.rn_tolerance = "Toleransi" # mt
 signcut.rn_nothing = "Tidak ada node yang dapat dihapus dari kurva terpilih." # mt
 signcut.rn_done = "{n} node dihapus." # mt
+
+# Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
+signcut.win_cut_marker = "-"
+
+# Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
+signcut.win_calc_marker = "-"
+
+# Sign & Cut windows: sign (keys of this area's windows go below, before the blank line)
+signcut.win_sign_marker = "-"
+
+# Sign & Cut windows: cnc (keys of this area's windows go below, before the blank line)
+signcut.win_cnc_marker = "-"
+
+# Sign & Cut windows: fx (keys of this area's windows go below, before the blank line)
+signcut.win_fx_marker = "-"
