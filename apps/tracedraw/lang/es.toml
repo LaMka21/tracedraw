@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Crear la trayectoria" # mt
 signcut.cnc_wire_export = "Exportar código G de hilo caliente..." # mt
 signcut.cnc_no_closed = "No se encontraron contornos cerrados." # mt
 signcut.cnc_wire_done = "Trayectoria de hilo caliente añadida: {len}." # mt
+menu.tools.signcut_cnc_box = "Caja con uniones de dedos..." # mt
+signcut.cnc_box = "Caja con uniones de dedos" # mt
+signcut.cnc_box_depth = "Fondo" # mt
+signcut.cnc_thickness = "Grosor del material" # mt
+signcut.cnc_finger = "Ancho del dedo" # mt
+signcut.cnc_kerf = "Ancho de corte" # mt
+signcut.cnc_gap = "Separación entre piezas" # mt
+signcut.cnc_box_inside = "Medidas interiores" # mt
+signcut.cnc_box_open = "Sin tapa" # mt
+signcut.cnc_box_make = "Crear la caja" # mt
+signcut.cnc_box_bad = "Estas medidas no forman una caja: cada lado debe superar el doble del grosor." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efectos y patrones" # mt

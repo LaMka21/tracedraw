@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Weg erzeugen" # mt
 signcut.cnc_wire_export = "Heißdraht-G-Code exportieren..." # mt
 signcut.cnc_no_closed = "Keine geschlossenen Konturen gefunden." # mt
 signcut.cnc_wire_done = "Heißdrahtweg hinzugefügt: {len}." # mt
+menu.tools.signcut_cnc_box = "Box mit Fingerzinken..." # mt
+signcut.cnc_box = "Box mit Fingerzinken" # mt
+signcut.cnc_box_depth = "Tiefe" # mt
+signcut.cnc_thickness = "Materialstärke" # mt
+signcut.cnc_finger = "Zinkenbreite" # mt
+signcut.cnc_kerf = "Schnittbreite" # mt
+signcut.cnc_gap = "Abstand zwischen Teilen" # mt
+signcut.cnc_box_inside = "Innenmaße" # mt
+signcut.cnc_box_open = "Oben offen" # mt
+signcut.cnc_box_make = "Box erzeugen" # mt
+signcut.cnc_box_bad = "Mit diesen Maßen entsteht keine Box: jede Seite muss länger als die doppelte Stärke sein." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effekte und Muster" # mt

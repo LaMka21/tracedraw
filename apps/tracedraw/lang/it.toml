@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Crea il percorso" # mt
 signcut.cnc_wire_export = "Esporta G-code filo caldo..." # mt
 signcut.cnc_no_closed = "Nessun contorno chiuso trovato." # mt
 signcut.cnc_wire_done = "Percorso a filo caldo aggiunto: {len}." # mt
+menu.tools.signcut_cnc_box = "Scatola a incastri a dita..." # mt
+signcut.cnc_box = "Scatola a incastri a dita" # mt
+signcut.cnc_box_depth = "Profondità" # mt
+signcut.cnc_thickness = "Spessore del materiale" # mt
+signcut.cnc_finger = "Larghezza dita" # mt
+signcut.cnc_kerf = "Larghezza di taglio" # mt
+signcut.cnc_gap = "Distanza tra i pezzi" # mt
+signcut.cnc_box_inside = "Misure interne" # mt
+signcut.cnc_box_open = "Aperta sopra" # mt
+signcut.cnc_box_make = "Crea la scatola" # mt
+signcut.cnc_box_bad = "Queste misure non formano una scatola: ogni lato deve superare il doppio dello spessore." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effetti e motivi" # mt

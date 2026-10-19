@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Créer le parcours" # mt
 signcut.cnc_wire_export = "Exporter le G-code du fil chaud..." # mt
 signcut.cnc_no_closed = "Aucun contour fermé trouvé." # mt
 signcut.cnc_wire_done = "Parcours de fil chaud ajouté : {len}." # mt
+menu.tools.signcut_cnc_box = "Boîte à entures..." # mt
+signcut.cnc_box = "Boîte à entures" # mt
+signcut.cnc_box_depth = "Profondeur" # mt
+signcut.cnc_thickness = "Épaisseur du matériau" # mt
+signcut.cnc_finger = "Largeur des entures" # mt
+signcut.cnc_kerf = "Largeur de coupe" # mt
+signcut.cnc_gap = "Écart entre les pièces" # mt
+signcut.cnc_box_inside = "Dimensions intérieures" # mt
+signcut.cnc_box_open = "Sans couvercle" # mt
+signcut.cnc_box_make = "Créer la boîte" # mt
+signcut.cnc_box_bad = "Ces dimensions ne font pas une boîte : chaque côté doit dépasser le double de l'épaisseur." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effets et motifs" # mt

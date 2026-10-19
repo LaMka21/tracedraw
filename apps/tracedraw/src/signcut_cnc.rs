@@ -8,6 +8,7 @@ use crate::signcut::Section;
 use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, Point};
 use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
+use tracedraw_signcut::cnc::fingerbox::BoxSpec;
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
 
 /// The CNC and Laser section's settings and last results.
@@ -31,6 +32,8 @@ pub struct Settings {
     pub wire_start_x: f64,
     pub wire_start_y: f64,
     pub wire_tool: usize,
+    /// Finger-joint box.
+    pub box_spec: BoxSpec,
 }
 
 /// What the preview's tool paths depend on.
@@ -63,6 +66,7 @@ impl Default for Settings {
             wire_start_x: 0.0,
             wire_start_y: 0.0,
             wire_tool: 3,
+            box_spec: BoxSpec::default(),
         }
     }
 }
@@ -329,6 +333,34 @@ impl App {
     }
 }
 
+impl App {
+    /// Add the panels of the finger-joint box, grouped, laid out from
+    /// the page's bottom left plus the gap. Returns the group's id.
+    pub fn cnc_finger_box(&mut self) -> Option<ShapeId> {
+        let spec = self.sc_cnc.box_spec;
+        let g = if spec.gap.is_finite() {
+            spec.gap.max(0.0)
+        } else {
+            0.0
+        };
+        let Some(panels) = tracedraw_signcut::cnc::fingerbox::box_panels(&spec, Point::new(g, g))
+        else {
+            self.status = tr("signcut.cnc_box_bad");
+            return None;
+        };
+        let paths = panels.into_iter().map(|(_, p)| (p, true)).collect();
+        let ids = self.cnc_add_curves("Finger-Joint Box", paths, CUT_RED, true);
+        ids.first().copied()
+    }
+}
+
+/// Outline colour of generated cut lines.
+pub const CUT_RED: Color = Color::Rgb {
+    r: 0.9,
+    g: 0.1,
+    b: 0.1,
+};
+
 /// Offer `text` for saving as a G-code file named `name`.
 fn save_gcode(app: &mut App, text: String, name: &str) {
     crate::files::Dialog::new()
@@ -371,6 +403,9 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
     if item(ui, "menu.tools.signcut_cnc_hot_wire", "", doc) {
         app.open_signcut(Section::Cnc);
         app.cnc_hot_wire();
+    }
+    if item(ui, "menu.tools.signcut_cnc_box", "", doc) {
+        app.open_signcut(Section::Cnc);
     }
 }
 
@@ -489,5 +524,26 @@ mod tests {
             .expect("line");
         app.select(vec![l]);
         assert!(app.cnc_hot_wire().is_none());
+    }
+
+    #[test]
+    fn finger_box_is_one_group_of_panels_in_one_step() {
+        let mut app = App::headless();
+        app.sc_cnc.box_spec.open_top = true;
+        let g = app.cnc_finger_box().expect("a box");
+        let s = app.doc().shape_on_page(g).expect("group");
+        let ShapeKind::Group { children } = &s.kind else {
+            panic!("not a group");
+        };
+        assert_eq!(children.len(), 5);
+        assert!(children
+            .iter()
+            .all(|c| matches!(c.kind, ShapeKind::Path { closed: true, .. })));
+        assert_eq!(app.engine.undo_label(), Some("Finger-Joint Box"));
+        assert!(app.engine.undo().is_ok());
+        assert!(app.doc().find_shape(g).is_none());
+        // Sizes that cannot make a box add nothing.
+        app.sc_cnc.box_spec.thickness = 200.0;
+        assert!(app.cnc_finger_box().is_none());
     }
 }

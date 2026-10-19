@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Utwórz ścieżkę" # mt
 signcut.cnc_wire_export = "Eksportuj G-code gorącego drutu..." # mt
 signcut.cnc_no_closed = "Nie znaleziono zamkniętych konturów." # mt
 signcut.cnc_wire_done = "Dodano ścieżkę gorącego drutu: {len}." # mt
+menu.tools.signcut_cnc_box = "Pudełko na wczepy palcowe..." # mt
+signcut.cnc_box = "Pudełko na wczepy palcowe" # mt
+signcut.cnc_box_depth = "Głębokość" # mt
+signcut.cnc_thickness = "Grubość materiału" # mt
+signcut.cnc_finger = "Szerokość wczepu" # mt
+signcut.cnc_kerf = "Szerokość rzazu" # mt
+signcut.cnc_gap = "Odstęp między częściami" # mt
+signcut.cnc_box_inside = "Wymiary wewnętrzne" # mt
+signcut.cnc_box_open = "Otwarta góra" # mt
+signcut.cnc_box_make = "Utwórz pudełko" # mt
+signcut.cnc_box_bad = "Z tych wymiarów nie powstanie pudełko: każdy bok musi być dłuższy niż dwie grubości." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty i wzory" # mt

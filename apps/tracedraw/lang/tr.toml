@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Yolu oluştur" # mt
 signcut.cnc_wire_export = "Sıcak tel G kodunu dışa aktar..." # mt
 signcut.cnc_no_closed = "Kapalı anahat bulunamadı." # mt
 signcut.cnc_wire_done = "Sıcak tel yolu eklendi: {len}." # mt
+menu.tools.signcut_cnc_box = "Parmak geçmeli kutu..." # mt
+signcut.cnc_box = "Parmak geçmeli kutu" # mt
+signcut.cnc_box_depth = "Derinlik" # mt
+signcut.cnc_thickness = "Malzeme kalınlığı" # mt
+signcut.cnc_finger = "Parmak genişliği" # mt
+signcut.cnc_kerf = "Kesim genişliği" # mt
+signcut.cnc_gap = "Parçalar arası boşluk" # mt
+signcut.cnc_box_inside = "İç ölçüler" # mt
+signcut.cnc_box_open = "Üstü açık" # mt
+signcut.cnc_box_make = "Kutuyu oluştur" # mt
+signcut.cnc_box_bad = "Bu ölçülerle kutu olmaz: her kenar kalınlığın iki katından uzun olmalı." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efektler ve desenler" # mt

@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Создать траекторию" # mt
 signcut.cnc_wire_export = "Экспорт G-кода горячей струны..." # mt
 signcut.cnc_no_closed = "Замкнутые контуры не найдены." # mt
 signcut.cnc_wire_done = "Траектория горячей струны добавлена: {len}." # mt
+menu.tools.signcut_cnc_box = "Коробка на шипах..." # mt
+signcut.cnc_box = "Коробка на шипах" # mt
+signcut.cnc_box_depth = "Глубина" # mt
+signcut.cnc_thickness = "Толщина материала" # mt
+signcut.cnc_finger = "Ширина шипа" # mt
+signcut.cnc_kerf = "Ширина реза" # mt
+signcut.cnc_gap = "Зазор между деталями" # mt
+signcut.cnc_box_inside = "Внутренние размеры" # mt
+signcut.cnc_box_open = "Без крышки" # mt
+signcut.cnc_box_make = "Создать коробку" # mt
+signcut.cnc_box_bad = "Из этих размеров коробка не получится: каждая сторона должна быть длиннее двух толщин." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Эффекты и узоры" # mt

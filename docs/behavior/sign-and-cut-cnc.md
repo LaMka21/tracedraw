@@ -133,6 +133,37 @@ through every closed outline of the objects (open curves are ignored).
   point, beam (heat) on with the chosen tool (Hot wire at first: feed
   300 mm/min, `{rpm}` 50), `G1` along the path, beam off, footer.
 
+## Finger-joint box
+
+The flat panels of a box W x D x H joined by finger joints on every
+edge. Defaults: 200 x 150 x 100 mm outside, material thickness T 3 mm,
+finger width 10 mm, kerf 0.1 mm, gap 5 mm, closed top.
+
+- **Inside sizes**: the sizes are inside the box; outside = inside + 2 T
+  (+ T only for the height when the top is open).
+- Panels: front and back W x H, left and right D x H, bottom and top
+  W x D (no top with **Open top**: five panels).
+- Fingers: along an edge of outside length L the length between the
+  two corner cubes, L - 2 T, is split into n equal fingers, n odd and
+  the finger width L' / n nearest to the wanted width (n = round(L' / F),
+  made odd towards the nearer width; at least 1). Both panels of an
+  edge use the same n, so they always mate. The fingers go in turn to
+  the two panels, the first and last to the panel of lower rank (bottom
+  and top, then left and right, then front and back); a finger a panel
+  does not own is cut T deep into it. The eight corner cubes belong to
+  the front and back. An edge with no panel (the open top) is straight.
+  Each piece of the box's shell is in exactly one panel: the panels'
+  areas times T equal the shell's volume.
+- Kerf: each outline is offset outwards by half the kerf (sharp
+  corners), so fingers come out wider and slots narrower by the kerf.
+- Layout: front, back, left and right in a row above bottom and top,
+  starting at the page's bottom left plus the gap, panels a gap (plus
+  the kerf) apart.
+- **Make the Box** adds the panels as closed curves with a red hairline
+  outline in one group, selected, one undo step ("Finger-Joint Box").
+  Sizes that cannot make a box (a side not longer than 2 T, a thickness
+  or finger width of 0) add nothing and say so.
+
 ## Checks
 
 - `tracedraw_signcut::cnc::tests::*`: flattening with non-finite points,
@@ -149,6 +180,11 @@ through every closed outline of the objects (open curves are ignored).
 - `tracedraw_signcut::cnc::hotwire::tests::*`: one square from a start
   point, three squares joined by their shortest connections cut twice, a
   hole entered from its outline, nothing closed or non-finite input.
-- `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
+- `tracedraw_signcut::cnc::fingerbox::tests::*`: odd finger counts,
+  the panels fill the shell exactly (`panels_fill_the_shell_exactly`),
+  open top with inside sizes, the front panel's corners and slots,
+  kerf, impossible sizes.
+- `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
+  `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
   `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`,
   `signcut_cnc::tests::hot_wire_path_is_one_open_curve_in_one_step`.

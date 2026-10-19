@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "إنشاء المسار" # mt
 signcut.cnc_wire_export = "تصدير G-code للسلك الساخن..." # mt
 signcut.cnc_no_closed = "لم يُعثر على حدود مغلقة." # mt
 signcut.cnc_wire_done = "أضيف مسار السلك الساخن: {len}." # mt
+menu.tools.signcut_cnc_box = "صندوق بوصلات أصابع..." # mt
+signcut.cnc_box = "صندوق بوصلات أصابع" # mt
+signcut.cnc_box_depth = "العمق" # mt
+signcut.cnc_thickness = "سماكة المادة" # mt
+signcut.cnc_finger = "عرض الإصبع" # mt
+signcut.cnc_kerf = "عرض القطع" # mt
+signcut.cnc_gap = "المسافة بين القطع" # mt
+signcut.cnc_box_inside = "مقاسات داخلية" # mt
+signcut.cnc_box_open = "مفتوح من الأعلى" # mt
+signcut.cnc_box_make = "إنشاء الصندوق" # mt
+signcut.cnc_box_bad = "هذه المقاسات لا تصنع صندوقاً: يجب أن يكون كل جانب أطول من ضعف السماكة." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "المؤثرات والأنماط" # mt

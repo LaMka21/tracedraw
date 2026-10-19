@@ -18,6 +18,43 @@ pub fn section(app: &mut App, ui: &mut Ui) {
     );
     sub(ui, "signcut.cnc_gcode", |ui| gcode(app, ui));
     sub(ui, "signcut.cnc_hot_wire", |ui| hot_wire(app, ui));
+    sub(ui, "signcut.cnc_box", |ui| finger_box(app, ui));
+}
+
+fn finger_box(app: &mut App, ui: &mut Ui) {
+    let u = app.units;
+    let b = &mut app.sc_cnc.box_spec;
+    egui::Grid::new("cnc_box_grid")
+        .num_columns(2)
+        .spacing([8.0, 3.0])
+        .show(ui, |ui| {
+            row(ui, "signcut.width", |ui| {
+                length_field(ui, u, &mut b.width, 1.0);
+            });
+            row(ui, "signcut.cnc_box_depth", |ui| {
+                length_field(ui, u, &mut b.depth, 1.0);
+            });
+            row(ui, "signcut.height", |ui| {
+                length_field(ui, u, &mut b.height, 1.0);
+            });
+            row(ui, "signcut.cnc_thickness", |ui| {
+                length_field(ui, u, &mut b.thickness, 0.1);
+            });
+            row(ui, "signcut.cnc_finger", |ui| {
+                length_field(ui, u, &mut b.finger, 0.5);
+            });
+            row(ui, "signcut.cnc_kerf", |ui| {
+                length_field(ui, u, &mut b.kerf, 0.0);
+            });
+            row(ui, "signcut.cnc_gap", |ui| {
+                length_field(ui, u, &mut b.gap, 0.0);
+            });
+        });
+    ui.checkbox(&mut b.inside, tr("signcut.cnc_box_inside"));
+    ui.checkbox(&mut b.open_top, tr("signcut.cnc_box_open"));
+    if ui.button(tr("signcut.cnc_box_make")).clicked() {
+        app.cnc_finger_box();
+    }
 }
 
 /// A combo box over the tool list.

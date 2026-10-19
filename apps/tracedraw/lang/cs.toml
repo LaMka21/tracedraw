@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Vytvořit dráhu" # mt
 signcut.cnc_wire_export = "Exportovat G-code horkého drátu..." # mt
 signcut.cnc_no_closed = "Nenalezeny žádné uzavřené obrysy." # mt
 signcut.cnc_wire_done = "Dráha horkého drátu přidána: {len}." # mt
+menu.tools.signcut_cnc_box = "Krabice s ozubovým spojem..." # mt
+signcut.cnc_box = "Krabice s ozubovým spojem" # mt
+signcut.cnc_box_depth = "Hloubka" # mt
+signcut.cnc_thickness = "Tloušťka materiálu" # mt
+signcut.cnc_finger = "Šířka zubu" # mt
+signcut.cnc_kerf = "Šířka řezu" # mt
+signcut.cnc_gap = "Mezera mezi díly" # mt
+signcut.cnc_box_inside = "Vnitřní rozměry" # mt
+signcut.cnc_box_open = "Bez víka" # mt
+signcut.cnc_box_make = "Vytvořit krabici" # mt
+signcut.cnc_box_bad = "Z těchto rozměrů nelze udělat krabici: každá strana musí být delší než dvojnásobek tloušťky." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty a vzory" # mt

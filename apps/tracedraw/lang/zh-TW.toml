@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "產生路徑" # mt
 signcut.cnc_wire_export = "匯出熱線 G 碼..." # mt
 signcut.cnc_no_closed = "找不到封閉外框。" # mt
 signcut.cnc_wire_done = "已加入熱線路徑: {len}。" # mt
+menu.tools.signcut_cnc_box = "指接榫盒子..." # mt
+signcut.cnc_box = "指接榫盒子" # mt
+signcut.cnc_box_depth = "深度" # mt
+signcut.cnc_thickness = "材料厚度" # mt
+signcut.cnc_finger = "指寬" # mt
+signcut.cnc_kerf = "切縫" # mt
+signcut.cnc_gap = "零件間距" # mt
+signcut.cnc_box_inside = "內部尺寸" # mt
+signcut.cnc_box_open = "無頂蓋" # mt
+signcut.cnc_box_make = "產生盒子" # mt
+signcut.cnc_box_bad = "這些尺寸無法構成盒子: 每條邊須大於厚度的兩倍。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "效果和圖樣" # mt

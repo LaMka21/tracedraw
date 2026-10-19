@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Buat jalur" # mt
 signcut.cnc_wire_export = "Ekspor G-code kawat panas..." # mt
 signcut.cnc_no_closed = "Tidak ada garis tertutup." # mt
 signcut.cnc_wire_done = "Jalur kawat panas ditambahkan: {len}." # mt
+menu.tools.signcut_cnc_box = "Kotak sambungan jari..." # mt
+signcut.cnc_box = "Kotak sambungan jari" # mt
+signcut.cnc_box_depth = "Kedalaman" # mt
+signcut.cnc_thickness = "Ketebalan bahan" # mt
+signcut.cnc_finger = "Lebar jari" # mt
+signcut.cnc_kerf = "Lebar potong" # mt
+signcut.cnc_gap = "Jarak antar bagian" # mt
+signcut.cnc_box_inside = "Ukuran dalam" # mt
+signcut.cnc_box_open = "Atas terbuka" # mt
+signcut.cnc_box_make = "Buat kotak" # mt
+signcut.cnc_box_bad = "Ukuran ini tidak bisa jadi kotak: tiap sisi harus lebih panjang dari dua kali ketebalan." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efek dan pola" # mt

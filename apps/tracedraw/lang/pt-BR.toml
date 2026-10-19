@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Criar o percurso" # mt
 signcut.cnc_wire_export = "Exportar código G de fio quente..." # mt
 signcut.cnc_no_closed = "Nenhum contorno fechado encontrado." # mt
 signcut.cnc_wire_done = "Percurso de fio quente adicionado: {len}." # mt
+menu.tools.signcut_cnc_box = "Caixa com juntas de dedos..." # mt
+signcut.cnc_box = "Caixa com juntas de dedos" # mt
+signcut.cnc_box_depth = "Profundidade" # mt
+signcut.cnc_thickness = "Espessura do material" # mt
+signcut.cnc_finger = "Largura do dedo" # mt
+signcut.cnc_kerf = "Largura do corte" # mt
+signcut.cnc_gap = "Espaço entre peças" # mt
+signcut.cnc_box_inside = "Medidas internas" # mt
+signcut.cnc_box_open = "Sem tampa" # mt
+signcut.cnc_box_make = "Criar a caixa" # mt
+signcut.cnc_box_bad = "Essas medidas não formam uma caixa: cada lado deve ser maior que o dobro da espessura." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efeitos e padrões" # mt

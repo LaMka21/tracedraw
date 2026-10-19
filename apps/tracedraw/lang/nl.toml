@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "Pad maken" # mt
 signcut.cnc_wire_export = "Hittedraad-G-code exporteren..." # mt
 signcut.cnc_no_closed = "Geen gesloten omtrekken gevonden." # mt
 signcut.cnc_wire_done = "Hittedraadpad toegevoegd: {len}." # mt
+menu.tools.signcut_cnc_box = "Doos met vingerverbindingen..." # mt
+signcut.cnc_box = "Doos met vingerverbindingen" # mt
+signcut.cnc_box_depth = "Diepte" # mt
+signcut.cnc_thickness = "Materiaaldikte" # mt
+signcut.cnc_finger = "Vingerbreedte" # mt
+signcut.cnc_kerf = "Snedebreedte" # mt
+signcut.cnc_gap = "Ruimte tussen delen" # mt
+signcut.cnc_box_inside = "Binnenmaten" # mt
+signcut.cnc_box_open = "Open bovenkant" # mt
+signcut.cnc_box_make = "Doos maken" # mt
+signcut.cnc_box_bad = "Met deze maten ontstaat geen doos: elke zijde moet langer zijn dan tweemaal de dikte." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effecten en patronen" # mt

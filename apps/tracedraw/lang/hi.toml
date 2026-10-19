@@ -4535,6 +4535,17 @@ signcut.cnc_wire_make = "पथ बनाएँ" # mt
 signcut.cnc_wire_export = "हॉट वायर G-code निर्यात करें..." # mt
 signcut.cnc_no_closed = "कोई बंद आउटलाइन नहीं मिली।" # mt
 signcut.cnc_wire_done = "हॉट वायर पथ जोड़ा गया: {len}।" # mt
+menu.tools.signcut_cnc_box = "फिंगर-जॉइंट बॉक्स..." # mt
+signcut.cnc_box = "फिंगर-जॉइंट बॉक्स" # mt
+signcut.cnc_box_depth = "गहराई" # mt
+signcut.cnc_thickness = "सामग्री की मोटाई" # mt
+signcut.cnc_finger = "फिंगर की चौड़ाई" # mt
+signcut.cnc_kerf = "कर्फ़" # mt
+signcut.cnc_gap = "भागों के बीच अंतर" # mt
+signcut.cnc_box_inside = "भीतरी माप" # mt
+signcut.cnc_box_open = "ऊपर से खुला" # mt
+signcut.cnc_box_make = "बॉक्स बनाएँ" # mt
+signcut.cnc_box_bad = "इन मापों से बॉक्स नहीं बनता: हर भुजा मोटाई के दोगुने से लंबी होनी चाहिए।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt
