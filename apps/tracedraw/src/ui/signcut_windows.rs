@@ -205,4 +205,63 @@ mod tests {
         out.textures_delta.clear();
         assert!(!app.sc_windows.open.is_empty());
     }
+
+    /// No window grows by itself: drawn frame after frame, each keeps its
+    /// size.
+    #[test]
+    fn no_window_grows_from_frame_to_frame() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: tracedraw_core::geometry::Rect::new(0.0, 0.0, 80.0, 40.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("layer");
+        app.select(vec![id]);
+        for t in ToolId::all() {
+            app.signcut_tool(t);
+        }
+        let mut frame = |app: &mut App| {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1600.0, 1100.0),
+                )),
+                ..Default::default()
+            };
+            let mut out = ctx.run_ui(input, |ui| {
+                let ctx = ui.ctx().clone();
+                show(app, &ctx);
+            });
+            out.textures_delta.clear();
+        };
+        let sizes = |app: &App| -> Vec<(ToolId, egui::Vec2)> {
+            app.sc_windows
+                .open
+                .iter()
+                .filter_map(|t| {
+                    let id = egui::Id::new(("signcut_window", t.key()));
+                    ctx.memory(|m| m.area_rect(id)).map(|r| (*t, r.size()))
+                })
+                .collect()
+        };
+        for _ in 0..4 {
+            frame(&mut app);
+        }
+        let before = sizes(&app);
+        assert!(!before.is_empty());
+        for _ in 0..6 {
+            frame(&mut app);
+        }
+        let after = sizes(&app);
+        let grown: Vec<String> = before
+            .iter()
+            .zip(&after)
+            .filter(|((_, a), (_, b))| (b.x - a.x).abs() >= 1.0 || (b.y - a.y).abs() >= 1.0)
+            .map(|((t, a), (_, b))| format!("{t:?} {a:?} -> {b:?}"))
+            .collect();
+        assert!(grown.is_empty(), "windows grew: {grown:#?}");
+    }
 }

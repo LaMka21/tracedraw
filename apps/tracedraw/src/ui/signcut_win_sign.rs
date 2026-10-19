@@ -780,7 +780,8 @@ fn mode_label(m: LedMode) -> String {
 }
 
 fn led_window(app: &mut App, ui: &mut Ui) -> bool {
-    let height = (ui.available_height() - 40.0).max(380.0);
+    // A set height: taking the available height would grow the window.
+    let height = 360.0;
     // The tab follows the mode when the window opens.
     if app.sc_sign.win.led.tab != LedTab::Tools {
         app.sc_sign.win.led.tab = if app.sc_sign.led.spec.mode.on_curve() {
@@ -795,7 +796,14 @@ fn led_window(app: &mut App, ui: &mut Ui) -> bool {
             ui.set_min_height(height);
             led_left(app, ui);
         });
-        ui.separator();
+        // A line of the columns' height: a separator in a row would take
+        // the whole available height and grow the window frame by frame.
+        let (r, _) = ui.allocate_exact_size(Vec2::new(9.0, height), egui::Sense::hover());
+        ui.painter().vline(
+            r.center().x,
+            r.y_range(),
+            egui::Stroke::new(1.0, crate::theme::Tokens::border()),
+        );
         ui.vertical(|ui| {
             ui.set_width((ui.available_width()).max(300.0));
             ui.set_min_height(height);
@@ -1148,7 +1156,8 @@ fn led_right(app: &mut App, ui: &mut Ui) {
 
 fn neon_window(app: &mut App, ui: &mut Ui) -> bool {
     let u = app.units;
-    let height = (ui.available_height() - 40.0).max(380.0);
+    // A set height: taking the available height would grow the window.
+    let height = 400.0;
     tabs(
         ui,
         &mut app.sc_sign.win.neon_tab,

@@ -26,6 +26,11 @@ pub const STRIP: Color32 = Color32::from_rgb(0xFF, 0xFF, 0x99);
 /// A Sign & Cut tool window: the dialog chrome (white title bar with the
 /// close button, light grey body), movable, not modal. `raise` brings it
 /// to the front. Returns true when its close button was clicked.
+///
+/// Every window has a set size, `default_size` at first: its content is
+/// laid out in that size and never makes the window grow (fields that
+/// take the available width would otherwise widen it frame after frame).
+/// Windows that are not `resizable` keep at least their default size.
 pub fn tool_window(
     ctx: &Context,
     id: egui::Id,
@@ -40,10 +45,15 @@ pub fn tool_window(
         .id(id)
         .title_bar(false)
         .collapsible(false)
-        .resizable(resizable)
+        .resizable(true)
         .default_size(default_size)
         .default_pos(ctx.content_rect().center() - default_size / 2.0)
         .constrain(true)
+        .min_size(if resizable {
+            Vec2::new(240.0, 160.0)
+        } else {
+            default_size
+        })
         .frame(
             Frame::new()
                 .fill(Tokens::title_bar())
