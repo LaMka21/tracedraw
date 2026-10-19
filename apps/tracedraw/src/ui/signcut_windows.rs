@@ -223,7 +223,7 @@ mod tests {
         for t in ToolId::all() {
             app.signcut_tool(t);
         }
-        let mut frame = |app: &mut App| {
+        let frame = |app: &mut App| {
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
