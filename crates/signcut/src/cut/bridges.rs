@@ -14,13 +14,13 @@
 
 use super::{fin, finite_path};
 use crate::measure::ARCLEN_ACCURACY;
-use tracedraw_core::geometry::{BezPath, ParamCurve, ParamCurveArclen, PathEl, PathSeg};
+use tracedraw_core::geometry::{BezPath, ParamCurve, ParamCurveArclen, PathEl, PathSeg, Point};
 
 /// The most bridges one outline gets.
 pub const MAX_BRIDGES: u32 = 1000;
 
 /// How many bridges an outline gets.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum BridgeCount {
     /// This many per closed outline.
     PerOutline(u32),
@@ -29,7 +29,8 @@ pub enum BridgeCount {
 }
 
 /// Settings of [`bridge_path`], lengths in millimetres.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct BridgeSpec {
     /// Length of each bridge.
     pub length: f64,
@@ -48,11 +49,13 @@ impl Default for BridgeSpec {
     }
 }
 
-/// A path with bridges: the new path and how many bridges it got.
+/// A path with bridges: the new path, how many bridges it got and where
+/// their centres are.
 #[derive(Debug, Clone)]
 pub struct Bridged {
     pub path: BezPath,
     pub bridges: usize,
+    pub centres: Vec<Point>,
 }
 
 /// Put bridges into the closed subpaths of `path`; `None` when no
@@ -65,6 +68,7 @@ pub fn bridge_path(path: &BezPath, spec: &BridgeSpec) -> Option<Bridged> {
     let min = fin(spec.min_outline, 0.0).max(0.0);
     let mut out = BezPath::new();
     let mut total = 0usize;
+    let mut centres = Vec::new();
     for sp in crate::subpaths(path) {
         let done = if sp.closed && finite_path(&sp.path) {
             bridge_subpath(&sp.path, b, min, spec.count)
@@ -72,9 +76,10 @@ pub fn bridge_path(path: &BezPath, spec: &BridgeSpec) -> Option<Bridged> {
             None
         };
         match done {
-            Some((pieces, n)) => {
+            Some((pieces, n, at)) => {
                 out.extend(pieces.elements().iter().copied());
                 total += n;
+                centres.extend(at);
             }
             None => out.extend(sp.path.elements().iter().copied()),
         }
@@ -82,6 +87,7 @@ pub fn bridge_path(path: &BezPath, spec: &BridgeSpec) -> Option<Bridged> {
     (total > 0).then_some(Bridged {
         path: out,
         bridges: total,
+        centres,
     })
 }
 
@@ -142,7 +148,7 @@ fn bridge_subpath(
     b: f64,
     min: f64,
     count: BridgeCount,
-) -> Option<(BezPath, usize)> {
+) -> Option<(BezPath, usize, Vec<Point>)> {
     let segs: Vec<PathSeg> = path.segments().collect();
     let lens: Vec<f64> = segs
         .iter()
@@ -176,7 +182,28 @@ fn bridge_subpath(
         };
         piece(&segs, &lens, c + b / 2.0, next - b / 2.0, &mut out);
     }
-    Some((out, n))
+    let at = centres
+        .iter()
+        .filter_map(|c| point_at(&segs, &lens, *c))
+        .collect();
+    Some((out, n, at))
+}
+
+/// The point at arc length `at` along the outline (wrapping round).
+fn point_at(segs: &[PathSeg], lens: &[f64], at: f64) -> Option<Point> {
+    let total: f64 = lens.iter().sum();
+    if total <= 0.0 || !at.is_finite() {
+        return None;
+    }
+    let at = at.rem_euclid(total);
+    let mut s = 0.0;
+    for (seg, l) in segs.iter().zip(lens) {
+        if *l > 0.0 && at <= s + l {
+            return Some(seg.eval(seg.inv_arclen(at - s, ARCLEN_ACCURACY)));
+        }
+        s += l;
+    }
+    segs.last().map(|seg| seg.end())
 }
 
 /// Append the open piece of the outline between arc lengths `from` and
@@ -263,6 +290,16 @@ mod tests {
                 .iter()
                 .any(|(x, y)| (e - Point::new(*x, *y)).hypot() < 2.0);
             assert!(!on_corner, "{e:?}");
+        }
+        // The centres lie on the sides, away from the corners.
+        assert_eq!(r.centres.len(), 2);
+        for c in &r.centres {
+            let on_side = c.x.abs() < 1e-6
+                || (c.x - 100.0).abs() < 1e-6
+                || c.y.abs() < 1e-6
+                || (c.y - 100.0).abs() < 1e-6;
+            assert!(on_side, "{c:?}");
+            assert!(c.x > 2.0 && c.x < 98.0 || c.y > 2.0 && c.y < 98.0, "{c:?}");
         }
     }
 

@@ -75,7 +75,6 @@ pub mod shaping_docker;
 pub mod shelf_docker;
 pub mod signcut_calc;
 pub mod signcut_cnc;
-pub mod signcut_cut;
 pub mod signcut_docker;
 pub mod signcut_fx;
 pub mod signcut_kit;

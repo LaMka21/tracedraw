@@ -19,7 +19,7 @@ use super::{fin, finite_rect, line_path, polygon_path, rect_path};
 use tracedraw_core::geometry::{BezPath, Circle, Point, Rect, Shape as _};
 
 /// Shape of the registration marks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum MarkStyle {
     #[default]
     Square,
@@ -28,7 +28,8 @@ pub enum MarkStyle {
 }
 
 /// Settings of [`registration_marks`], lengths in millimetres.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct RegSpec {
     pub style: MarkStyle,
     /// Side of a square, diameter of a circle.
@@ -167,7 +168,8 @@ pub fn registration_marks(area: Rect, spec: &RegSpec) -> Vec<BezPath> {
 }
 
 /// Settings of [`crop_marks`], in millimetres.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct CropSpec {
     pub length: f64,
     pub offset: f64,

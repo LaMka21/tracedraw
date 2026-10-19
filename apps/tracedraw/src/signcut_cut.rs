@@ -9,7 +9,7 @@ use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, PathEl, Point, Rect, Shape as _};
 use tracedraw_core::{Color, Command, Fill, LayerId, Shape, ShapeId, ShapeKind, Stroke};
 use tracedraw_signcut::cut::bridges::{self, BridgeCount, BridgeSpec};
-use tracedraw_signcut::cut::hpgl::{self, Plot, Profile};
+use tracedraw_signcut::cut::hpgl::{self, Layout, Plot, Profile};
 use tracedraw_signcut::cut::marks::{self, CropSpec, RegSpec};
 use tracedraw_signcut::cut::order::{self, Route, RouteItem, RouteSpec};
 use tracedraw_signcut::cut::weed::{self, WeedSpec};
@@ -23,9 +23,9 @@ pub const TAG_CONTOUR: &str = "cut contour";
 pub const TAG_CROP: &str = "crop marks";
 
 /// Printed only: never cut, never weeded around.
-const PRINTED: [&str; 2] = [TAG_REGISTRATION, TAG_CROP];
+pub const PRINTED: [&str; 2] = [TAG_REGISTRATION, TAG_CROP];
 /// Everything these tools made.
-const MADE: [&str; 4] = [TAG_WEEDING, TAG_REGISTRATION, TAG_CONTOUR, TAG_CROP];
+pub const MADE: [&str; 4] = [TAG_WEEDING, TAG_REGISTRATION, TAG_CONTOUR, TAG_CROP];
 
 /// The name of the spot ink of the cut contour.
 pub const CONTOUR_INK: &str = "Cut contour";
@@ -36,7 +36,7 @@ fn weed_color() -> Color {
 }
 
 /// What the registration marks tool puts on the cut contour.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Contour {
     /// Copies of the objects' outlines.
     #[default]
@@ -58,18 +58,142 @@ pub struct PlotSummary {
     pub bytes: usize,
 }
 
-/// A planned route and the drawing it was planned for (the preview).
-#[derive(Debug, Clone)]
-pub struct RouteCache {
+impl PlotSummary {
+    fn of(p: &Plot) -> PlotSummary {
+        PlotSummary {
+            outlines: p.outlines,
+            cut_length: p.cut_length,
+            travel: p.travel,
+            width: p.width,
+            height: p.height,
+            bytes: p.text.len(),
+        }
+    }
+}
+
+/// A cutting plotter as the Plotter Output window keeps it (its presets
+/// are the plotter profiles): the profile, whether the job follows the
+/// route optimizer, and where Send writes.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Plotter {
+    pub profile: Profile,
+    /// The job follows the route optimizer (else the drawing order).
+    pub optimize: bool,
+    /// Where Send writes (a port, a shared printer, a device file).
+    pub port: String,
+}
+
+impl Default for Plotter {
+    fn default() -> Self {
+        Plotter {
+            profile: Profile::default(),
+            optimize: true,
+            port: String::new(),
+        }
+    }
+}
+
+/// What a window's result was worked out for: the drawing's revision,
+/// the objects and the settings (as JSON). The result is current while
+/// all three stay the same.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Basis {
     pub revision: u64,
     pub targets: Vec<ShapeId>,
-    pub spec: RouteSpec,
+    pub settings: String,
+}
+
+/// Weeding cuts worked out for the preview.
+#[derive(Debug, Clone, Default)]
+pub struct WeedResult {
+    /// The objects' outlines.
+    pub objects: Vec<BezPath>,
+    pub cuts: Vec<BezPath>,
+}
+
+/// Bridges worked out for the preview.
+#[derive(Debug, Clone, Default)]
+pub struct BridgeResult {
+    /// The outlines of every object looked at.
+    pub objects: Vec<BezPath>,
+    /// The objects that get bridges and their new outlines (page space).
+    pub changes: Vec<(ShapeId, BezPath)>,
+    pub centres: Vec<Point>,
+    pub bridges: usize,
+}
+
+/// A planned cut order for the preview.
+#[derive(Debug, Clone, Default)]
+pub struct RouteResult {
+    /// The cuts as drawn, in the drawing's order.
+    pub drawn: Vec<BezPath>,
+    /// The cuts in the planned order, with their new starts and directions.
+    pub planned: Vec<BezPath>,
     pub moves: Vec<(Point, Point)>,
+    pub moves_before: Vec<(Point, Point)>,
     pub before: f64,
     pub after: f64,
 }
 
-/// The Cutting section's settings and last results.
+/// A plotter job laid out for the preview.
+#[derive(Debug, Clone)]
+pub struct PlotResult {
+    pub layout: Layout,
+    pub summary: PlotSummary,
+}
+
+/// Registration marks and the cut contour worked out for the preview.
+#[derive(Debug, Clone, Default)]
+pub struct RegResult {
+    pub objects: Vec<BezPath>,
+    /// The box the marks are around (or inside).
+    pub area: Option<Rect>,
+    pub marks: Vec<BezPath>,
+    pub contour: Vec<BezPath>,
+}
+
+/// Crop marks worked out for the preview.
+#[derive(Debug, Clone, Default)]
+pub struct CropResult {
+    pub objects: Vec<BezPath>,
+    pub boxes: Vec<Rect>,
+    pub marks: Vec<BezPath>,
+}
+
+/// The tabs of the Plotter Output window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlotTab {
+    #[default]
+    Job,
+    Plotter,
+    Knife,
+}
+
+/// The state of the Cutting windows: their tabs, the results their
+/// previews show and the result lines of the clean-up windows.
+#[derive(Debug, Clone, Default)]
+pub struct Windows {
+    pub plot_tab: PlotTab,
+    pub plot: Option<(Basis, PlotResult)>,
+    pub weed: Option<(Basis, WeedResult)>,
+    pub bridges: Option<(Basis, BridgeResult)>,
+    pub route: Option<(Basis, RouteResult)>,
+    /// The Cut Order preview shows the route as drawn.
+    pub route_original: bool,
+    pub reg: Option<(Basis, RegResult)>,
+    pub crop: Option<(Basis, CropResult)>,
+    /// The objects' outlines for the previews, with the drawing's
+    /// revision and the objects they were taken from.
+    pub objects: Option<((u64, Vec<ShapeId>), Vec<BezPath>)>,
+    /// The last result line of Find Duplicates, Remove Duplicate Edges
+    /// and Find Crossings.
+    pub duplicates: Option<String>,
+    pub edges: Option<String>,
+    pub crossings: Option<String>,
+}
+
+/// The Cutting tools' settings, last results and window state.
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub weed: WeedSpec,
@@ -82,15 +206,9 @@ pub struct Settings {
     pub route: RouteSpec,
     /// Show the planned travel on the drawing.
     pub show_route: bool,
-    pub route_cache: Option<RouteCache>,
     /// Travel before and after the last Optimise.
     pub last_route: Option<(f64, f64)>,
-    pub profiles: Vec<Profile>,
-    pub profile: usize,
-    /// The plotter output follows the route optimizer (else the drawing order).
-    pub plot_optimize: bool,
-    /// Where Send writes (a port, a shared printer, a device file).
-    pub port: String,
+    pub plotter: Plotter,
     pub last_plot: Option<PlotSummary>,
     pub reg: RegSpec,
     /// Marks inside the page instead of around the objects.
@@ -101,6 +219,7 @@ pub struct Settings {
     pub crop_each: bool,
     /// Outline width of crop marks (mm).
     pub crop_width: f64,
+    pub win: Windows,
 }
 
 impl Default for Settings {
@@ -113,12 +232,8 @@ impl Default for Settings {
             bridge_by_distance: false,
             route: RouteSpec::default(),
             show_route: false,
-            route_cache: None,
             last_route: None,
-            profiles: vec![Profile::default()],
-            profile: 0,
-            plot_optimize: true,
-            port: String::new(),
+            plotter: Plotter::default(),
             last_plot: None,
             reg: RegSpec::default(),
             reg_page: false,
@@ -126,6 +241,7 @@ impl Default for Settings {
             crop: CropSpec::default(),
             crop_each: false,
             crop_width: 0.25,
+            win: Windows::default(),
         }
     }
 }
@@ -145,7 +261,7 @@ impl Settings {
 
     /// The plotter profile in use.
     pub fn current_profile(&self) -> Profile {
-        self.profiles.get(self.profile).cloned().unwrap_or_default()
+        self.plotter.profile.clone()
     }
 }
 
@@ -186,6 +302,21 @@ fn finite_box(paths: &[BezPath]) -> Option<Rect> {
         .reduce(|a, b| a.union(b))
 }
 
+/// Each subpath of `path` as a path of its own.
+pub(crate) fn split_subpaths(path: &BezPath) -> Vec<BezPath> {
+    let mut out: Vec<BezPath> = Vec::new();
+    for el in path.elements() {
+        if matches!(el, PathEl::MoveTo(_)) || out.is_empty() {
+            out.push(BezPath::new());
+        }
+        if let Some(last) = out.last_mut() {
+            last.push(*el);
+        }
+    }
+    out.retain(|p| p.elements().len() > 1);
+    out
+}
+
 /// A path object with the given outline and fill.
 fn path_shape(id: ShapeId, path: BezPath, fill: Fill, stroke: Option<Stroke>) -> Shape {
     let closed = all_closed(&path);
@@ -201,6 +332,7 @@ struct LayerPlan {
     layer: LayerId,
     ids: Vec<ShapeId>,
     slots: Vec<usize>,
+    items: Vec<RouteItem>,
     route: Route,
 }
 
@@ -233,6 +365,36 @@ impl App {
             .collect()
     }
 
+    /// What a result worked out now from the objects (those made with
+    /// one of `skip` left out) and `settings` would be based on.
+    pub fn sc_cut_basis(&self, skip: &[&str], settings: &impl serde::Serialize) -> Basis {
+        Basis {
+            revision: self.engine.revision(),
+            targets: self.sc_cut_targets(skip),
+            settings: serde_json::to_string(settings).unwrap_or_default(),
+        }
+    }
+
+    /// The outlines of the objects (those made with one of `skip` left
+    /// out) for a preview, kept while the drawing and the objects stay
+    /// the same.
+    pub fn sc_cut_preview_objects(&mut self, skip: &[&str]) -> Vec<BezPath> {
+        let targets = self.sc_cut_targets(skip);
+        let rev = self.engine.revision();
+        if let Some(((r, t), p)) = &self.sc_cut.win.objects {
+            if *r == rev && *t == targets {
+                return p.clone();
+            }
+        }
+        let p: Vec<BezPath> = self
+            .sc_cut_outlines(&targets)
+            .into_iter()
+            .flatten()
+            .collect();
+        self.sc_cut.win.objects = Some(((rev, targets), p.clone()));
+        p
+    }
+
     /// A new group of `children` named `name` and tagged `tag`.
     fn sc_cut_group(&mut self, name: &str, tag: &str, children: Vec<Shape>) -> Shape {
         let id = self.engine.new_shape_id();
@@ -244,12 +406,33 @@ impl App {
         g
     }
 
-    /// Add weeding cuts around and between the objects, grouped, in one
-    /// step. Returns how many cuts were added.
-    pub fn sc_cut_weed(&mut self) -> usize {
+    /// The basis of the weeding preview.
+    pub fn sc_cut_weed_basis(&self) -> Basis {
+        self.sc_cut_basis(&MADE, &self.sc_cut.weed)
+    }
+
+    /// Work out the weeding cuts without changing the drawing.
+    pub fn sc_cut_weed_compute(&self) -> WeedResult {
         let ids = self.sc_cut_targets(&MADE);
         let outlines = self.sc_cut_outlines(&ids);
-        let paths = weed::weeding(&outlines, &self.sc_cut.weed);
+        let cuts = weed::weeding(&outlines, &self.sc_cut.weed);
+        WeedResult {
+            objects: outlines.into_iter().flatten().collect(),
+            cuts,
+        }
+    }
+
+    /// Add weeding cuts around and between the objects, grouped, in one
+    /// step. Returns how many cuts were added.
+    /// Tests only: the windows work out and commit in two steps.
+    #[cfg(test)]
+    pub fn sc_cut_weed(&mut self) -> usize {
+        let r = self.sc_cut_weed_compute();
+        self.sc_cut_weed_commit(r.cuts)
+    }
+
+    /// Add worked-out weeding cuts as one group in one step.
+    pub fn sc_cut_weed_commit(&mut self, paths: Vec<BezPath>) -> usize {
         let Some(layer) = self.active_layer() else {
             return 0;
         };
@@ -317,14 +500,25 @@ impl App {
         out
     }
 
-    /// Break the closed outlines of the objects into pieces with bridges
-    /// between them, in one step. Returns how many bridges were made.
-    pub fn sc_cut_bridges(&mut self) -> usize {
-        let leaves = self.sc_cut_leaves(&self.sc_cut_targets(&PRINTED));
+    /// The basis of the bridges preview.
+    pub fn sc_cut_bridges_basis(&self) -> Basis {
+        self.sc_cut_basis(&PRINTED, &self.sc_cut.bridge_spec())
+    }
+
+    /// Work out the bridges without changing the drawing.
+    pub fn sc_cut_bridges_compute(&self) -> BridgeResult {
+        let targets = self.sc_cut_targets(&PRINTED);
+        let leaves = self.sc_cut_leaves(&targets);
         let spec = self.sc_cut.bridge_spec();
         let doc = self.doc();
-        let mut cmds = Vec::new();
-        let mut total = 0;
+        let mut r = BridgeResult {
+            objects: self
+                .sc_cut_outlines(&targets)
+                .into_iter()
+                .flatten()
+                .collect(),
+            ..Default::default()
+        };
         for id in leaves {
             let Some(s) = doc.shape_on_page(id) else {
                 continue;
@@ -332,14 +526,34 @@ impl App {
             let Some(done) = bridges::bridge_path(&s.page_path(), &spec) else {
                 continue;
             };
-            let Some(inv) = invert(s.transform) else {
+            r.bridges += done.bridges;
+            r.centres.extend(done.centres);
+            r.changes.push((id, done.path));
+        }
+        r
+    }
+
+    /// Break the closed outlines of the objects into pieces with bridges
+    /// between them, in one step. Returns how many bridges were made.
+    /// Tests only: the windows work out and commit in two steps.
+    #[cfg(test)]
+    pub fn sc_cut_bridges(&mut self) -> usize {
+        let r = self.sc_cut_bridges_compute();
+        self.sc_cut_bridges_commit(&r)
+    }
+
+    /// Give the objects their worked-out bridged outlines in one step.
+    pub fn sc_cut_bridges_commit(&mut self, r: &BridgeResult) -> usize {
+        let doc = self.doc();
+        let mut cmds = Vec::new();
+        for (id, path) in &r.changes {
+            let Some(inv) = doc.shape_on_page(*id).and_then(|s| invert(s.transform)) else {
                 continue;
             };
-            total += done.bridges;
             cmds.push(Command::SetShapeKind {
-                shape: id,
+                shape: *id,
                 kind: ShapeKind::Path {
-                    path: inv * done.path,
+                    path: inv * path.clone(),
                     closed: false,
                 },
             });
@@ -352,8 +566,8 @@ impl App {
             self.status = e.to_string();
             return 0;
         }
-        self.status = trf("signcut.cut_bridges_done", &[("n", &total.to_string())]);
-        total
+        self.status = trf("signcut.cut_bridges_done", &[("n", &r.bridges.to_string())]);
+        r.bridges
     }
 
     /// Plan the cut order: each layer's unlocked top-level objects among
@@ -411,10 +625,37 @@ impl App {
                 layer: layer.id,
                 ids,
                 slots,
+                items,
                 route,
             });
         }
         plans
+    }
+
+    /// The basis of the cut order preview.
+    pub fn sc_cut_route_basis(&self) -> Basis {
+        self.sc_cut_basis(&PRINTED, &self.sc_cut.route)
+    }
+
+    /// Plan the cut order without changing the drawing.
+    pub fn sc_cut_route_compute(&self) -> RouteResult {
+        let mut r = RouteResult::default();
+        for plan in self.sc_cut_plans() {
+            r.before += plan.route.travel_before;
+            r.after += plan.route.travel_after;
+            r.moves.extend(plan.route.moves.iter().copied());
+            r.moves_before
+                .extend(plan.route.moves_before.iter().copied());
+            for item in &plan.items {
+                r.drawn.extend(item.paths.iter().flat_map(split_subpaths));
+            }
+            for i in &plan.route.order {
+                if let Some(cuts) = plan.route.cuts.get(*i) {
+                    r.planned.extend(cuts.iter().cloned());
+                }
+            }
+        }
+        r
     }
 
     /// Reorder the objects (and their subpaths, start points and
@@ -478,85 +719,61 @@ impl App {
             ],
         );
         self.sc_cut.last_route = Some((before, after));
-        self.sc_cut.route_cache = None;
         Some((before, after))
     }
 
-    /// The planned travel moves and the travel before and after, kept
-    /// while the drawing, the objects and the settings stay the same.
-    pub fn sc_cut_route_preview(&mut self) -> &RouteCache {
-        let targets = self.sc_cut_targets(&PRINTED);
-        let revision = self.engine.revision();
-        let spec = self.sc_cut.route;
-        let fresh = self
-            .sc_cut
-            .route_cache
-            .as_ref()
-            .is_some_and(|c| c.revision == revision && c.targets == targets && c.spec == spec);
-        if !fresh {
-            let plans = self.sc_cut_plans();
-            let cache = RouteCache {
-                revision,
-                targets,
-                spec,
-                moves: plans
-                    .iter()
-                    .flat_map(|p| p.route.moves.iter().copied())
-                    .collect(),
-                before: plans.iter().map(|p| p.route.travel_before).sum(),
-                after: plans.iter().map(|p| p.route.travel_after).sum(),
-            };
-            self.sc_cut.route_cache = Some(cache);
+    /// The outlines of the plotter job in cut order (registration and
+    /// crop marks left out), in route order when the plotter asks for it.
+    fn sc_cut_job_cuts(&self) -> Vec<BezPath> {
+        let ids = self.sc_cut_targets(&PRINTED);
+        let outlines = self.sc_cut_outlines(&ids);
+        if !self.sc_cut.plotter.optimize {
+            return outlines.into_iter().flatten().collect();
         }
-        self.sc_cut.route_cache.get_or_insert_with(|| RouteCache {
-            revision,
-            targets: Vec::new(),
-            spec,
-            moves: Vec::new(),
-            before: 0.0,
-            after: 0.0,
-        })
+        let items: Vec<RouteItem> = outlines
+            .into_iter()
+            .map(|paths| RouteItem {
+                paths,
+                editable: true,
+            })
+            .collect();
+        let route = order::plan(&items, &self.sc_cut.route);
+        route
+            .order
+            .iter()
+            .filter_map(|i| route.cuts.get(*i))
+            .flatten()
+            .cloned()
+            .collect()
     }
 
     /// The plotter job for the objects (registration and crop marks left
-    /// out), in route order when `plot_optimize` is on.
+    /// out), in route order when the plotter's `optimize` is on.
     pub fn sc_cut_plot(&self) -> Option<Plot> {
-        let ids = self.sc_cut_targets(&PRINTED);
-        let outlines = self.sc_cut_outlines(&ids);
-        let cuts: Vec<BezPath> = if self.sc_cut.plot_optimize {
-            let items: Vec<RouteItem> = outlines
-                .into_iter()
-                .map(|paths| RouteItem {
-                    paths,
-                    editable: true,
-                })
-                .collect();
-            let route = order::plan(&items, &self.sc_cut.route);
-            route
-                .order
-                .iter()
-                .filter_map(|i| route.cuts.get(*i))
-                .flatten()
-                .cloned()
-                .collect()
-        } else {
-            outlines.into_iter().flatten().collect()
-        };
-        let plot = hpgl::plot(&cuts, &self.sc_cut.current_profile());
+        let plot = hpgl::plot(&self.sc_cut_job_cuts(), &self.sc_cut.current_profile());
         (plot.outlines > 0).then_some(plot)
     }
 
-    /// Make the plotter job and keep its summary for the panel.
+    /// The basis of the plotter preview.
+    pub fn sc_cut_plot_basis(&self) -> Basis {
+        self.sc_cut_basis(&PRINTED, &(&self.sc_cut.plotter, self.sc_cut.route))
+    }
+
+    /// Lay out the plotter job for the preview.
+    pub fn sc_cut_plot_compute(&self) -> PlotResult {
+        let profile = self.sc_cut.current_profile();
+        let layout = hpgl::layout(&self.sc_cut_job_cuts(), &profile);
+        let plot = hpgl::plot_layout(&layout, &profile);
+        PlotResult {
+            layout,
+            summary: PlotSummary::of(&plot),
+        }
+    }
+
+    /// Make the plotter job and keep its summary.
     fn sc_cut_job(&mut self) -> Option<Plot> {
         let plot = self.sc_cut_plot();
-        self.sc_cut.last_plot = plot.as_ref().map(|p| PlotSummary {
-            outlines: p.outlines,
-            cut_length: p.cut_length,
-            travel: p.travel,
-            width: p.width,
-            height: p.height,
-            bytes: p.text.len(),
-        });
+        self.sc_cut.last_plot = plot.as_ref().map(PlotSummary::of);
         if plot.is_none() {
             self.status = tr("signcut.cut_nothing");
         }
@@ -584,11 +801,11 @@ impl App {
             });
     }
 
-    /// Write the plotter job to the port or share typed in the panel.
+    /// Write the plotter job to the port or share typed in the window.
     /// Returns the bytes written.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn sc_cut_send(&mut self) -> Result<usize, String> {
-        let port = self.sc_cut.port.trim().to_string();
+        let port = self.sc_cut.plotter.port.trim().to_string();
         if port.is_empty() {
             let e = tr("signcut.cut_no_port");
             self.status = e.clone();
@@ -631,9 +848,23 @@ impl App {
         (color, Some(Command::SetInks { inks }))
     }
 
-    /// Add registration marks (and a cut contour) around the objects or
-    /// inside the page, in one step. Returns how many marks were added.
-    pub fn sc_cut_registration(&mut self) -> usize {
+    /// The basis of the registration marks preview.
+    pub fn sc_cut_registration_basis(&self) -> Basis {
+        let page = self.sc_cut.reg_page.then(|| self.page_rect());
+        self.sc_cut_basis(
+            &MADE,
+            &(
+                self.sc_cut.reg,
+                self.sc_cut.reg_page,
+                self.sc_cut.contour,
+                page.map(|r| [r.x0, r.y0, r.x1, r.y1]),
+            ),
+        )
+    }
+
+    /// Work out the registration marks and the cut contour without
+    /// changing the drawing.
+    pub fn sc_cut_registration_compute(&self) -> RegResult {
         let ids = self.sc_cut_targets(&MADE);
         let outlines = self.sc_cut_outlines(&ids);
         let art = finite_box(&outlines.iter().flatten().cloned().collect::<Vec<_>>());
@@ -643,36 +874,16 @@ impl App {
             art
         };
         let Some(area) = area else {
-            self.status = tr("signcut.cut_nothing");
-            return 0;
-        };
-        let Some(layer) = self.active_layer() else {
-            return 0;
+            return RegResult::default();
         };
         let spec = RegSpec {
             inside: self.sc_cut.reg_page,
             ..self.sc_cut.reg
         };
-        let found = marks::registration_marks(area, &spec);
-        if found.is_empty() {
-            self.status = tr("signcut.cut_nothing");
-            return 0;
-        }
-        let n = found.len();
-        let mut cmds = Vec::new();
-        let children: Vec<Shape> = found
-            .into_iter()
-            .map(|p| {
-                let id = self.engine.new_shape_id();
-                path_shape(id, p, Fill::Solid(Color::BLACK), None)
-            })
-            .collect();
-        let reg = self.sc_cut_group(&tr("signcut.cut_reg_group"), TAG_REGISTRATION, children);
-        let mut select = vec![reg.id];
-        cmds.push(Command::AddShape { layer, shape: reg });
+        let marks = marks::registration_marks(area, &spec);
         let contour: Vec<BezPath> = match (self.sc_cut.contour, art) {
             (Contour::Outlines, _) => outlines
-                .into_iter()
+                .iter()
                 .map(|paths| {
                     let mut p = BezPath::new();
                     for q in paths {
@@ -685,13 +896,53 @@ impl App {
             (Contour::BoundingBox, Some(b)) => vec![b.to_path(0.01)],
             _ => Vec::new(),
         };
-        if !contour.is_empty() {
+        RegResult {
+            objects: outlines.into_iter().flatten().collect(),
+            area: Some(area),
+            marks,
+            contour,
+        }
+    }
+
+    /// Add registration marks (and a cut contour) around the objects or
+    /// inside the page, in one step. Returns how many marks were added.
+    /// Tests only: the windows work out and commit in two steps.
+    #[cfg(test)]
+    pub fn sc_cut_registration(&mut self) -> usize {
+        let r = self.sc_cut_registration_compute();
+        self.sc_cut_registration_commit(r)
+    }
+
+    /// Add worked-out registration marks and cut contour in one step.
+    pub fn sc_cut_registration_commit(&mut self, r: RegResult) -> usize {
+        if r.marks.is_empty() {
+            self.status = tr("signcut.cut_nothing");
+            return 0;
+        }
+        let Some(layer) = self.active_layer() else {
+            return 0;
+        };
+        let n = r.marks.len();
+        let mut cmds = Vec::new();
+        let children: Vec<Shape> = r
+            .marks
+            .into_iter()
+            .map(|p| {
+                let id = self.engine.new_shape_id();
+                path_shape(id, p, Fill::Solid(Color::BLACK), None)
+            })
+            .collect();
+        let reg = self.sc_cut_group(&tr("signcut.cut_reg_group"), TAG_REGISTRATION, children);
+        let mut select = vec![reg.id];
+        cmds.push(Command::AddShape { layer, shape: reg });
+        if !r.contour.is_empty() {
             let (color, ink) = self.sc_cut_contour_ink();
             if let Some(c) = ink {
                 cmds.insert(0, c);
             }
             let stroke = Stroke::hairline(color);
-            let children: Vec<Shape> = contour
+            let children: Vec<Shape> = r
+                .contour
                 .into_iter()
                 .map(|p| {
                     let id = self.engine.new_shape_id();
@@ -711,22 +962,51 @@ impl App {
         n
     }
 
-    /// Add crop marks around each object or around all of them, grouped,
-    /// in one step. Returns how many corners were marked.
-    pub fn sc_cut_crop_marks(&mut self) -> usize {
+    /// The basis of the crop marks preview.
+    pub fn sc_cut_crop_basis(&self) -> Basis {
+        self.sc_cut_basis(
+            &MADE,
+            &(
+                self.sc_cut.crop,
+                self.sc_cut.crop_each,
+                self.sc_cut.crop_width,
+            ),
+        )
+    }
+
+    /// Work out the crop marks without changing the drawing.
+    pub fn sc_cut_crop_compute(&self) -> CropResult {
         let ids = self.sc_cut_targets(&MADE);
         let outlines = self.sc_cut_outlines(&ids);
         let boxes: Vec<Rect> = if self.sc_cut.crop_each {
             outlines.iter().filter_map(|o| finite_box(o)).collect()
         } else {
-            finite_box(&outlines.into_iter().flatten().collect::<Vec<_>>())
+            finite_box(&outlines.iter().flatten().cloned().collect::<Vec<_>>())
                 .into_iter()
                 .collect()
         };
-        let found: Vec<BezPath> = boxes
+        let marks = boxes
             .iter()
             .flat_map(|b| marks::crop_marks(*b, &self.sc_cut.crop))
             .collect();
+        CropResult {
+            objects: outlines.into_iter().flatten().collect(),
+            boxes,
+            marks,
+        }
+    }
+
+    /// Add crop marks around each object or around all of them, grouped,
+    /// in one step. Returns how many corners were marked.
+    /// Tests only: the windows work out and commit in two steps.
+    #[cfg(test)]
+    pub fn sc_cut_crop_marks(&mut self) -> usize {
+        let r = self.sc_cut_crop_compute();
+        self.sc_cut_crop_commit(r.marks)
+    }
+
+    /// Add worked-out crop marks as one group in one step.
+    pub fn sc_cut_crop_commit(&mut self, found: Vec<BezPath>) -> usize {
         let Some(layer) = self.active_layer() else {
             return 0;
         };
@@ -781,37 +1061,35 @@ fn send_bytes(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
     }
 }
 
-/// Tools > Sign & Cut > Cutting.
+/// Tools > Sign & Cut > Cutting: each item opens its tool's window.
 pub fn menu(app: &mut App, ui: &mut Ui) {
+    use crate::signcut_tools::ToolId;
     use crate::ui::menus::{item, sep};
     let doc = app.has_document() && !app.show_welcome;
     if item(ui, "menu.tools.signcut_cut_panel", "", true) {
         app.open_signcut(Section::Cut);
     }
     sep(ui);
-    if item(ui, "menu.tools.signcut_cut_weed", "", doc) {
-        app.open_signcut(Section::Cut);
-        app.sc_cut_weed();
-    }
-    if item(ui, "menu.tools.signcut_cut_bridges", "", doc) {
-        app.open_signcut(Section::Cut);
-        app.sc_cut_bridges();
-    }
-    if item(ui, "menu.tools.signcut_cut_order", "", doc) {
-        app.open_signcut(Section::Cut);
-        app.sc_cut_order();
-    }
-    if item(ui, "menu.tools.signcut_cut_plotter", "", doc) {
-        app.open_signcut(Section::Cut);
+    let items = [
+        ("menu.tools.signcut_cut_weed", ToolId::WeedingLines),
+        ("menu.tools.signcut_cut_bridges", ToolId::Bridges),
+        ("menu.tools.signcut_cut_order", ToolId::CutOrder),
+        ("menu.tools.signcut_cut_plotter", ToolId::PlotterOutput),
+    ];
+    for (key, tool) in items {
+        if item(ui, key, "", doc) {
+            app.signcut_tool(tool);
+        }
     }
     sep(ui);
-    if item(ui, "menu.tools.signcut_cut_registration", "", doc) {
-        app.open_signcut(Section::Cut);
-        app.sc_cut_registration();
-    }
-    if item(ui, "menu.tools.signcut_cut_crop", "", doc) {
-        app.open_signcut(Section::Cut);
-        app.sc_cut_crop_marks();
+    let items = [
+        ("menu.tools.signcut_cut_registration", ToolId::PrintAndCut),
+        ("menu.tools.signcut_cut_crop", ToolId::CropMarks),
+    ];
+    for (key, tool) in items {
+        if item(ui, key, "", doc) {
+            app.signcut_tool(tool);
+        }
     }
 }
 
@@ -922,19 +1200,71 @@ mod tests {
     }
 
     #[test]
-    fn route_preview_is_kept_until_something_changes() {
+    fn route_compute_changes_nothing_and_shows_both_routes() {
         let mut app = App::headless();
         let a = rect(&mut app, 50.0, 0.0, 5.0, 5.0);
         rect(&mut app, 0.0, 0.0, 5.0, 5.0);
-        let moves = app.sc_cut_route_preview().moves.clone();
-        assert_eq!(moves.len(), 1, "{moves:?}");
-        let rev = app.sc_cut_route_preview().revision;
+        let rev = app.engine.revision();
+        let basis = app.sc_cut_route_basis();
+        let r = app.sc_cut_route_compute();
+        assert_eq!(app.engine.revision(), rev);
+        assert_eq!(r.moves.len(), 1, "{:?}", r.moves);
+        // As drawn: out to the far square and back to the near one.
+        assert_eq!(r.moves_before.len(), 2, "{:?}", r.moves_before);
+        assert_eq!((r.drawn.len(), r.planned.len()), (2, 2));
+        assert!((r.before - 100.0).abs() < 1e-9 && (r.after - 50.0).abs() < 1e-9);
+        // Moving an object or changing a setting changes the basis.
+        app.sc_cut.route.inner_first = false;
+        assert_ne!(app.sc_cut_route_basis(), basis);
+        app.sc_cut.route.inner_first = true;
+        assert_eq!(app.sc_cut_route_basis(), basis);
         app.run(Command::TransformShapes {
             shapes: vec![a],
             transform: Affine::translate((10.0, 0.0)),
         });
-        assert_ne!(app.sc_cut_route_preview().revision, rev);
-        assert!((app.sc_cut_route_preview().after - 60.0).abs() < 1e-9);
+        assert_ne!(app.sc_cut_route_basis(), basis);
+        assert!((app.sc_cut_route_compute().after - 60.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn previews_change_nothing_and_commit_in_one_step() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 10.0, 10.0, 20.0, 20.0);
+        let b = rect(&mut app, 50.0, 10.0, 20.0, 20.0);
+        app.select(vec![a, b]);
+        let rev = app.engine.revision();
+        let w = app.sc_cut_weed_compute();
+        let br = app.sc_cut_bridges_compute();
+        let reg = app.sc_cut_registration_compute();
+        let crop = app.sc_cut_crop_compute();
+        let plot = app.sc_cut_plot_compute();
+        assert_eq!(app.engine.revision(), rev);
+        assert_eq!((w.cuts.len(), w.objects.len()), (8, 2));
+        assert_eq!((br.bridges, br.changes.len(), br.centres.len()), (4, 2, 4));
+        assert_eq!((reg.marks.len(), reg.contour.len()), (4, 2));
+        assert_eq!((crop.boxes.len(), crop.marks.len()), (1, 4));
+        assert_eq!(plot.summary.outlines, 2);
+        assert_eq!(plot.layout.cuts.len(), 2);
+        assert_eq!(app.sc_cut_bridges_commit(&br), 4);
+        assert_eq!(app.engine.undo_label(), Some("Bridges"));
+        assert!(app.engine.undo().is_ok());
+        let s = app.doc().find_shape(a).map(|s| s.kind.clone());
+        assert!(matches!(s, Some(ShapeKind::Rect { .. })));
+    }
+
+    #[test]
+    fn plotter_settings_read_back_as_a_preset() {
+        let mut p = Plotter::default();
+        p.profile.passes = 3;
+        p.port = "COM3".into();
+        let v = serde_json::to_value(&p).expect("json");
+        let back: Plotter = serde_json::from_value(v).expect("read");
+        assert_eq!(back, p);
+        let partial: Plotter =
+            serde_json::from_str("{\"profile\": {\"overcut\": 2.5}}").expect("read");
+        assert_eq!(partial.profile.overcut, 2.5);
+        assert_eq!(partial.profile.units_per_mm, 40.0);
+        assert!(partial.optimize);
     }
 
     #[test]
@@ -942,8 +1272,8 @@ mod tests {
         let mut app = App::headless();
         rect(&mut app, 100.0, 0.0, 10.0, 10.0);
         rect(&mut app, 0.0, 0.0, 10.0, 10.0);
-        app.sc_cut.profiles[0].knife_offset = 0.0;
-        app.sc_cut.profiles[0].overcut = 0.0;
+        app.sc_cut.plotter.profile.knife_offset = 0.0;
+        app.sc_cut.plotter.profile.overcut = 0.0;
         let plot = app.sc_cut_plot().expect("a job");
         assert_eq!(plot.outlines, 2);
         // The near square first, from the job's bottom-left corner.
@@ -953,7 +1283,7 @@ mod tests {
             "{}",
             plot.text
         );
-        app.sc_cut.plot_optimize = false;
+        app.sc_cut.plotter.optimize = false;
         let drawn = app.sc_cut_plot().expect("a job");
         assert!(drawn.text.starts_with("IN;PU4000,0;"), "{}", drawn.text);
         // Registration marks are printed, not cut; the contour is cut.
@@ -973,7 +1303,7 @@ mod tests {
         assert!(app.sc_cut_send().is_err(), "no port typed");
         let path = std::env::temp_dir().join(format!("tracedraw-cut-{}.plt", std::process::id()));
         let _ = std::fs::write(&path, vec![b'x'; 5000]);
-        app.sc_cut.port = path.display().to_string();
+        app.sc_cut.plotter.port = path.display().to_string();
         let n = app.sc_cut_send().expect("written");
         let back = std::fs::read(&path).expect("read back");
         assert_eq!(back.len(), n);

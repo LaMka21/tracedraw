@@ -5112,6 +5112,32 @@ signcut.rn_done = "{n} nœud(s) supprimé(s)." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Objets : {n}. Cliquez sur Appliquer pour prévisualiser le résultat." # mt
+signcut.wcut_weed_strip = "Coupes d'échenillage : {n}    Objets : {objects}" # mt
+signcut.wcut_method = "Méthode" # mt
+signcut.wcut_boxes = "Cadres d'échenillage" # mt
+signcut.wcut_frame = "Cadre d'échenillage" # mt
+signcut.wcut_frame_add = "Ajouter un cadre d'échenillage" # mt
+signcut.wcut_bridges_strip = "Ponts : {n}    Contours avec ponts : {outlines}" # mt
+signcut.wcut_route_strip = "Déplacement actuel : {before}    Prévu : {after}    Plus court de {saved} %" # mt
+signcut.wcut_preview = "Aperçu" # mt
+signcut.wcut_marks = "Repères" # mt
+signcut.wcut_marks_strip = "Repères : {n}    Contours de découpe : {c}" # mt
+signcut.wcut_contour_from = "Créé à partir de" # mt
+signcut.wcut_crop_strip = "Coins avec traits de coupe : {n}" # mt
+signcut.wcut_press_apply = "Cliquez sur Appliquer pour l'exécuter sur les objets." # mt
+signcut.wcut_press_find = "Cliquez sur Rechercher pour examiner les objets." # mt
+signcut.wcut_find = "Rechercher" # mt
+signcut.wcut_plot_strip = "Contours : {n}    Longueur de coupe : {len}    Déplacement : {travel}" # mt
+signcut.wcut_tab_job = "Travail" # mt
+signcut.wcut_tab_plotter = "Traceur" # mt
+signcut.wcut_tab_knife = "Couteau" # mt
+signcut.wcut_order_hint = "La direction et les points de départ viennent de la fenêtre Ordre de découpe." # mt
+signcut.wcut_placement = "Placement" # mt
+signcut.wcut_commands = "Commandes" # mt
+signcut.wcut_speed_force = "Vitesse et force" # mt
+signcut.wcut_output = "Sortie" # mt
+signcut.wcut_corner_limit = "Arc aux angles plus aigus que, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

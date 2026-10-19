@@ -5112,6 +5112,32 @@ signcut.rn_done = "{n} knooppunt(en) verwijderd." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Objecten: {n}. Klik op Toepassen om het resultaat te bekijken." # mt
+signcut.wcut_weed_strip = "Wiedsneden: {n}    Objecten: {objects}" # mt
+signcut.wcut_method = "Methode" # mt
+signcut.wcut_boxes = "Wiedkaders per object" # mt
+signcut.wcut_frame = "Wiedkader" # mt
+signcut.wcut_frame_add = "Wiedkader toevoegen" # mt
+signcut.wcut_bridges_strip = "Bruggen: {n}    Contouren met bruggen: {outlines}" # mt
+signcut.wcut_route_strip = "Verplaatsing nu: {before}    Gepland: {after}    {saved} % korter" # mt
+signcut.wcut_preview = "Voorbeeld" # mt
+signcut.wcut_marks = "Merken" # mt
+signcut.wcut_marks_strip = "Merken: {n}    Snijcontouren: {c}" # mt
+signcut.wcut_contour_from = "Gemaakt van" # mt
+signcut.wcut_crop_strip = "Hoeken met snijtekens: {n}" # mt
+signcut.wcut_press_apply = "Klik op Toepassen om het op de objecten uit te voeren." # mt
+signcut.wcut_press_find = "Klik op Zoeken om de objecten te doorzoeken." # mt
+signcut.wcut_find = "Zoeken" # mt
+signcut.wcut_plot_strip = "Contouren: {n}    Snijlengte: {len}    Verplaatsing: {travel}" # mt
+signcut.wcut_tab_job = "Taak" # mt
+signcut.wcut_tab_plotter = "Plotter" # mt
+signcut.wcut_tab_knife = "Mes" # mt
+signcut.wcut_order_hint = "Richting en startpunten komen uit het venster Snijvolgorde." # mt
+signcut.wcut_placement = "Plaatsing" # mt
+signcut.wcut_commands = "Opdrachten" # mt
+signcut.wcut_speed_force = "Snelheid en druk" # mt
+signcut.wcut_output = "Uitvoer" # mt
+signcut.wcut_corner_limit = "Boog bij hoeken scherper dan, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

@@ -5112,6 +5112,32 @@ signcut.rn_done = "{n} nodo(s) eliminado(s)." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Objetos: {n}. Pulse Aplicar para ver el resultado." # mt
+signcut.wcut_weed_strip = "Cortes de pelado: {n}    Objetos: {objects}" # mt
+signcut.wcut_method = "Método" # mt
+signcut.wcut_boxes = "Cajas de pelado" # mt
+signcut.wcut_frame = "Marco de pelado" # mt
+signcut.wcut_frame_add = "Añadir un marco de pelado" # mt
+signcut.wcut_bridges_strip = "Puentes: {n}    Contornos con puentes: {outlines}" # mt
+signcut.wcut_route_strip = "Recorrido actual: {before}    Previsto: {after}    {saved} % más corto" # mt
+signcut.wcut_preview = "Vista previa" # mt
+signcut.wcut_marks = "Marcas" # mt
+signcut.wcut_marks_strip = "Marcas: {n}    Contornos de corte: {c}" # mt
+signcut.wcut_contour_from = "Hecho a partir de" # mt
+signcut.wcut_crop_strip = "Esquinas con marcas de recorte: {n}" # mt
+signcut.wcut_press_apply = "Pulse Aplicar para ejecutarlo en los objetos." # mt
+signcut.wcut_press_find = "Pulse Buscar para buscar en los objetos." # mt
+signcut.wcut_find = "Buscar" # mt
+signcut.wcut_plot_strip = "Contornos: {n}    Longitud de corte: {len}    Recorrido: {travel}" # mt
+signcut.wcut_tab_job = "Trabajo" # mt
+signcut.wcut_tab_plotter = "Plóter" # mt
+signcut.wcut_tab_knife = "Cuchilla" # mt
+signcut.wcut_order_hint = "La dirección y los puntos de inicio vienen de la ventana Orden de corte." # mt
+signcut.wcut_placement = "Colocación" # mt
+signcut.wcut_commands = "Comandos" # mt
+signcut.wcut_speed_force = "Velocidad y fuerza" # mt
+signcut.wcut_output = "Salida" # mt
+signcut.wcut_corner_limit = "Arco en esquinas más agudas que, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

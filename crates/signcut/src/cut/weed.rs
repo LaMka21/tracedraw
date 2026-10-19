@@ -26,7 +26,7 @@ pub const MIN_LINE: f64 = 0.5;
 const SAME_LINE: f64 = 0.5;
 
 /// What [`weeding`] draws.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum WeedMode {
     /// Lines out of each object to its neighbours and the frame.
     #[default]
@@ -36,7 +36,8 @@ pub enum WeedMode {
 }
 
 /// Settings of [`weeding`], in millimetres.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct WeedSpec {
     pub mode: WeedMode,
     /// Distance the lines keep from the objects.

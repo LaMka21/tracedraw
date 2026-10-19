@@ -5112,6 +5112,32 @@ signcut.rn_done = "تمت إزالة {n} عقدة." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "الكائنات: {n}. اضغط «تطبيق» لمعاينة النتيجة." # mt
+signcut.wcut_weed_strip = "قطوع التقشير: {n}    الكائنات: {objects}" # mt
+signcut.wcut_method = "الطريقة" # mt
+signcut.wcut_boxes = "مربعات التقشير" # mt
+signcut.wcut_frame = "إطار التقشير" # mt
+signcut.wcut_frame_add = "إضافة إطار تقشير" # mt
+signcut.wcut_bridges_strip = "الجسور: {n}    المحيطات ذات الجسور: {outlines}" # mt
+signcut.wcut_route_strip = "التنقل الآن: {before}    المخطط: {after}    أقصر بنسبة {saved} %" # mt
+signcut.wcut_preview = "معاينة" # mt
+signcut.wcut_marks = "العلامات" # mt
+signcut.wcut_marks_strip = "العلامات: {n}    محيطات القص: {c}" # mt
+signcut.wcut_contour_from = "مأخوذ من" # mt
+signcut.wcut_crop_strip = "زوايا علامات القص: {n}" # mt
+signcut.wcut_press_apply = "اضغط «تطبيق» لتنفيذه على الكائنات." # mt
+signcut.wcut_press_find = "اضغط «بحث» للبحث في الكائنات." # mt
+signcut.wcut_find = "بحث" # mt
+signcut.wcut_plot_strip = "المحيطات: {n}    طول القص: {len}    التنقل: {travel}" # mt
+signcut.wcut_tab_job = "المهمة" # mt
+signcut.wcut_tab_plotter = "الراسمة" # mt
+signcut.wcut_tab_knife = "السكين" # mt
+signcut.wcut_order_hint = "يأتي الاتجاه ونقاط البدء من نافذة ترتيب القص." # mt
+signcut.wcut_placement = "الموضع" # mt
+signcut.wcut_commands = "الأوامر" # mt
+signcut.wcut_speed_force = "السرعة والقوة" # mt
+signcut.wcut_output = "الإخراج" # mt
+signcut.wcut_corner_limit = "قوس عند الزوايا الأحد من، °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

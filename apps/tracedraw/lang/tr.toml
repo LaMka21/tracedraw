@@ -5112,6 +5112,32 @@ signcut.rn_done = "{n} düğüm kaldırıldı." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Nesne: {n}. Sonucu önizlemek için Uygula'ya basın." # mt
+signcut.wcut_weed_strip = "Ayıklama kesimleri: {n}    Nesne: {objects}" # mt
+signcut.wcut_method = "Yöntem" # mt
+signcut.wcut_boxes = "Ayıklama kutuları" # mt
+signcut.wcut_frame = "Ayıklama çerçevesi" # mt
+signcut.wcut_frame_add = "Ayıklama çerçevesi ekle" # mt
+signcut.wcut_bridges_strip = "Köprü: {n}    Köprülü kontur: {outlines}" # mt
+signcut.wcut_route_strip = "Şu anki boş hareket: {before}    Planlanan: {after}    %{saved} daha kısa" # mt
+signcut.wcut_preview = "Önizleme" # mt
+signcut.wcut_marks = "İşaretler" # mt
+signcut.wcut_marks_strip = "İşaret: {n}    Kesim konturu: {c}" # mt
+signcut.wcut_contour_from = "Kaynak" # mt
+signcut.wcut_crop_strip = "Kesim işaretli köşe: {n}" # mt
+signcut.wcut_press_apply = "Nesnelerde çalıştırmak için Uygula'ya basın." # mt
+signcut.wcut_press_find = "Nesnelerde aramak için Bul'a basın." # mt
+signcut.wcut_find = "Bul" # mt
+signcut.wcut_plot_strip = "Kontur: {n}    Kesim uzunluğu: {len}    Boş hareket: {travel}" # mt
+signcut.wcut_tab_job = "İş" # mt
+signcut.wcut_tab_plotter = "Plotter" # mt
+signcut.wcut_tab_knife = "Bıçak" # mt
+signcut.wcut_order_hint = "Yön ve başlangıç noktaları Kesim sırası penceresinden gelir." # mt
+signcut.wcut_placement = "Yerleşim" # mt
+signcut.wcut_commands = "Komutlar" # mt
+signcut.wcut_speed_force = "Hız ve baskı" # mt
+signcut.wcut_output = "Çıktı" # mt
+signcut.wcut_corner_limit = "Şundan keskin köşelerde yay, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

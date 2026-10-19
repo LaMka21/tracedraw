@@ -19,7 +19,7 @@
 //! cut last.
 
 use super::{fin, finite, polys, Poly, FLATTEN_TOLERANCE};
-use tracedraw_core::geometry::{BezPath, Point, Vec2};
+use tracedraw_core::geometry::{BezPath, Point, Rect, Vec2};
 
 /// Largest arc step at compensated corners, degrees.
 const ARC_STEP_DEG: f64 = 10.0;
@@ -28,7 +28,7 @@ const ARC_STEP_DEG: f64 = 10.0;
 const POINTS_PER_COMMAND: usize = 64;
 
 /// Which corner of the job is the plotter's 0,0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Origin {
     #[default]
     BottomLeft,
@@ -46,10 +46,10 @@ impl Origin {
     ];
 }
 
-/// A cutting plotter's settings.
-#[derive(Debug, Clone, PartialEq)]
+/// A cutting plotter's settings (kept as named presets by the app).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Profile {
-    pub name: String,
     pub origin: Origin,
     /// Plotter units per millimetre (40: 0.025 mm).
     pub units_per_mm: f64,
@@ -83,7 +83,6 @@ pub struct Profile {
 impl Default for Profile {
     fn default() -> Self {
         Profile {
-            name: "Cutting plotter".into(),
             origin: Origin::BottomLeft,
             units_per_mm: 40.0,
             pen_up: "PU".into(),
@@ -221,45 +220,86 @@ fn num(v: f64) -> String {
     }
 }
 
-/// The job for `cuts` (page-space outlines in cut order) on a plotter set
-/// up as `profile`.
-pub fn plot(cuts: &[BezPath], profile: &Profile) -> Plot {
-    let upm = {
-        let u = fin(profile.units_per_mm, 40.0);
-        if u > 0.0 {
-            u.min(100_000.0)
-        } else {
-            40.0
-        }
-    };
-    let passes = profile.passes.clamp(1, MAX_PASSES) as usize;
-    // Turn and mirror in millimetres.
-    let mut list: Vec<Poly> = cuts
+/// One outline of a job as the plotter cuts it: millimetres, turned and
+/// mirrored, y up, before the job is moved to the plotter's origin.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JobCut {
+    pub pts: Vec<Point>,
+    pub closed: bool,
+}
+
+/// A job laid out for the plotter: its outlines in cut order (the weeding
+/// frame last), turned and mirrored; the box of the job (with the frame);
+/// and the corner of that box that is the plotter's 0,0.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Layout {
+    pub cuts: Vec<JobCut>,
+    /// The weeding frame, when the profile asks for one.
+    pub frame: Option<Rect>,
+    /// The job's box; `None` when there is nothing to cut.
+    pub bbox: Option<Rect>,
+    pub corner: Origin,
+    /// The corner of `bbox` that is the plotter's 0,0.
+    pub origin: Point,
+}
+
+impl Layout {
+    /// Where `q` lands on the plotter (mm from its 0,0, both axes counting
+    /// into the job).
+    pub fn place(&self, q: Point) -> Point {
+        let Some(b) = self.bbox else { return q };
+        let (x, y) = match self.corner {
+            Origin::BottomLeft => (q.x - b.x0, q.y - b.y0),
+            Origin::BottomRight => (b.x1 - q.x, q.y - b.y0),
+            Origin::TopLeft => (q.x - b.x0, b.y1 - q.y),
+            Origin::TopRight => (b.x1 - q.x, b.y1 - q.y),
+        };
+        Point::new(x, y)
+    }
+}
+
+/// Lay out `cuts` (page-space outlines in cut order) for a plotter set up
+/// as `profile`: flattened, turned by 90 degrees counter-clockwise with
+/// `rotate`, mirrored left to right with `mirror`, the weeding frame added.
+pub fn layout(cuts: &[BezPath], profile: &Profile) -> Layout {
+    let mut list: Vec<JobCut> = cuts
         .iter()
         .flat_map(|c| polys(c, FLATTEN_TOLERANCE))
-        .map(|mut poly| {
-            for q in &mut poly.pts {
-                if profile.rotate {
-                    *q = Point::new(-q.y, q.x);
-                }
-                if profile.mirror {
-                    q.x = -q.x;
-                }
+        .map(|poly: Poly| {
+            let pts = poly
+                .pts
+                .into_iter()
+                .map(|q| {
+                    let mut q = if profile.rotate {
+                        Point::new(-q.y, q.x)
+                    } else {
+                        q
+                    };
+                    if profile.mirror {
+                        q.x = -q.x;
+                    }
+                    q
+                })
+                .collect();
+            JobCut {
+                pts,
+                closed: poly.closed,
             }
-            poly
         })
         .collect();
     let all: Vec<Point> = list.iter().flat_map(|p| p.pts.iter().copied()).collect();
     let Some(mut bbox) = super::poly_bounds(&all) else {
-        return Plot {
-            text: format!("{}{}", profile.init, profile.end),
+        return Layout {
+            corner: profile.origin,
             ..Default::default()
         };
     };
+    let mut frame = None;
     if profile.weed_frame {
         let m = fin(profile.weed_margin, 0.0).max(0.0);
         bbox = bbox.inflate(m, m);
-        list.push(Poly {
+        frame = Some(bbox);
+        list.push(JobCut {
             pts: vec![
                 Point::new(bbox.x0, bbox.y0),
                 Point::new(bbox.x1, bbox.y0),
@@ -269,15 +309,45 @@ pub fn plot(cuts: &[BezPath], profile: &Profile) -> Plot {
             closed: true,
         });
     }
-    let place = |q: Point| -> Point {
-        let (x, y) = match profile.origin {
-            Origin::BottomLeft => (q.x - bbox.x0, q.y - bbox.y0),
-            Origin::BottomRight => (bbox.x1 - q.x, q.y - bbox.y0),
-            Origin::TopLeft => (q.x - bbox.x0, bbox.y1 - q.y),
-            Origin::TopRight => (bbox.x1 - q.x, bbox.y1 - q.y),
-        };
-        Point::new(x, y)
+    let origin = match profile.origin {
+        Origin::BottomLeft => Point::new(bbox.x0, bbox.y0),
+        Origin::BottomRight => Point::new(bbox.x1, bbox.y0),
+        Origin::TopLeft => Point::new(bbox.x0, bbox.y1),
+        Origin::TopRight => Point::new(bbox.x1, bbox.y1),
     };
+    Layout {
+        cuts: list,
+        frame,
+        bbox: Some(bbox),
+        corner: profile.origin,
+        origin,
+    }
+}
+
+/// The job for `cuts` (page-space outlines in cut order) on a plotter set
+/// up as `profile`.
+pub fn plot(cuts: &[BezPath], profile: &Profile) -> Plot {
+    plot_layout(&layout(cuts, profile), profile)
+}
+
+/// The job for a laid-out set of cuts (see [`layout`]).
+pub fn plot_layout(job: &Layout, profile: &Profile) -> Plot {
+    let upm = {
+        let u = fin(profile.units_per_mm, 40.0);
+        if u > 0.0 {
+            u.min(100_000.0)
+        } else {
+            40.0
+        }
+    };
+    let passes = profile.passes.clamp(1, MAX_PASSES) as usize;
+    let Some(bbox) = job.bbox else {
+        return Plot {
+            text: format!("{}{}", profile.init, profile.end),
+            ..Default::default()
+        };
+    };
+    let place = |q: Point| job.place(q);
     let nl = if profile.line_breaks { "\n" } else { "" };
     let mut text = String::new();
     text.push_str(&profile.init);
@@ -301,7 +371,7 @@ pub fn plot(cuts: &[BezPath], profile: &Profile) -> Plot {
     };
     let mut at = Point::ZERO;
     for _ in 0..passes {
-        for poly in &list {
+        for poly in &job.cuts {
             let placed: Vec<Point> = poly.pts.iter().map(|q| place(*q)).collect();
             let path = knife_path(
                 &placed,
@@ -343,7 +413,6 @@ pub fn plot(cuts: &[BezPath], profile: &Profile) -> Plot {
 mod tests {
     use super::*;
     use crate::cut::rect_path;
-    use tracedraw_core::geometry::Rect;
 
     fn bare() -> Profile {
         Profile {
@@ -480,6 +549,39 @@ mod tests {
             0.0,
         );
         assert_eq!(shallow.len(), 3);
+    }
+
+    #[test]
+    fn the_layout_marks_the_origin_corner_and_the_frame() {
+        let sq = rect_path(Rect::new(10.0, 20.0, 30.0, 30.0));
+        let l = layout(
+            std::slice::from_ref(&sq),
+            &Profile {
+                origin: Origin::TopRight,
+                weed_frame: true,
+                weed_margin: 5.0,
+                ..bare()
+            },
+        );
+        assert_eq!(l.bbox, Some(Rect::new(5.0, 15.0, 35.0, 35.0)));
+        assert_eq!(l.frame, l.bbox);
+        assert_eq!(l.origin, Point::new(35.0, 35.0));
+        assert_eq!(l.cuts.len(), 2);
+        assert_eq!(l.place(l.origin), Point::ZERO);
+        assert_eq!(l.place(Point::new(5.0, 15.0)), Point::new(30.0, 20.0));
+        // Turned: (x, y) becomes (-y, x).
+        let r = layout(
+            std::slice::from_ref(&sq),
+            &Profile {
+                rotate: true,
+                ..bare()
+            },
+        );
+        assert_eq!(r.bbox, Some(Rect::new(-30.0, 10.0, -20.0, 30.0)));
+        assert_eq!(r.frame, None);
+        let empty = layout(&[], &bare());
+        assert!(empty.bbox.is_none() && empty.cuts.is_empty());
+        assert_eq!(empty.place(Point::new(1.0, 2.0)), Point::new(1.0, 2.0));
     }
 
     #[test]
