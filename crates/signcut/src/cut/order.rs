@@ -103,6 +103,8 @@ pub struct Route {
     pub travel_after: f64,
     /// The moves with the knife up, in order.
     pub moves: Vec<(Point, Point)>,
+    /// Where the last cut ends (`from` when nothing is cut).
+    pub end: Point,
 }
 
 /// A subpath ready for routing.
@@ -534,15 +536,20 @@ pub fn plan(items: &[RouteItem], spec: &RouteSpec) -> Route {
     };
     let preds = precedence(&prepared, &spec);
     let first = greedy(&prepared, &preds, &spec);
-    let (t1, steps1, moves1, mut ends) = evaluate(&prepared, &first, &spec);
+    let (t1, steps1, moves1, ends1) = evaluate(&prepared, &first, &spec);
+    let mut ends = ends1.clone();
     let mut second = first.clone();
     two_opt(&mut second, &mut ends, &preds, spec.from);
-    let (t2, steps2, moves2, _) = evaluate(&prepared, &second, &spec);
-    let (mut order, travel_after, steps, moves) = if t2 + 1e-9 < t1 {
-        (second, t2, steps2, moves2)
+    let (t2, steps2, moves2, ends2) = evaluate(&prepared, &second, &spec);
+    let (mut order, travel_after, steps, moves, ends) = if t2 + 1e-9 < t1 {
+        (second, t2, steps2, moves2, ends2)
     } else {
-        (first, t1, steps1, moves1)
+        (first, t1, steps1, moves1, ends1)
     };
+    let end = order
+        .last()
+        .and_then(|i| ends.get(*i))
+        .map_or(spec.from, |e| e.1);
     // Items with nothing to cut go last, in their order.
     for (i, it) in prepared.iter().enumerate() {
         if it.is_none() {
@@ -579,6 +586,7 @@ pub fn plan(items: &[RouteItem], spec: &RouteSpec) -> Route {
         }
     }
     Route {
+        end,
         order,
         cuts,
         changed,
@@ -666,6 +674,7 @@ mod tests {
         // nearest to where the first ended (0, 0).
         assert_eq!(first_point(&r.cuts[1][0]), Point::new(20.0, 0.0));
         assert!((r.travel_after - 20.0).abs() < 1e-9);
+        assert_eq!(r.end, Point::new(20.0, 0.0));
         let from_corner = RouteSpec {
             from: Point::new(30.0, 10.0),
             ..Default::default()
