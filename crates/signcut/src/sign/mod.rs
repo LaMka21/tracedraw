@@ -231,9 +231,67 @@ pub(crate) fn points_bbox(pts: impl IntoIterator<Item = Point>) -> Option<Rect> 
     r
 }
 
+/// The closed subpaths of a path, each a path of its own ending with a
+/// close (paths with non-finite coordinates give none).
+pub fn closed_subpaths(path: &BezPath) -> Vec<BezPath> {
+    if !finite_path(path) {
+        return Vec::new();
+    }
+    crate::subpaths(path)
+        .into_iter()
+        .filter(|s| s.closed)
+        .map(|s| {
+            let mut p = s.path;
+            if !matches!(p.elements().last(), Some(PathEl::ClosePath)) {
+                p.close_path();
+            }
+            p
+        })
+        .collect()
+}
+
 /// A circle path.
 pub fn circle(center: Point, diameter: f64) -> BezPath {
     tracedraw_core::geometry::Circle::new(center, diameter.abs() / 2.0).to_path(0.01)
+}
+
+/// One value for each side of a rectangle (millimetres).
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Sides {
+    pub left: f64,
+    pub right: f64,
+    pub bottom: f64,
+    pub top: f64,
+}
+
+impl Default for Sides {
+    fn default() -> Self {
+        Sides::all(0.0)
+    }
+}
+
+impl Sides {
+    /// The same value on every side.
+    pub fn all(v: f64) -> Self {
+        Sides {
+            left: v,
+            right: v,
+            bottom: v,
+            top: v,
+        }
+    }
+
+    /// Every value finite and at least zero (others become zero).
+    pub fn clean(self) -> Self {
+        let c = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
+        Sides {
+            left: c(self.left),
+            right: c(self.right),
+            bottom: c(self.bottom),
+            top: c(self.top),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +327,39 @@ mod tests {
         assert!(!inside(&polys, Point::new(15.0, 15.0)));
         assert!(!inside(&polys, Point::new(-1.0, 5.0)));
         assert!((edge_dist(&polys, Point::new(5.0, 15.0)) - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closed_subpaths_and_sides() {
+        let mut p = square(0.0, 0.0, 10.0);
+        p.move_to((20.0, 0.0));
+        p.line_to((30.0, 0.0));
+        p.extend(square(40.0, 0.0, 5.0));
+        let c = closed_subpaths(&p);
+        assert_eq!(c.len(), 2);
+        assert!(c
+            .iter()
+            .all(|s| matches!(s.elements().last(), Some(PathEl::ClosePath))));
+        let mut bad = square(0.0, 0.0, 1.0);
+        bad.line_to((f64::NAN, 0.0));
+        assert!(closed_subpaths(&bad).is_empty());
+        let s = Sides {
+            left: f64::NAN,
+            right: -1.0,
+            bottom: 2.0,
+            top: f64::INFINITY,
+        }
+        .clean();
+        assert_eq!(
+            s,
+            Sides {
+                left: 0.0,
+                right: 0.0,
+                bottom: 2.0,
+                top: 0.0
+            }
+        );
+        assert_eq!(Sides::all(3.0).top, 3.0);
     }
 
     #[test]

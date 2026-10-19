@@ -15,19 +15,25 @@
 //! others). The strip starts at the outline's first node. A V notch on
 //! its top edge marks every corner sharper than the notch angle (the
 //! angle between the two sides meeting at a node; 180 is straight), at
-//! the corner's place along the strip (scaled with the strip's length).
+//! the corner's place along the strip (scaled with the strip's length);
+//! or short marks there ([`strip_marks`]). With a bend compensation `c`
+//! the strip is `c` shorter at each such corner (the n-th corner moves
+//! `c (n - 1/2)` towards the start). A strip longer than the maximum
+//! length is split into the fewest equal pieces whose length plus the
+//! overlap keeps under it; each piece gets the overlap.
 //!
 //! A liquid acrylic mould is the letter offset outwards by the wall
 //! thickness (the base) and a strip on the middle face of the wall, as
-//! high as the fill depth.
+//! high as the fill depth; optionally an inner contour, the letter offset
+//! inwards.
 
 use super::{finite_path, hole_flags};
 use crate::measure;
-use tracedraw_core::geometry::{BezPath, ParamCurveArclen as _, PathSeg, Point, Vec2};
+use tracedraw_core::geometry::{BezPath, ParamCurveArclen as _, PathSeg, Point, Shape as _, Vec2};
 use tracedraw_core::shaping::{self, Join};
 
 /// Which face of the strip gets the outline's length.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ReturnFace {
     #[default]
     Inner,
@@ -35,8 +41,21 @@ pub enum ReturnFace {
     Outer,
 }
 
+/// How the corners show on a strip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum ReturnMethod {
+    /// V notches cut into the top edge.
+    #[default]
+    Notched,
+    /// Short marks at both edges (for bending by hand or on a bender).
+    Marked,
+    /// A plain strip.
+    Plain,
+}
+
 /// The return settings (millimetres, degrees).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ReturnSpec {
     /// The strip's height.
     pub depth: f64,
@@ -49,6 +68,12 @@ pub struct ReturnSpec {
     pub notch_angle: f64,
     /// Width and depth of a notch.
     pub notch_size: f64,
+    /// Strips longer than this are split into equal pieces, each with
+    /// the overlap (0: no limit).
+    pub max_length: f64,
+    /// Length the material gains at each bend: the strip is this much
+    /// shorter at every notched corner (0: none).
+    pub bend_comp: f64,
 }
 
 impl Default for ReturnSpec {
@@ -60,6 +85,8 @@ impl Default for ReturnSpec {
             face: ReturnFace::Inner,
             notch_angle: 135.0,
             notch_size: 3.0,
+            max_length: 0.0,
+            bend_comp: 0.0,
         }
     }
 }
@@ -79,6 +106,9 @@ pub struct Strip {
     pub height: f64,
     /// Places of the notches along the strip.
     pub notches: Vec<f64>,
+    /// The piece of a split strip (from 0) and how many there are.
+    pub part: usize,
+    pub parts: usize,
 }
 
 /// Most strips one run makes.
@@ -124,21 +154,48 @@ pub fn returns(objects: &[Vec<BezPath>], spec: &ReturnSpec) -> Vec<Strip> {
             let sign = if hole { -1.0 } else { 1.0 };
             let face = (len + sign * std::f64::consts::TAU * s).max(0.0);
             let scale = if len > 0.0 { face / len } else { 1.0 };
-            let notches = corners(path, spec.notch_angle)
+            let mut notches: Vec<f64> = corners(path, spec.notch_angle)
                 .into_iter()
                 .map(|p| p * scale)
                 .collect();
-            out.push(Strip {
-                object: oi,
-                contour: ci,
-                hole,
-                outline_length: len,
-                length: face + overlap,
-                height,
-                notches,
-            });
-            if out.len() >= MAX_STRIPS {
-                return out;
+            // Each bend gives material: the strip shortens there.
+            let comp = clean(spec.bend_comp).min(face / (notches.len() as f64 + 1.0));
+            for (i, n) in notches.iter_mut().enumerate() {
+                *n -= comp * (i as f64 + 0.5);
+            }
+            let face = (face - comp * notches.len() as f64).max(0.0);
+            // Split into pieces of at most the maximum length.
+            let max = clean(spec.max_length);
+            let parts = if max > overlap + 1e-6 && face + overlap > max + 1e-9 {
+                (face / (max - overlap) - 1e-9).ceil().max(1.0)
+            } else {
+                1.0
+            };
+            if !parts.is_finite() || parts > MAX_STRIPS as f64 {
+                continue;
+            }
+            let parts = parts as usize;
+            let piece = face / parts as f64;
+            for part in 0..parts {
+                let (a, b) = (part as f64 * piece, (part + 1) as f64 * piece);
+                out.push(Strip {
+                    object: oi,
+                    contour: ci,
+                    hole,
+                    outline_length: len,
+                    length: piece + overlap,
+                    height,
+                    notches: notches
+                        .iter()
+                        .filter(|n| **n >= a && (**n < b || part + 1 == parts))
+                        .map(|n| n - a)
+                        .collect(),
+                    part,
+                    parts,
+                });
+                if out.len() >= MAX_STRIPS {
+                    return out;
+                }
             }
         }
     }
@@ -237,6 +294,49 @@ pub fn strip_path(strip: &Strip, notch: f64, at: Point) -> BezPath {
     tracedraw_core::geometry::polyline_path(&pts, true)
 }
 
+/// The corner marks of a strip with its bottom-left corner at `at`: at
+/// each corner a line `len` long down from the top edge and one up from
+/// the bottom edge (at most a third of the height each).
+pub fn strip_marks(strip: &Strip, len: f64, at: Point) -> Vec<(Point, Point)> {
+    let h = strip.height;
+    let m = clean(len).min(h / 3.0);
+    if m <= 1e-9 {
+        return Vec::new();
+    }
+    strip
+        .notches
+        .iter()
+        .filter(|x| x.is_finite() && **x > 0.0 && **x < strip.length)
+        .flat_map(|x| {
+            let px = at.x + x;
+            [
+                (Point::new(px, at.y + h), Point::new(px, at.y + h - m)),
+                (Point::new(px, at.y), Point::new(px, at.y + m)),
+            ]
+        })
+        .collect()
+}
+
+/// The face of a letter: its closed outlines offset inwards by `inset`
+/// (the return's material thickness, so the face fits inside the
+/// strip). Empty when nothing is left.
+pub fn letter_face(paths: &[BezPath], inset: f64) -> BezPath {
+    let region = super::region(paths);
+    if region.elements().is_empty() {
+        return region;
+    }
+    let d = clean(inset);
+    let out = if d > 1e-9 {
+        shaping::offset_with(&region, -d, Join::Miter)
+    } else {
+        shaping::overlay(&region, &BezPath::new(), shaping::Op::Weld)
+    };
+    if out.area().abs() < 1e-9 {
+        return BezPath::new();
+    }
+    out
+}
+
 /// Where each strip goes: one under another, left edges at `x`, the
 /// first one's top `gap` under `top`.
 pub fn stack(strips: &[Strip], x: f64, top: f64, gap: f64) -> Vec<Point> {
@@ -254,11 +354,14 @@ pub fn stack(strips: &[Strip], x: f64, top: f64, gap: f64) -> Vec<Point> {
 }
 
 /// The mould settings (millimetres).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct MouldSpec {
     pub wall: f64,
     pub depth: f64,
     pub overlap: f64,
+    /// An inner contour: the letter offset inwards by this (0: none).
+    pub inside: f64,
 }
 
 impl Default for MouldSpec {
@@ -267,8 +370,33 @@ impl Default for MouldSpec {
             wall: 2.0,
             depth: 5.0,
             overlap: 10.0,
+            inside: 0.0,
         }
     }
+}
+
+/// The inner contours of a mould: each object's letter offset inwards by
+/// the spec's `inside` (empty paths where nothing is left or it is 0).
+pub fn mould_inside(objects: &[Vec<BezPath>], spec: &MouldSpec) -> Vec<BezPath> {
+    let d = clean(spec.inside);
+    objects
+        .iter()
+        .map(|paths| {
+            if d <= 1e-9 {
+                return BezPath::new();
+            }
+            let region = super::region(paths);
+            if region.elements().is_empty() {
+                return region;
+            }
+            let out = shaping::offset_with(&region, -d, Join::Round);
+            if out.area().abs() < 1e-9 {
+                BezPath::new()
+            } else {
+                out
+            }
+        })
+        .collect()
 }
 
 /// The mould of each object: its base (the letter offset outwards by the
@@ -298,25 +426,32 @@ pub fn mould(objects: &[Vec<BezPath>], spec: &MouldSpec) -> (Vec<BezPath>, Vec<S
             face: ReturnFace::Middle,
             notch_angle: 0.0,
             notch_size: 0.0,
+            max_length: 0.0,
+            bend_comp: 0.0,
         },
     );
     (bases, strips)
 }
 
-/// The number shown on a strip: the object's number, and with more than
-/// one outline the outline's after a dot ("3", "3.2").
+/// The number shown on a strip: the object's number, with more than one
+/// outline the outline's after a dot, and for the pieces of a split
+/// strip a letter ("3", "3.2", "3.2b").
 pub fn strip_label(strip: &Strip, outlines_in_object: usize) -> String {
-    if outlines_in_object > 1 {
+    let mut s = if outlines_in_object > 1 {
         format!("{}.{}", strip.object + 1, strip.contour + 1)
     } else {
         format!("{}", strip.object + 1)
+    };
+    if strip.parts > 1 {
+        s.push_str(&super::tiles::row_letters(strip.part).to_lowercase());
     }
+    s
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tracedraw_core::geometry::{Circle, Rect, Shape as _};
+    use tracedraw_core::geometry::{Circle, Rect};
 
     fn square(x: f64, y: f64, s: f64) -> BezPath {
         Rect::new(x, y, x + s, y + s).to_path(0.01)
@@ -421,5 +556,110 @@ mod tests {
         let _ = strip_path(&s[0], f64::NAN, Point::ZERO);
         let (b, s) = mould(&[vec![]], &MouldSpec::default());
         assert!(b[0].elements().is_empty() && s.is_empty());
+        let odd = ReturnSpec {
+            max_length: f64::NAN,
+            bend_comp: f64::INFINITY,
+            ..Default::default()
+        };
+        assert_eq!(returns(&[vec![square(0.0, 0.0, 10.0)]], &odd).len(), 1);
+        assert!(letter_face(&[], 1.0).elements().is_empty());
+        assert!(strip_marks(&s0(), f64::NAN, Point::ZERO).is_empty());
+    }
+
+    fn s0() -> Strip {
+        Strip {
+            object: 0,
+            contour: 0,
+            hole: false,
+            outline_length: 100.0,
+            length: 100.0,
+            height: 30.0,
+            notches: vec![25.0, 50.0, f64::NAN],
+            part: 0,
+            parts: 1,
+        }
+    }
+
+    #[test]
+    fn long_strips_are_split_into_pieces() {
+        // A 400 square, 10 overlap, at most 150 a piece: 400 / 140 = 3 pieces.
+        let spec = ReturnSpec {
+            max_length: 150.0,
+            ..Default::default()
+        };
+        let strips = returns(&[vec![square(0.0, 0.0, 100.0)]], &spec);
+        assert_eq!(strips.len(), 3);
+        for (i, s) in strips.iter().enumerate() {
+            assert_eq!((s.part, s.parts), (i, 3));
+            assert!((s.length - (400.0 / 3.0 + 10.0)).abs() < 1e-9);
+        }
+        // The corners at 100, 200, 300 land on the pieces they fall in.
+        let all: usize = strips.iter().map(|s| s.notches.len()).sum();
+        assert_eq!(all, 3);
+        assert!((strips[1].notches[0] - (200.0 - 400.0 / 3.0)).abs() < 1e-6);
+        assert_eq!(strip_label(&strips[1], 1), "1b");
+        // Under the limit: one piece.
+        let one = returns(
+            &[vec![square(0.0, 0.0, 10.0)]],
+            &ReturnSpec {
+                max_length: 150.0,
+                ..Default::default()
+            },
+        );
+        assert_eq!(one.len(), 1);
+        assert_eq!(strip_label(&one[0], 1), "1");
+    }
+
+    #[test]
+    fn bend_compensation_shortens_at_each_notch() {
+        let spec = ReturnSpec {
+            bend_comp: 0.5,
+            overlap: 0.0,
+            ..Default::default()
+        };
+        let s = returns(&[vec![square(0.0, 0.0, 100.0)]], &spec);
+        assert!((s[0].length - (400.0 - 1.5)).abs() < 1e-9);
+        assert!((s[0].notches[0] - 99.75).abs() < 1e-9);
+        assert!((s[0].notches[2] - (300.0 - 1.25)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn marks_sit_at_the_corners_on_both_edges() {
+        let m = strip_marks(&s0(), 5.0, Point::new(10.0, 0.0));
+        assert_eq!(m.len(), 4);
+        assert_eq!(m[0], (Point::new(35.0, 30.0), Point::new(35.0, 25.0)));
+        assert_eq!(m[1], (Point::new(35.0, 0.0), Point::new(35.0, 5.0)));
+        // At most a third of the height.
+        let long = strip_marks(&s0(), 50.0, Point::ZERO);
+        assert!((long[0].0.y - long[0].1.y - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_face_is_inset_by_the_thickness() {
+        let mut o = square(0.0, 0.0, 100.0);
+        o.extend(square(25.0, 25.0, 50.0));
+        let f = letter_face(&[o.clone()], 2.0);
+        let bb = f.bounding_box();
+        assert!((bb.width() - 96.0).abs() < 0.01);
+        // The hole grows: 96^2 - 54^2.
+        assert!((f.area().abs() - (96.0 * 96.0 - 54.0 * 54.0)).abs() < 0.5);
+        assert!((letter_face(&[o], 0.0).area().abs() - 7500.0).abs() < 0.01);
+        assert!(letter_face(&[square(0.0, 0.0, 3.0)], 2.0)
+            .elements()
+            .is_empty());
+    }
+
+    #[test]
+    fn a_mould_can_have_an_inner_contour() {
+        let spec = MouldSpec {
+            inside: 5.0,
+            ..Default::default()
+        };
+        let inner = mould_inside(&[vec![square(0.0, 0.0, 100.0)], vec![]], &spec);
+        assert_eq!(inner.len(), 2);
+        assert!((inner[0].bounding_box().width() - 90.0).abs() < 0.01);
+        assert!(inner[1].elements().is_empty());
+        let none = mould_inside(&[vec![square(0.0, 0.0, 100.0)]], &MouldSpec::default());
+        assert!(none[0].elements().is_empty());
     }
 }
