@@ -23,6 +23,8 @@ pub struct Settings {
     pub grid_cells: bool,
     /// The grid's bottom-left corner on the page (mm).
     pub grid_origin: Point,
+    /// Show the grid's lines on the drawing while the section is open.
+    pub grid_preview: bool,
     /// Create Lines: how many and which way.
     pub lines_count: usize,
     pub lines_vertical: bool,
@@ -47,6 +49,7 @@ impl Default for Settings {
             grid_fill_selection: false,
             grid_cells: false,
             grid_origin: Point::new(10.0, 10.0),
+            grid_preview: false,
             lines_count: 3,
             lines_vertical: false,
             puzzle: PuzzleSpec::default(),
