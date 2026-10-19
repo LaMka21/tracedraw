@@ -3034,10 +3034,10 @@ fn signcut_items(app: &mut App, ui: &mut Ui) {
         app.open_signcut(Section::Size);
     }
     if item(ui, "menu.tools.signcut_reference_scale", "", doc) {
-        app.open_signcut(Section::Size);
+        app.signcut_tool(crate::signcut_tools::ToolId::ReferenceScale);
     }
     if item(ui, "menu.tools.signcut_replace", "", doc) {
-        app.open_signcut(Section::Size);
+        app.signcut_tool(crate::signcut_tools::ToolId::Replace);
     }
     sep(ui);
     sub(ui, "menu.tools.signcut_cut", |ui| {
