@@ -5071,6 +5071,32 @@ signcut.rn_done = "{n} node dihapus." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Objek: {n}. Tekan Terapkan untuk melihat pratinjau hasilnya." # mt
+signcut.wcut_weed_strip = "Potongan weeding: {n}    Objek: {objects}" # mt
+signcut.wcut_method = "Metode" # mt
+signcut.wcut_boxes = "Kotak weeding" # mt
+signcut.wcut_frame = "Bingkai weeding" # mt
+signcut.wcut_frame_add = "Tambahkan bingkai weeding" # mt
+signcut.wcut_bridges_strip = "Jembatan: {n}    Kontur berjembatan: {outlines}" # mt
+signcut.wcut_route_strip = "Perjalanan sekarang: {before}    Direncanakan: {after}    Lebih pendek {saved} %" # mt
+signcut.wcut_preview = "Pratinjau" # mt
+signcut.wcut_marks = "Tanda" # mt
+signcut.wcut_marks_strip = "Tanda: {n}    Kontur potong: {c}" # mt
+signcut.wcut_contour_from = "Dibuat dari" # mt
+signcut.wcut_crop_strip = "Sudut tanda potong: {n}" # mt
+signcut.wcut_press_apply = "Tekan Terapkan untuk menjalankannya pada objek." # mt
+signcut.wcut_press_find = "Tekan Cari untuk mencari pada objek." # mt
+signcut.wcut_find = "Cari" # mt
+signcut.wcut_plot_strip = "Kontur: {n}    Panjang potong: {len}    Perjalanan: {travel}" # mt
+signcut.wcut_tab_job = "Pekerjaan" # mt
+signcut.wcut_tab_plotter = "Plotter" # mt
+signcut.wcut_tab_knife = "Pisau" # mt
+signcut.wcut_order_hint = "Arah dan titik awal berasal dari jendela Urutan potong." # mt
+signcut.wcut_placement = "Penempatan" # mt
+signcut.wcut_commands = "Perintah" # mt
+signcut.wcut_speed_force = "Kecepatan dan tekanan" # mt
+signcut.wcut_output = "Keluaran" # mt
+signcut.wcut_corner_limit = "Busur di sudut yang lebih tajam dari, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

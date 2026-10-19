@@ -5071,6 +5071,32 @@ signcut.rn_done = "Usunięte węzły: {n}." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Obiekty: {n}. Kliknij Zastosuj, aby zobaczyć podgląd wyniku." # mt
+signcut.wcut_weed_strip = "Cięcia wybierania: {n}    Obiekty: {objects}" # mt
+signcut.wcut_method = "Metoda" # mt
+signcut.wcut_boxes = "Ramki wybierania wokół obiektów" # mt
+signcut.wcut_frame = "Ramka wybierania" # mt
+signcut.wcut_frame_add = "Dodaj ramkę wybierania" # mt
+signcut.wcut_bridges_strip = "Mostki: {n}    Kontury z mostkami: {outlines}" # mt
+signcut.wcut_route_strip = "Przejazd teraz: {before}    Planowany: {after}    Krótszy o {saved} %" # mt
+signcut.wcut_preview = "Podgląd" # mt
+signcut.wcut_marks = "Znaczniki" # mt
+signcut.wcut_marks_strip = "Znaczniki: {n}    Kontury cięcia: {c}" # mt
+signcut.wcut_contour_from = "Utworzony z" # mt
+signcut.wcut_crop_strip = "Narożniki ze znacznikami cięcia: {n}" # mt
+signcut.wcut_press_apply = "Kliknij Zastosuj, aby wykonać to na obiektach." # mt
+signcut.wcut_press_find = "Kliknij Znajdź, aby przeszukać obiekty." # mt
+signcut.wcut_find = "Znajdź" # mt
+signcut.wcut_plot_strip = "Kontury: {n}    Długość cięcia: {len}    Przejazd: {travel}" # mt
+signcut.wcut_tab_job = "Zadanie" # mt
+signcut.wcut_tab_plotter = "Ploter" # mt
+signcut.wcut_tab_knife = "Nóż" # mt
+signcut.wcut_order_hint = "Kierunek i punkty startu pochodzą z okna Kolejność cięcia." # mt
+signcut.wcut_placement = "Położenie" # mt
+signcut.wcut_commands = "Polecenia" # mt
+signcut.wcut_speed_force = "Prędkość i nacisk" # mt
+signcut.wcut_output = "Wyjście" # mt
+signcut.wcut_corner_limit = "Łuk w narożnikach ostrzejszych niż, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

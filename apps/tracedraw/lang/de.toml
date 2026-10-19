@@ -5071,6 +5071,32 @@ signcut.rn_done = "{n} Knoten entfernt." # mt
 
 # Sign & Cut windows: cut (keys of this area's windows go below, before the blank line)
 signcut.win_cut_marker = "-"
+signcut.wcut_ready = "Objekte: {n}. Klicken Sie auf Anwenden, um eine Vorschau zu sehen." # mt
+signcut.wcut_weed_strip = "Entgitterungsschnitte: {n}    Objekte: {objects}" # mt
+signcut.wcut_method = "Methode" # mt
+signcut.wcut_boxes = "Entgitterungsrahmen um Objekte" # mt
+signcut.wcut_frame = "Entgitterungsrahmen" # mt
+signcut.wcut_frame_add = "Entgitterungsrahmen hinzufügen" # mt
+signcut.wcut_bridges_strip = "Stege: {n}    Konturen mit Stegen: {outlines}" # mt
+signcut.wcut_route_strip = "Leerweg jetzt: {before}    Geplant: {after}    Kürzer um {saved} %" # mt
+signcut.wcut_preview = "Vorschau" # mt
+signcut.wcut_marks = "Marken" # mt
+signcut.wcut_marks_strip = "Marken: {n}    Konturen der Schneidkontur: {c}" # mt
+signcut.wcut_contour_from = "Erstellt aus" # mt
+signcut.wcut_crop_strip = "Ecken mit Schnittmarken: {n}" # mt
+signcut.wcut_press_apply = "Klicken Sie auf Anwenden, um es auf die Objekte anzuwenden." # mt
+signcut.wcut_press_find = "Klicken Sie auf Suchen, um die Objekte zu durchsuchen." # mt
+signcut.wcut_find = "Suchen" # mt
+signcut.wcut_plot_strip = "Konturen: {n}    Schnittlänge: {len}    Leerweg: {travel}" # mt
+signcut.wcut_tab_job = "Auftrag" # mt
+signcut.wcut_tab_plotter = "Plotter" # mt
+signcut.wcut_tab_knife = "Messer" # mt
+signcut.wcut_order_hint = "Richtung und Startpunkte kommen aus dem Fenster Schneidreihenfolge." # mt
+signcut.wcut_placement = "Platzierung" # mt
+signcut.wcut_commands = "Befehle" # mt
+signcut.wcut_speed_force = "Geschwindigkeit und Druck" # mt
+signcut.wcut_output = "Ausgabe" # mt
+signcut.wcut_corner_limit = "Bogen an Ecken spitzer als, °" # mt
 
 # Sign & Cut windows: calc (keys of this area's windows go below, before the blank line)
 signcut.win_calc_marker = "-"

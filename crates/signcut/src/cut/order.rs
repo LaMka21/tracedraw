@@ -37,7 +37,7 @@ pub const MAX_TWO_OPT: usize = 2000;
 const TWO_OPT_PASSES: usize = 20;
 
 /// Direction of closed outlines.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Direction {
     #[default]
     Keep,
@@ -46,7 +46,7 @@ pub enum Direction {
 }
 
 /// Where a closed outline starts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum StartAt {
     Keep,
     /// At the node nearest to the end of the previous cut.
@@ -57,7 +57,8 @@ pub enum StartAt {
 }
 
 /// Settings of [`plan`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct RouteSpec {
     pub direction: Direction,
     pub start: StartAt,
@@ -103,6 +104,9 @@ pub struct Route {
     pub travel_after: f64,
     /// The moves with the knife up, in order.
     pub moves: Vec<(Point, Point)>,
+    /// The moves with the knife up in the given order, everything as
+    /// drawn.
+    pub moves_before: Vec<(Point, Point)>,
     /// Where the last cut ends (`from` when nothing is cut).
     pub end: Point,
 }
@@ -523,12 +527,16 @@ pub fn plan(items: &[RouteItem], spec: &RouteSpec) -> Route {
         ..*spec
     };
     let prepared = prepare(items, &spec);
+    let mut moves_before = Vec::new();
     let travel_before = {
         let mut p = spec.from;
         let mut t = 0.0;
         for it in prepared.iter().flatten() {
             for s in &it.subs {
                 t += (s.start - p).hypot();
+                if (s.start - p).hypot() > 1e-9 {
+                    moves_before.push((p, s.start));
+                }
                 p = s.end;
             }
         }
@@ -596,6 +604,7 @@ pub fn plan(items: &[RouteItem], spec: &RouteSpec) -> Route {
             .into_iter()
             .filter(|(a, b)| (*a - *b).hypot() > 1e-9)
             .collect(),
+        moves_before,
     }
 }
 
@@ -633,6 +642,10 @@ mod tests {
         assert_eq!(r.order, vec![0, 2, 4, 1, 3, 5]);
         assert!(r.travel_after < r.travel_before / 3.0, "{r:?}");
         assert_eq!(r.cuts.len(), 6);
+        // The moves as drawn add up to the travel before.
+        assert_eq!(r.moves_before.len(), 5);
+        let sum: f64 = r.moves_before.iter().map(|(a, b)| (*b - *a).hypot()).sum();
+        assert!((sum - r.travel_before).abs() < 1e-9);
     }
 
     #[test]
