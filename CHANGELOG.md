@@ -13,9 +13,16 @@ full, row-by-row status.
   to real size, and Replace with a master object. The geometry is in the
   new `tracedraw-signcut` crate.
 - The Sign & Cut toolbar: nine buttons with menus of the tools (Window >
-  Toolbars > Sign & Cut); the Sign & Cut panel lists every tool; tools open
-  windows that do not block the drawing, with presets, previews and Apply,
-  OK and Cancel.
+  Toolbars > Sign & Cut); the Sign & Cut panel lists every tool; every tool
+  opens a window that does not block the drawing, with presets, previews
+  and Apply, OK and Cancel (Update and Close for calculators). Plotter
+  Output previews the job and keeps plotter profiles; Cost has a table of
+  rows; Set Size can size to the largest or smallest object, by a change or
+  a scale, and turn; Replace can use several masters; LED Modules lay
+  modules on curves, around them, in rings or at random; neon can run along
+  contours; letter returns can carry bend marks and split long strips; sign
+  boxes have folds per side and corner tabs; carriers can be rectangles;
+  G-code keeps machines as presets.
 - Sign & Cut, Nesting: place the selection on sheets or a roll by bounding
   boxes or true outlines (spacing, margin, start corner, turns, small parts
   in holes, a time-limited search), with sheet frames and a usage report,

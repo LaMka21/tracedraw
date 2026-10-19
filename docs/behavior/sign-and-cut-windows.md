@@ -103,8 +103,16 @@ alone) in one undo step ("Reduce Nodes").
 
 ## The other windows
 
-Until each tool has a window of its own, its window shows the section
-of the former Sign & Cut panel the tool belongs to, with a Close button.
+Every tool has a window of its own; each area's page describes its
+windows in its "Windows" section: `sign-and-cut-cut.md` (Plotter Output,
+Weeding Lines, Bridges, Cut Order, Print and Cut Marks, Crop Marks, Find
+Duplicates, Remove Duplicate Edges, Find Crossings), `sign-and-cut-calc.md`
+(Perimeter, Area, Cost, Cutting Time, Volume and Weight, Set Size,
+Reference Scale, Replace), `sign-and-cut-sign.md` (LED Modules, Neon Tubes,
+Letter Returns, Acrylic Mould, Sign Box, Smart Divide, Carrier),
+`sign-and-cut-cnc.md` (G-code, Hot Wire Path, Finger Joints, Centre Line,
+Finger-Joint Box, Door Panels) and `sign-and-cut-fx.md` (Effects, Hatching
+Lines, Grid). The items of Tools > Sign & Cut open the same windows.
 
 ## Checks
 
