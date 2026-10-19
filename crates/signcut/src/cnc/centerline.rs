@@ -14,7 +14,8 @@ use std::collections::{HashMap, HashSet};
 use tracedraw_core::geometry::{BezPath, Point};
 
 /// How fine and how clean the centre line is.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct CenterSpec {
     /// Simplification tolerance and the finest sample spacing (mm).
     pub tolerance: f64,

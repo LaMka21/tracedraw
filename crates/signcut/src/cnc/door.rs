@@ -5,7 +5,7 @@
 use tracedraw_core::geometry::{Arc, BezPath, Point, Rect, RoundedRect, Shape as _, Vec2};
 use tracedraw_core::shaping::{self, Join};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InnerShape {
     #[default]
     Square,
@@ -14,7 +14,8 @@ pub enum InnerShape {
 }
 
 /// What to draw.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct DoorSpec {
     /// Outer size (mm), used when no object gives it.
     pub width: f64,

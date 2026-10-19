@@ -15,7 +15,8 @@ use tracedraw_core::geometry::{BezPath, Point, Vec2};
 use tracedraw_core::shaping::{self, Join};
 
 /// What to build.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct BoxSpec {
     /// Width (x), depth (y) and height (z), mm.
     pub width: f64,

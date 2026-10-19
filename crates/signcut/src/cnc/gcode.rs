@@ -16,7 +16,7 @@ use tracedraw_core::shaping::{self, Join};
 pub const TOLERANCE: f64 = 0.02;
 
 /// Where the machine's zero lies on the page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Origin {
     #[default]
     BottomLeft,
@@ -56,7 +56,7 @@ impl Origin {
 }
 
 /// How comments are written.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum CommentStyle {
     /// `(text)`
     #[default]
@@ -68,7 +68,8 @@ pub enum CommentStyle {
 }
 
 /// A machine: its table and how its G-code looks.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Machine {
     pub name: String,
     /// Table size (mm); a warning is given when tool paths leave it.
@@ -154,7 +155,8 @@ impl Default for Machine {
 }
 
 /// A cutting tool (an end mill, a laser beam, a hot wire).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Tool {
     pub name: String,
     /// Diameter (mm): the cut side offsets by half of it.
@@ -228,7 +230,7 @@ impl Default for Tool {
 }
 
 /// Which side of the outline the tool runs on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Side {
     /// The tool's centre on the outline (engraving, lasers).
     On,
@@ -241,7 +243,7 @@ pub enum Side {
 
 /// Direction of travel for a spindle turning clockwise (seen from
 /// above).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Direction {
     /// The kept material on the right of the travel.
     #[default]
@@ -250,7 +252,7 @@ pub enum Direction {
     Conventional,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum LeadIn {
     #[default]
     None,
@@ -261,7 +263,8 @@ pub enum LeadIn {
 }
 
 /// What to do with the outlines of one colour.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Job {
     /// The outline colour of the objects this job cuts.
     pub color: [u8; 3],
@@ -302,6 +305,12 @@ impl Job {
             bridge_length: 4.0,
             bridge_height: 1.0,
         }
+    }
+}
+
+impl Default for Job {
+    fn default() -> Self {
+        Job::new([0, 0, 0])
     }
 }
 
