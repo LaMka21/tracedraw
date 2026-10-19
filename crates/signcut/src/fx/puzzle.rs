@@ -19,7 +19,7 @@ pub const MAX_SIDE: usize = 100;
 pub const MAX_TAB: f64 = 0.35;
 
 /// The outline of a tab.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum TabShape {
     /// A round head on a narrower neck.
     #[default]
@@ -29,7 +29,8 @@ pub enum TabShape {
 }
 
 /// The settings of the puzzle.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct PuzzleSpec {
     pub cols: usize,
     pub rows: usize,

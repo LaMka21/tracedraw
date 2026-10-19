@@ -18,7 +18,8 @@ pub const MAX_COUNT: usize = 20_000;
 pub const MAX_TRIES: usize = 400_000;
 
 /// The settings of the circle fill.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct CircleSpec {
     /// Radius range (mm).
     pub r_min: f64,

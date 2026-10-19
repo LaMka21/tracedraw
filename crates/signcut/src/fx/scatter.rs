@@ -22,7 +22,8 @@ pub const MAX_MISSES: usize = 20_000;
 pub const MIN_SCALE: f64 = 0.01;
 
 /// The settings of the random copies.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ScatterSpec {
     pub count: usize,
     /// Turn range, degrees.
