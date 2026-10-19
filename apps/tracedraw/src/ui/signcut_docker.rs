@@ -4,10 +4,8 @@
 
 use crate::app::{App, Units};
 use crate::i18n::{tr, trf};
-use crate::signcut::CROSSING_MARK_PX;
 use crate::theme::Tokens;
 use egui::{RichText, Ui};
-use tracedraw_core::geometry::{Circle, Shape as _};
 use tracedraw_signcut::sizing::{Anchor, RefMeasure, ReplaceFit, SizeRule};
 
 /// The panel: every Sign & Cut tool by toolbar group; a click opens its
@@ -134,58 +132,6 @@ pub(crate) fn measure(app: &mut App, ui: &mut Ui) {
             );
             row("signcut.nodes", m.nodes.to_string());
         });
-}
-
-pub(crate) fn cleanup(app: &mut App, ui: &mut Ui) {
-    // Mark the crossings found, while the drawing is as it was.
-    let r = CROSSING_MARK_PX / f64::from(app.view.zoom.max(1e-3));
-    for p in app.signcut_crossing_marks() {
-        app.docker_preview.push(Circle::new(p, r).to_path(0.01));
-    }
-    let u = app.units;
-    ui.horizontal(|ui| {
-        ui.label(tr("signcut.tolerance"));
-        length_field(ui, u, &mut app.signcut.tolerance, 0.001);
-    });
-    dim(
-        ui,
-        tr(if app.selection.is_empty() {
-            "signcut.whole_page"
-        } else {
-            "signcut.selection_only"
-        }),
-    );
-    ui.add_space(4.0);
-    ui.strong(tr("signcut.duplicates"));
-    ui.checkbox(
-        &mut app.signcut.delete_duplicates,
-        tr("signcut.delete_duplicates"),
-    );
-    if ui.button(tr("signcut.find_duplicates")).clicked() {
-        app.signcut_find_duplicates();
-    }
-    ui.add_space(4.0);
-    ui.strong(tr("signcut.duplicate_edges"));
-    dim(ui, tr("signcut.duplicate_edges_hint"));
-    if ui.button(tr("signcut.remove_duplicate_edges")).clicked() {
-        app.signcut_remove_duplicate_edges();
-    }
-    ui.add_space(4.0);
-    ui.strong(tr("signcut.crossings"));
-    ui.checkbox(
-        &mut app.signcut.crossings_between,
-        tr("signcut.crossings_between"),
-    );
-    if ui.button(tr("signcut.find_crossings")).clicked() {
-        app.signcut_find_crossings();
-    }
-    let marks = app.signcut_crossing_marks().len();
-    if marks > 0 {
-        dim(
-            ui,
-            trf("signcut.crossings_found", &[("n", &marks.to_string())]),
-        );
-    }
 }
 
 /// The nine anchor points as a grid of small buttons.
