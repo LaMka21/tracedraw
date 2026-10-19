@@ -15,7 +15,8 @@ use tracedraw_core::geometry::{BezPath, Point, Rect, Shape as _, Vec2};
 use tracedraw_core::shaping::{self, Op};
 
 /// The tile settings (millimetres).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct TileSpec {
     pub width: f64,
     pub height: f64,
@@ -125,6 +126,39 @@ pub fn grid(bounds: Rect, origin: Point, spec: &TileSpec) -> Option<TileGrid> {
         size: Vec2::new(w, h),
         cols: cols as usize,
         rows: rows as usize,
+    })
+}
+
+/// The grid of `cols` x `rows` tiles that just covers `bounds`, the
+/// tiles overlapping by `overlap`: each tile is `(W + (cols - 1) ov) /
+/// cols` wide (and the same for the height). `None` when the sizes make
+/// no tiles (a count 0, the overlap not under the tile size, a size not
+/// finite) or more than [`MAX_TILES`].
+pub fn grid_by_count(bounds: Rect, cols: usize, rows: usize, overlap: f64) -> Option<TileGrid> {
+    let b = bounds.abs();
+    if ![b.x0, b.y0, b.x1, b.y1].iter().all(|v| v.is_finite())
+        || cols == 0
+        || rows == 0
+        || cols.saturating_mul(rows) > MAX_TILES
+    {
+        return None;
+    }
+    let ov = if overlap.is_finite() {
+        overlap.max(0.0)
+    } else {
+        0.0
+    };
+    let w = (b.width() + (cols - 1) as f64 * ov) / cols as f64;
+    let h = (b.height() + (rows - 1) as f64 * ov) / rows as f64;
+    if !(w > ov + 1e-6 && h > ov + 1e-6) {
+        return None;
+    }
+    Some(TileGrid {
+        start: Point::new(b.x0, b.y0),
+        step: Vec2::new(w - ov, h - ov),
+        size: Vec2::new(w, h),
+        cols,
+        rows,
     })
 }
 
@@ -336,5 +370,22 @@ mod tests {
         )
         .is_none());
         assert!(clip(&[], b).elements().is_empty());
+    }
+
+    #[test]
+    fn a_table_of_tiles_covers_the_bounds() {
+        let b = Rect::new(0.0, 0.0, 1000.0, 400.0);
+        let g = grid_by_count(b, 4, 2, 20.0).expect("a grid");
+        assert_eq!((g.cols, g.rows), (4, 2));
+        // (1000 + 3 x 20) / 4 = 265 wide, (400 + 20) / 2 = 210 high.
+        assert!((g.size.x - 265.0).abs() < 1e-9 && (g.size.y - 210.0).abs() < 1e-9);
+        let last = g.rect(3, 1);
+        assert!((last.x1 - 1000.0).abs() < 1e-9 && (last.y1 - 400.0).abs() < 1e-9);
+        assert!((g.rect(1, 0).x0 - 245.0).abs() < 1e-9);
+        assert!(grid_by_count(b, 0, 2, 0.0).is_none());
+        assert!(grid_by_count(b, 100, 100, 0.0).is_none());
+        assert!(grid_by_count(b, 2, 2, 5000.0).is_none());
+        assert!(grid_by_count(Rect::new(0.0, 0.0, f64::NAN, 1.0), 2, 2, 0.0).is_none());
+        assert!(grid_by_count(b, 2, 2, f64::NAN).is_some());
     }
 }

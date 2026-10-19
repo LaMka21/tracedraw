@@ -1,6 +1,10 @@
-//! Sign & Cut, Sign Making: settings and operations (LED modules, neon tubes, sign boxes, letter returns, tiling and carriers).
-//! The geometry is in `tracedraw_signcut::sign`; the panel section is
-//! `ui/signcut_sign.rs`. See docs/behavior/sign-and-cut-sign.md.
+//! Sign & Cut, Sign Making: settings and operations (LED modules, neon
+//! tubes, sign boxes, letter returns, acrylic moulds, smart divide and
+//! carriers). The geometry is in `tracedraw_signcut::sign`; the tool
+//! windows are `ui/signcut_win_sign.rs`. Letter returns, acrylic moulds
+//! and sign boxes are worked out first into a [`Plan`] (shown in the
+//! window's preview, nothing in the drawing changes) and then committed
+//! in one undo step. See docs/behavior/sign-and-cut-sign.md.
 
 use crate::app::App;
 use crate::i18n::{tr, trf};
@@ -10,13 +14,13 @@ use tracedraw_core::{
     Color, Command, Fill, LayerId, LineCap, LineJoin, Shape, ShapeId, ShapeKind, Stroke, TextSpan,
 };
 use tracedraw_signcut::sign::carrier::{self, CarrierSpec};
-use tracedraw_signcut::sign::led::{self, LedReport, LedSpec, Module};
-use tracedraw_signcut::sign::neon::{self, NeonSpec};
-use tracedraw_signcut::sign::returns::{self, MouldSpec, ReturnSpec, Strip};
+use tracedraw_signcut::sign::led::{self, LedReport, LedSpec, Module, Placement};
+use tracedraw_signcut::sign::neon::{self, ContourSpec, NeonKind, NeonSpec};
+use tracedraw_signcut::sign::returns::{self, MouldSpec, ReturnMethod, ReturnSpec, Strip};
 use tracedraw_signcut::sign::sign_box::{self, BoxSpec};
-use tracedraw_signcut::sign::tiles::{self, TileSpec};
+use tracedraw_signcut::sign::tiles::{self, TileGrid, TileSpec};
 
-/// The tools of the section, each under its own header.
+/// The tools of sign making.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
     Led,
@@ -39,19 +43,6 @@ impl Tool {
         Tool::Carrier,
     ];
 
-    /// The i18n key of its header and menu item.
-    pub fn key(self) -> &'static str {
-        match self {
-            Tool::Led => "signcut.sign_led",
-            Tool::Neon => "signcut.sign_neon",
-            Tool::SignBox => "signcut.sign_box",
-            Tool::Returns => "signcut.sign_returns",
-            Tool::Mould => "signcut.sign_mould",
-            Tool::Tiles => "signcut.sign_tiles",
-            Tool::Carrier => "signcut.sign_carrier",
-        }
-    }
-
     fn menu_key(self) -> &'static str {
         match self {
             Tool::Led => "menu.tools.signcut_sign_led",
@@ -66,7 +57,7 @@ impl Tool {
 }
 
 /// Where the tile grid starts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum TileOrigin {
     /// The bottom-left corner of the selection.
     #[default]
@@ -75,7 +66,17 @@ pub enum TileOrigin {
     Page,
 }
 
-/// What Neon Tubes made last.
+/// How Smart Divide sizes its tiles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum TileMethod {
+    /// Tiles of a given size (the material's), from a grid origin.
+    #[default]
+    Size,
+    /// A number of columns and rows that just covers the objects.
+    Table,
+}
+
+/// What Neon Tubes made or measured last.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct NeonReport {
     pub tubes: usize,
@@ -83,72 +84,167 @@ pub struct NeonReport {
     pub supports: usize,
 }
 
-/// The Sign Making section's settings and last results.
-#[derive(Debug, Clone)]
-pub struct Settings {
-    /// The tool the menu last asked for (its header opens once).
-    pub open: Option<Tool>,
+/// The standard tube diameters offered (mm).
+pub const NEON_DIAMETERS: [f64; 9] = [6.0, 8.0, 10.0, 12.0, 14.0, 15.0, 16.0, 18.0, 20.0];
+
+/// LED Modules: the catalogue and the layout.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct LedSettings {
     pub catalogue: Vec<Module>,
     /// The catalogue entry in use.
     pub module: usize,
-    pub led: LedSpec,
-    pub led_report: Option<LedReport>,
-    pub neon: NeonSpec,
+    pub spec: LedSpec,
+}
+
+impl Default for LedSettings {
+    fn default() -> Self {
+        LedSettings {
+            catalogue: led::catalogue(),
+            module: 0,
+            spec: LedSpec::default(),
+        }
+    }
+}
+
+/// Neon Tubes.
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct NeonSettings {
+    pub kind: NeonKind,
+    pub spec: NeonSpec,
+    pub contour: ContourSpec,
     /// Draw tubes as their outline (both sides) instead of a thick line.
-    pub neon_outline: bool,
-    pub neon_report: Option<NeonReport>,
-    pub sign_box: BoxSpec,
-    /// The face when nothing is selected (mm).
-    pub box_width: f64,
-    pub box_height: f64,
-    pub returns: ReturnSpec,
+    pub outline: bool,
+    /// The diameter is typed in rather than picked from the standard ones.
+    pub custom_diameter: bool,
+}
+
+/// Sign Box.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct BoxSettings {
+    pub spec: BoxSpec,
+    /// The face is the selection's box when something is selected.
+    pub use_selection: bool,
+    /// The face otherwise (mm), centred on the page.
+    pub width: f64,
+    pub height: f64,
+    /// Write the size on the face.
+    pub legend: bool,
+    pub prefix: String,
+}
+
+impl Default for BoxSettings {
+    fn default() -> Self {
+        BoxSettings {
+            spec: BoxSpec::default(),
+            use_selection: true,
+            width: 1000.0,
+            height: 500.0,
+            legend: false,
+            prefix: String::new(),
+        }
+    }
+}
+
+/// Letter Returns.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct ReturnsSettings {
+    pub method: ReturnMethod,
+    pub spec: ReturnSpec,
+    /// Length of the corner marks (Marked method).
+    pub mark_length: f64,
+    /// Also make each letter's face, inset by the material thickness.
+    pub make_face: bool,
     /// Space between the strips and under the selection (mm).
     pub strip_gap: f64,
     pub labels: bool,
-    /// Strips made and their total length (mm).
-    pub returns_report: Option<(usize, f64)>,
-    pub mould: MouldSpec,
-    pub mould_report: Option<(usize, f64)>,
-    pub tiles: TileSpec,
-    pub tile_origin: TileOrigin,
-    pub tile_labels: bool,
-    pub tile_frames: bool,
+}
+
+impl Default for ReturnsSettings {
+    fn default() -> Self {
+        ReturnsSettings {
+            method: ReturnMethod::Notched,
+            spec: ReturnSpec::default(),
+            mark_length: 5.0,
+            make_face: false,
+            strip_gap: 10.0,
+            labels: true,
+        }
+    }
+}
+
+/// Acrylic Mould.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct MouldSettings {
+    pub spec: MouldSpec,
+    pub strip_gap: f64,
+    pub labels: bool,
+    /// Density of the casting resin (g/ml).
+    pub density: f64,
+}
+
+impl Default for MouldSettings {
+    fn default() -> Self {
+        MouldSettings {
+            spec: MouldSpec::default(),
+            strip_gap: 10.0,
+            labels: true,
+            density: 1.18,
+        }
+    }
+}
+
+/// Smart Divide.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct TileSettings {
+    pub method: TileMethod,
+    pub spec: TileSpec,
+    pub cols: usize,
+    pub rows: usize,
+    pub origin: TileOrigin,
+    pub labels: bool,
+    pub frames: bool,
+}
+
+impl Default for TileSettings {
+    fn default() -> Self {
+        TileSettings {
+            method: TileMethod::Size,
+            spec: TileSpec::default(),
+            cols: 2,
+            rows: 1,
+            origin: TileOrigin::Selection,
+            labels: true,
+            frames: false,
+        }
+    }
+}
+
+/// The sign making tools' settings, last results and window states.
+#[derive(Debug, Clone, Default)]
+pub struct Settings {
+    /// The tool the menu or toolbar last asked for.
+    pub open: Option<Tool>,
+    pub led: LedSettings,
+    pub led_report: Option<LedReport>,
+    pub neon: NeonSettings,
+    pub neon_report: Option<NeonReport>,
+    pub sign_box: BoxSettings,
+    pub returns: ReturnsSettings,
+    pub mould: MouldSettings,
+    pub tiles: TileSettings,
     /// Columns, rows and pieces of the last division.
     pub tiles_report: Option<(usize, usize, usize)>,
     pub carrier: CarrierSpec,
     /// Pieces of the last carrier.
     pub carrier_report: Option<usize>,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Settings {
-            open: None,
-            catalogue: led::catalogue(),
-            module: 0,
-            led: LedSpec::default(),
-            led_report: None,
-            neon: NeonSpec::default(),
-            neon_outline: false,
-            neon_report: None,
-            sign_box: BoxSpec::default(),
-            box_width: 1000.0,
-            box_height: 500.0,
-            returns: ReturnSpec::default(),
-            strip_gap: 10.0,
-            labels: true,
-            returns_report: None,
-            mould: MouldSpec::default(),
-            mould_report: None,
-            tiles: TileSpec::default(),
-            tile_origin: TileOrigin::Selection,
-            tile_labels: true,
-            tile_frames: false,
-            tiles_report: None,
-            carrier: CarrierSpec::default(),
-            carrier_report: None,
-        }
-    }
+    /// The windows' states.
+    pub win: crate::ui::signcut_win_sign::State,
 }
 
 /// Colours of the made objects.
@@ -194,8 +290,94 @@ fn all_closed(p: &BezPath) -> bool {
 /// Points per millimetre of text size.
 const PT_PER_MM: f64 = 72.0 / 25.4;
 
+/// What a part of a plan is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    /// A cut outline (box pattern, mould base, letter face).
+    Cut,
+    /// A dashed fold line.
+    Fold,
+    /// A return or wall strip.
+    Strip,
+    /// A corner mark on a strip.
+    Mark,
+    /// A hole.
+    Hole,
+}
+
+impl Role {
+    fn stroke(self) -> Option<Stroke> {
+        match self {
+            Role::Cut | Role::Hole => hairline(CUT_COLOR),
+            Role::Fold => dashed(FOLD_COLOR),
+            Role::Strip | Role::Mark => hairline(STRIP_COLOR),
+        }
+    }
+}
+
+/// The mould's material figures.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct MouldFigures {
+    /// Outline length of the letters (mm).
+    pub perimeter: f64,
+    /// Area of the letters (mm2).
+    pub area: f64,
+    /// Resin to fill them to the fill depth (ml).
+    pub volume: f64,
+    /// Its mass (g).
+    pub mass: f64,
+}
+
+/// A worked-out result of Letter Returns, Acrylic Mould or Sign Box:
+/// page-space paths with their roles and text labels, made for the
+/// drawing as it was at `revision` with the objects `ids`.
+#[derive(Debug, Clone)]
+pub struct Plan {
+    pub revision: u64,
+    pub ids: Vec<ShapeId>,
+    pub items: Vec<(BezPath, Role)>,
+    /// Text, baseline start and height (mm).
+    pub labels: Vec<(String, Point, f64)>,
+    /// Strips made and their total length (a box: 1 and 0).
+    pub count: usize,
+    pub length: f64,
+    /// The pattern's size (a box).
+    pub size: Option<(f64, f64)>,
+    pub mould: Option<MouldFigures>,
+}
+
+impl Plan {
+    fn new(app: &App, ids: Vec<ShapeId>) -> Self {
+        Plan {
+            revision: app.engine.revision(),
+            ids,
+            items: Vec::new(),
+            labels: Vec::new(),
+            count: 0,
+            length: 0.0,
+            size: None,
+            mould: None,
+        }
+    }
+
+    /// The plan is for the drawing and selection as they are now.
+    pub fn is_current(&self, app: &App) -> bool {
+        self.revision == app.engine.revision() && self.ids == app.sign_targets()
+    }
+}
+
+/// The number of distinct outlines of each object among the strips.
+fn outlines_per_object(strips: &[Strip]) -> std::collections::HashMap<usize, usize> {
+    let mut seen: std::collections::HashMap<usize, std::collections::BTreeSet<usize>> =
+        Default::default();
+    for s in strips {
+        seen.entry(s.object).or_default().insert(s.contour);
+    }
+    seen.into_iter().map(|(k, v)| (k, v.len())).collect()
+}
+
 impl App {
-    /// Open the panel at the Sign Making section, `tool`'s header open.
+    /// Open the window of a sign making tool.
     pub fn open_sign_tool(&mut self, tool: Tool) {
         self.sc_sign.open = Some(tool);
         self.open_signcut(crate::signcut::Section::Sign);
@@ -203,7 +385,7 @@ impl App {
 
     /// The selected objects the tools work on, in stacking order, locked
     /// ones left out.
-    fn sign_targets(&self) -> Vec<ShapeId> {
+    pub fn sign_targets(&self) -> Vec<ShapeId> {
         if self.selection.is_empty() {
             return Vec::new();
         }
@@ -215,7 +397,7 @@ impl App {
     }
 
     /// Each target's outlines in page space.
-    fn sign_outlines(&self, ids: &[ShapeId]) -> Vec<Vec<BezPath>> {
+    pub fn sign_outlines(&self, ids: &[ShapeId]) -> Vec<Vec<BezPath>> {
         let doc = self.doc();
         ids.iter()
             .map(|id| {
@@ -239,7 +421,7 @@ impl App {
     }
 
     /// The page-space bounds of the outlines.
-    fn sign_bounds(outlines: &[Vec<BezPath>]) -> Option<Rect> {
+    pub fn sign_bounds(outlines: &[Vec<BezPath>]) -> Option<Rect> {
         outlines
             .iter()
             .flatten()
@@ -320,26 +502,79 @@ impl App {
         Some((ids, layer))
     }
 
+    /// Put a plan into the drawing as one group in one undo step. Returns
+    /// the group's id.
+    pub fn sign_commit(
+        &mut self,
+        plan: &Plan,
+        label: &'static str,
+        group_name: &str,
+    ) -> Option<ShapeId> {
+        let Some(layer) = self.sign_layer(&plan.ids) else {
+            self.status = tr("signcut.sign_no_layer");
+            return None;
+        };
+        let mut children = Vec::new();
+        for (path, role) in &plan.items {
+            if path.elements().is_empty() {
+                continue;
+            }
+            let s = self.sign_path(path.clone(), Fill::None, role.stroke());
+            children.push(s);
+        }
+        for (text, at, size) in &plan.labels {
+            let t = self.sign_label(text.clone(), *at, *size);
+            children.push(t);
+        }
+        if children.is_empty() {
+            return None;
+        }
+        let group = self.sign_group(group_name, children);
+        self.sign_add(label, layer, vec![group]).first().copied()
+    }
+
     /// The module in use.
     pub fn sign_module(&self) -> Option<&Module> {
-        self.sc_sign.catalogue.get(self.sc_sign.module)
+        self.sc_sign.led.catalogue.get(self.sc_sign.led.module)
+    }
+
+    /// Where LED modules go in the selection with the current settings
+    /// (nothing changes). `None` without a selection or a module.
+    pub fn sign_led_placements(&self) -> Option<(Vec<Placement>, Module)> {
+        let ids = self.sign_targets();
+        if ids.is_empty() {
+            return None;
+        }
+        let module = self.sign_module()?.clone();
+        let spec = self.sc_sign.led.spec;
+        let mut placements = Vec::new();
+        for paths in self.sign_outlines(&ids) {
+            placements.extend(led::layout(&paths, &module, &spec));
+        }
+        if spec.fix_overlaps && ids.len() > 1 {
+            let (fw, fh) = module.footprint(spec.rotate);
+            let gap = if spec.overlap_gap.is_finite() {
+                spec.overlap_gap.max(0.0)
+            } else {
+                0.0
+            };
+            placements = led::remove_overlaps(placements, fw, fh, gap, module.round);
+        }
+        placements.truncate(led::MAX_MODULES);
+        Some((placements, module))
     }
 
     /// Lay LED modules out in the selected shapes as one group. Returns
     /// how many modules were placed.
     pub fn sign_led_layout(&mut self) -> usize {
-        let Some((ids, layer)) = self.sign_need_selection() else {
+        let Some((_, layer)) = self.sign_need_selection() else {
             return 0;
         };
-        let Some(module) = self.sign_module().cloned() else {
+        let Some((placements, module)) = self.sign_led_placements() else {
             self.status = tr("signcut.sign_no_module");
             return 0;
         };
-        let spec = self.sc_sign.led;
-        let mut placements = Vec::new();
-        for paths in self.sign_outlines(&ids) {
-            placements.extend(led::layout(&paths, &module, &spec));
-        }
+        let spec = self.sc_sign.led.spec;
         let report = led::report(&module, placements.len());
         self.sc_sign.led_report = Some(report);
         if placements.is_empty() {
@@ -365,14 +600,115 @@ impl App {
         placements.len()
     }
 
+    /// The LED groups of the current page (groups named as LED Modules
+    /// names them).
+    fn sign_led_groups(&self) -> Vec<ShapeId> {
+        let name = tr("signcut.sign_led_group");
+        self.page_layers()
+            .iter()
+            .filter(|l| l.visible && !l.locked)
+            .flat_map(|l| l.shapes.iter())
+            .filter(|s| {
+                !s.locked
+                    && s.name.as_deref() == Some(name.as_str())
+                    && matches!(s.kind, ShapeKind::Group { .. })
+            })
+            .map(|s| s.id)
+            .collect()
+    }
+
+    /// Select every LED group of the page. Returns how many.
+    pub fn sign_led_select_all(&mut self) -> usize {
+        let ids = self.sign_led_groups();
+        let n = ids.len();
+        self.select(ids);
+        self.status = trf("signcut.wsign_led_found", &[("n", &n.to_string())]);
+        n
+    }
+
+    /// Remove the modules of the selected LED groups that come closer than
+    /// `gap` to a module kept before them (their boxes compared), in one
+    /// undo step. Returns how many were removed.
+    pub fn sign_led_fix_overlaps(&mut self, gap: f64) -> usize {
+        let gap = if gap.is_finite() { gap.max(0.0) } else { 0.0 };
+        let groups = self.sign_led_groups();
+        let doc = self.doc();
+        let mut cmds = Vec::new();
+        let mut removed = 0;
+        for id in self
+            .sign_targets()
+            .into_iter()
+            .filter(|id| groups.contains(id))
+        {
+            let Some(ShapeKind::Group { children }) = doc.find_shape(id).map(|s| s.kind.clone())
+            else {
+                continue;
+            };
+            let before = children.len();
+            let mut kept: Vec<(Shape, Rect)> = Vec::new();
+            for c in children {
+                let b = c.page_path().bounding_box();
+                let grown = b.inflate(gap / 2.0, gap / 2.0);
+                let clash = kept.iter().any(|(_, k)| {
+                    let o = k.inflate(gap / 2.0, gap / 2.0).intersect(grown);
+                    o.width() > 1e-9 && o.height() > 1e-9
+                });
+                if clash {
+                    removed += 1;
+                } else {
+                    kept.push((c, b));
+                }
+            }
+            if kept.len() < before {
+                cmds.push(Command::SetShapeKind {
+                    shape: id,
+                    kind: ShapeKind::Group {
+                        children: kept.into_iter().map(|(s, _)| s).collect(),
+                    },
+                });
+            }
+        }
+        if cmds.is_empty() {
+            self.status = tr("signcut.wsign_led_no_overlaps");
+            return 0;
+        }
+        if let Err(e) = self.engine.run_batch("Fix LED Overlaps", &cmds) {
+            self.status = e.to_string();
+            return 0;
+        }
+        self.status = trf("signcut.wsign_led_fixed", &[("n", &removed.to_string())]);
+        removed
+    }
+
+    /// The tubes' centre lines of the selection: its curves, or the
+    /// contours inside its closed shapes.
+    fn sign_neon_lines(&self, ids: &[ShapeId]) -> Vec<BezPath> {
+        let n = &self.sc_sign.neon;
+        let outlines = self.sign_outlines(ids);
+        match n.kind {
+            NeonKind::CentreLine => outlines.into_iter().flatten().collect(),
+            NeonKind::Contour => outlines
+                .iter()
+                .flat_map(|paths| neon::contour_lines(paths, n.spec.diameter, &n.contour))
+                .collect(),
+        }
+    }
+
     /// Neon tubes along the selected curves, as one group. Returns the
     /// number of tubes.
     pub fn sign_neon(&mut self) -> usize {
+        self.sign_neon_parts(true, true)
+    }
+
+    /// Neon tubes (`tubes`) and their support holes (`holes`) for the
+    /// selection, as one group in one undo step. Returns the number of
+    /// tubes worked out.
+    pub fn sign_neon_parts(&mut self, tubes: bool, holes: bool) -> usize {
         let Some((ids, layer)) = self.sign_need_selection() else {
             return 0;
         };
-        let spec = self.sc_sign.neon;
-        let paths: Vec<BezPath> = self.sign_outlines(&ids).into_iter().flatten().collect();
+        let spec = self.sc_sign.neon.spec;
+        let paths = self.sign_neon_lines(&ids);
         let result = neon::neon(&paths, &spec);
         let report = NeonReport {
             tubes: result.tubes.len(),
@@ -390,30 +726,36 @@ impl App {
             12.0
         };
         let mut children = Vec::new();
-        for tube in &result.tubes {
-            let shape = if self.sc_sign.neon_outline {
-                let outline = neon::tube_outline(tube, d);
-                self.sign_path(outline, Fill::None, hairline(NEON_COLOR))
-            } else {
-                let stroke = Stroke {
-                    cap: LineCap::Round,
-                    join: LineJoin::Round,
-                    ..Stroke::new(rgb(NEON_COLOR), d)
+        if tubes {
+            for tube in &result.tubes {
+                let shape = if self.sc_sign.neon.outline {
+                    let outline = neon::tube_outline(tube, d);
+                    self.sign_path(outline, Fill::None, hairline(NEON_COLOR))
+                } else {
+                    self.sign_path(tube.path.clone(), Fill::None, Some(tube_stroke(d)))
                 };
-                self.sign_path(tube.path.clone(), Fill::None, Some(stroke))
-            };
-            children.push(shape);
+                children.push(shape);
+            }
         }
         let hole = spec.hole_diameter;
-        if hole.is_finite() && hole > 0.0 {
+        if holes && hole.is_finite() && hole > 0.0 {
             for p in &result.supports {
                 let c = tracedraw_signcut::sign::circle(*p, hole);
                 let s = self.sign_path(c, Fill::None, hairline([0, 0, 0]));
                 children.push(s);
             }
         }
+        if children.is_empty() {
+            self.status = tr("signcut.sign_neon_none");
+            return 0;
+        }
         let group = self.sign_group("signcut.sign_neon_group", children);
-        self.sign_add("Neon Tubes", layer, vec![group]);
+        let label = match (tubes, holes) {
+            (true, true) => "Neon Tubes",
+            (true, false) => "Divide Tubes",
+            _ => "Support Holes",
+        };
+        self.sign_add(label, layer, vec![group]);
         let u = self.units;
         self.status = trf(
             "signcut.sign_neon_done",
@@ -426,163 +768,421 @@ impl App {
         report.tubes
     }
 
-    /// The face of the sign box: the selection's bounds, or the panel's
-    /// width and height centred on the page.
-    pub fn sign_box_face(&self) -> Rect {
+    /// The selected curves (and the curves in selected groups) drawn as
+    /// thick lines become their tube outlines, in one undo step. Returns
+    /// how many were turned.
+    pub fn sign_neon_to_outlines(&mut self) -> usize {
+        let doc = self.doc();
+        let to_outline = |s: &Shape| -> Option<Shape> {
+            let ShapeKind::Path { path, closed } = &s.kind else {
+                return None;
+            };
+            let w = s.stroke.as_ref().map(|k| k.width)?;
+            if !(w.is_finite() && w > Stroke::HAIRLINE + 1e-9) {
+                return None;
+            }
+            let tube = neon::Tube {
+                path: path.clone(),
+                length: 0.0,
+                closed: *closed,
+            };
+            let outline = neon::tube_outline(&tube, w);
+            if outline.elements().is_empty() {
+                return None;
+            }
+            let mut out = s.clone();
+            out.kind = ShapeKind::Path {
+                path: outline,
+                closed: true,
+            };
+            out.fill = Fill::None;
+            out.stroke = s.stroke.as_ref().map(|k| Stroke::hairline(k.color));
+            Some(out)
+        };
+        let mut cmds = Vec::new();
+        let mut turned = 0;
+        for id in self.sign_targets() {
+            let Some(s) = doc.find_shape(id) else {
+                continue;
+            };
+            match &s.kind {
+                ShapeKind::Group { children } => {
+                    let mut changed = false;
+                    let kids: Vec<Shape> = children
+                        .iter()
+                        .map(|c| match to_outline(c) {
+                            Some(o) => {
+                                changed = true;
+                                turned += 1;
+                                o
+                            }
+                            None => c.clone(),
+                        })
+                        .collect();
+                    if changed {
+                        cmds.push(Command::SetShapeKind {
+                            shape: id,
+                            kind: ShapeKind::Group { children: kids },
+                        });
+                    }
+                }
+                _ => {
+                    if let Some(o) = to_outline(s) {
+                        turned += 1;
+                        cmds.push(Command::SetShapeKind {
+                            shape: id,
+                            kind: o.kind,
+                        });
+                        cmds.push(Command::SetFill {
+                            shapes: vec![id],
+                            fill: Fill::None,
+                        });
+                        cmds.push(Command::SetStroke {
+                            shapes: vec![id],
+                            stroke: o.stroke,
+                        });
+                    }
+                }
+            }
+        }
+        if cmds.is_empty() {
+            self.status = tr("signcut.wsign_neon_no_tubes");
+            return 0;
+        }
+        if let Err(e) = self.engine.run_batch("Tubes to Outlines", &cmds) {
+            self.status = e.to_string();
+            return 0;
+        }
+        self.status = trf(
+            "signcut.wsign_neon_converted",
+            &[("n", &turned.to_string())],
+        );
+        turned
+    }
+
+    /// How many tubes the selection would make and their length, without
+    /// changing anything.
+    pub fn sign_neon_measure(&mut self) -> Option<NeonReport> {
         let ids = self.sign_targets();
-        if let Some(b) = Self::sign_bounds(&self.sign_outlines(&ids)) {
-            return b;
+        if ids.is_empty() {
+            self.status = tr("signcut.sign_select");
+            return None;
+        }
+        let result = neon::neon(&self.sign_neon_lines(&ids), &self.sc_sign.neon.spec);
+        let report = NeonReport {
+            tubes: result.tubes.len(),
+            length: result.total_length(),
+            supports: result.supports.len(),
+        };
+        self.sc_sign.neon_report = Some(report);
+        let u = self.units;
+        self.status = trf(
+            "signcut.wsign_neon_measured",
+            &[
+                ("n", &report.tubes.to_string()),
+                ("len", &crate::ui::signcut_docker::fmt_len(u, report.length)),
+                ("holes", &report.supports.to_string()),
+            ],
+        );
+        Some(report)
+    }
+
+    /// The face of the sign box: the selection's bounds (when the window
+    /// says so and something is selected), or the window's width and
+    /// height centred on the page.
+    pub fn sign_box_face(&self) -> Rect {
+        let b = &self.sc_sign.sign_box;
+        if b.use_selection {
+            let ids = self.sign_targets();
+            if let Some(bounds) = Self::sign_bounds(&self.sign_outlines(&ids)) {
+                return bounds;
+            }
         }
         let c = self.page_rect().center();
-        let (w, h) = (self.sc_sign.box_width, self.sc_sign.box_height);
+        let (w, h) = (b.width, b.height);
         Rect::new(c.x - w / 2.0, c.y - h / 2.0, c.x + w / 2.0, c.y + h / 2.0)
     }
 
-    /// The flat pattern of a sign box as one group.
-    pub fn sign_make_box(&mut self) -> bool {
-        let ids = self.sign_targets();
-        let Some(layer) = self.sign_layer(&ids) else {
-            self.status = tr("signcut.sign_no_layer");
-            return false;
-        };
+    /// Work the sign box pattern out (nothing changes).
+    pub fn sign_box_plan(&self) -> Result<Plan, String> {
         let face = self.sign_box_face();
-        let Some(pattern) = sign_box::sign_box(face, &self.sc_sign.sign_box) else {
-            self.status = tr("signcut.sign_box_bad");
-            return false;
-        };
-        let mut children =
-            vec![self.sign_path(pattern.outline.clone(), Fill::None, hairline(CUT_COLOR))];
-        for (a, b) in &pattern.folds {
-            let line = tracedraw_core::geometry::polyline_path(&[*a, *b], false);
-            let s = self.sign_path(line, Fill::None, dashed(FOLD_COLOR));
-            children.push(s);
+        let b = &self.sc_sign.sign_box;
+        let pattern =
+            sign_box::sign_box(face, &b.spec).ok_or_else(|| tr("signcut.sign_box_bad"))?;
+        let mut plan = Plan::new(self, self.sign_targets());
+        plan.items.push((pattern.outline.clone(), Role::Cut));
+        for (a, c) in &pattern.folds {
+            plan.items.push((
+                tracedraw_core::geometry::polyline_path(&[*a, *c], false),
+                Role::Fold,
+            ));
         }
         if pattern.hole_diameter > 0.0 {
             for p in &pattern.holes {
-                let c = tracedraw_signcut::sign::circle(*p, pattern.hole_diameter);
-                let s = self.sign_path(c, Fill::None, hairline(CUT_COLOR));
-                children.push(s);
+                plan.items.push((
+                    tracedraw_signcut::sign::circle(*p, pattern.hole_diameter),
+                    Role::Hole,
+                ));
             }
         }
-        let group = self.sign_group("signcut.sign_box_group", children);
-        let added = self.sign_add("Sign Box", layer, vec![group]);
-        if added.is_empty() {
+        let bb = pattern.outline.bounding_box();
+        plan.size = Some((bb.width(), bb.height()));
+        plan.count = 1;
+        if b.legend {
+            let u = self.units;
+            let d = b.spec.depth.clean();
+            let deep = d.left.max(d.right).max(d.bottom).max(d.top);
+            let text = format!(
+                "{}{} x {} x {}",
+                b.prefix,
+                crate::ui::signcut_docker::fmt_len(u, face.width()),
+                crate::ui::signcut_docker::fmt_len(u, face.height()),
+                crate::ui::signcut_docker::fmt_len(u, deep)
+            );
+            let size = (face.width().min(face.height()) * 0.06).clamp(3.0, 100.0);
+            let at = Point::new(face.x0 + size, face.center().y - size / 2.0);
+            plan.labels.push((text, at, size));
+        }
+        Ok(plan)
+    }
+
+    /// The flat pattern of a sign box as one group.
+    #[cfg(test)]
+    pub fn sign_make_box(&mut self) -> bool {
+        let plan = match self.sign_box_plan() {
+            Ok(p) => p,
+            Err(e) => {
+                self.status = e;
+                return false;
+            }
+        };
+        self.sign_box_commit(&plan)
+    }
+
+    /// Put a worked-out sign box into the drawing.
+    pub fn sign_box_commit(&mut self, plan: &Plan) -> bool {
+        if self
+            .sign_commit(plan, "Sign Box", "signcut.sign_box_group")
+            .is_none()
+        {
             return false;
         }
         let u = self.units;
-        let bb = pattern.outline.bounding_box();
+        let (w, h) = plan.size.unwrap_or_default();
         self.status = trf(
             "signcut.sign_box_done",
             &[
-                ("w", &crate::ui::signcut_docker::fmt_len(u, bb.width())),
-                ("h", &crate::ui::signcut_docker::fmt_len(u, bb.height())),
+                ("w", &crate::ui::signcut_docker::fmt_len(u, w)),
+                ("h", &crate::ui::signcut_docker::fmt_len(u, h)),
             ],
         );
         true
     }
 
-    /// Strips laid out under the selection, with their numbers.
-    fn sign_strip_shapes(&mut self, strips: &[Strip], below: Rect, notch: f64) -> Vec<Shape> {
-        let at = returns::stack(strips, below.x0, below.y0, self.sc_sign.strip_gap);
-        let mut out = Vec::new();
+    /// Strips laid out under `below`, with their marks and numbers, into
+    /// the plan.
+    fn sign_plan_strips(
+        plan: &mut Plan,
+        strips: &[Strip],
+        below: Rect,
+        (gap, labels): (f64, bool),
+        (notch, marks): (f64, f64),
+    ) {
+        let at = returns::stack(strips, below.x0, below.y0, gap);
+        let per_object = outlines_per_object(strips);
         for (s, p) in strips.iter().zip(at) {
-            let path = returns::strip_path(s, notch, p);
-            let shape = self.sign_path(path, Fill::None, hairline(STRIP_COLOR));
-            out.push(shape);
-            if self.sc_sign.labels {
-                let in_object = strips.iter().filter(|o| o.object == s.object).count();
+            plan.items
+                .push((returns::strip_path(s, notch, p), Role::Strip));
+            for (a, b) in returns::strip_marks(s, marks, p) {
+                plan.items.push((
+                    tracedraw_core::geometry::polyline_path(&[a, b], false),
+                    Role::Mark,
+                ));
+            }
+            if labels {
                 let size = (s.height * 0.4).clamp(1.0, 20.0);
-                let label = returns::strip_label(s, in_object);
+                let n = per_object.get(&s.object).copied().unwrap_or(1);
+                let label = returns::strip_label(s, n);
                 let pos = Point::new(p.x + size * 0.5, p.y + (s.height - size) / 2.0);
-                let t = self.sign_label(label, pos, size);
-                out.push(t);
+                plan.labels.push((label, pos, size));
             }
         }
-        out
+        plan.count = strips.len();
+        plan.length = strips.iter().map(|s| s.length).sum();
+    }
+
+    /// Work the letter returns of the selection out (nothing changes).
+    pub fn sign_returns_plan(&self) -> Result<Plan, String> {
+        let ids = self.sign_targets();
+        if ids.is_empty() {
+            return Err(tr("signcut.sign_select"));
+        }
+        let outlines = self.sign_outlines(&ids);
+        let bounds = Self::sign_bounds(&outlines).ok_or_else(|| tr("signcut.sign_returns_none"))?;
+        let r = self.sc_sign.returns;
+        let mut spec = r.spec;
+        let (notch, marks) = match r.method {
+            ReturnMethod::Notched => (spec.notch_size, 0.0),
+            ReturnMethod::Marked => (0.0, r.mark_length),
+            ReturnMethod::Plain => {
+                spec.notch_angle = 0.0;
+                (0.0, 0.0)
+            }
+        };
+        let strips = returns::returns(&outlines, &spec);
+        if strips.is_empty() {
+            return Err(tr("signcut.sign_returns_none"));
+        }
+        let mut plan = Plan::new(self, ids);
+        if r.make_face {
+            for paths in &outlines {
+                let f = returns::letter_face(paths, spec.thickness);
+                if !f.elements().is_empty() {
+                    plan.items.push((f, Role::Cut));
+                }
+            }
+        }
+        Self::sign_plan_strips(
+            &mut plan,
+            &strips,
+            bounds,
+            (r.strip_gap, r.labels),
+            (notch, marks),
+        );
+        Ok(plan)
     }
 
     /// Letter return strips of the selected letters, under them, as one
     /// group. Returns the number of strips.
+    #[cfg(test)]
     pub fn sign_returns(&mut self) -> usize {
-        let Some((ids, layer)) = self.sign_need_selection() else {
-            return 0;
+        match self.sign_returns_plan() {
+            Ok(plan) => self.sign_strips_commit(&plan, false),
+            Err(e) => {
+                self.sc_sign.win.returns.report = None;
+                self.status = e;
+                0
+            }
+        }
+    }
+
+    /// Put worked-out strips (returns, or a mould with `mould`) into the
+    /// drawing. Returns the number of strips.
+    pub fn sign_strips_commit(&mut self, plan: &Plan, mould: bool) -> usize {
+        let (label, name) = if mould {
+            ("Acrylic Mould", "signcut.sign_mould_group")
+        } else {
+            ("Letter Returns", "signcut.sign_returns_group")
         };
-        let outlines = self.sign_outlines(&ids);
-        let Some(bounds) = Self::sign_bounds(&outlines) else {
-            return 0;
-        };
-        let spec = self.sc_sign.returns;
-        let strips = returns::returns(&outlines, &spec);
-        let total: f64 = strips.iter().map(|s| s.length).sum();
-        self.sc_sign.returns_report = Some((strips.len(), total));
-        if strips.is_empty() {
-            self.status = tr("signcut.sign_returns_none");
+        if self.sign_commit(plan, label, name).is_none() {
             return 0;
         }
-        let children = self.sign_strip_shapes(&strips, bounds, spec.notch_size);
-        let group = self.sign_group("signcut.sign_returns_group", children);
-        self.sign_add("Letter Returns", layer, vec![group]);
+        let state = if mould {
+            &mut self.sc_sign.win.mould
+        } else {
+            &mut self.sc_sign.win.returns
+        };
+        state.report = Some((plan.count, plan.length));
         let u = self.units;
         self.status = trf(
             "signcut.sign_strips_done",
             &[
-                ("n", &strips.len().to_string()),
-                ("len", &crate::ui::signcut_docker::fmt_len(u, total)),
+                ("n", &plan.count.to_string()),
+                ("len", &crate::ui::signcut_docker::fmt_len(u, plan.length)),
             ],
         );
-        strips.len()
+        plan.count
+    }
+
+    /// Work the liquid acrylic mould of the selection out (nothing
+    /// changes).
+    pub fn sign_mould_plan(&self) -> Result<Plan, String> {
+        let ids = self.sign_targets();
+        if ids.is_empty() {
+            return Err(tr("signcut.sign_select"));
+        }
+        let outlines = self.sign_outlines(&ids);
+        let bounds = Self::sign_bounds(&outlines).ok_or_else(|| tr("signcut.sign_returns_none"))?;
+        let m = self.sc_sign.mould;
+        let (bases, strips) = returns::mould(&outlines, &m.spec);
+        if strips.is_empty() {
+            return Err(tr("signcut.sign_returns_none"));
+        }
+        let mut plan = Plan::new(self, ids);
+        for b in bases.into_iter().filter(|b| !b.elements().is_empty()) {
+            plan.items.push((b, Role::Cut));
+        }
+        for i in returns::mould_inside(&outlines, &m.spec) {
+            if !i.elements().is_empty() {
+                plan.items.push((i, Role::Cut));
+            }
+        }
+        // The strips go under the bases, which reach out by the wall.
+        let wall = m.spec.wall;
+        let wall = if wall.is_finite() { wall.max(0.0) } else { 0.0 };
+        let below = bounds.inflate(wall, wall);
+        Self::sign_plan_strips(
+            &mut plan,
+            &strips,
+            below,
+            (m.strip_gap, m.labels),
+            (0.0, 0.0),
+        );
+        let fig = tracedraw_signcut::measure::measure(&outlines);
+        let depth = if m.spec.depth.is_finite() {
+            m.spec.depth.max(0.0)
+        } else {
+            0.0
+        };
+        let density = if m.density.is_finite() {
+            m.density.max(0.0)
+        } else {
+            0.0
+        };
+        let volume = fig.area.max(0.0) * depth / 1000.0;
+        plan.mould = Some(MouldFigures {
+            perimeter: fig.length,
+            area: fig.area,
+            volume,
+            mass: volume * density,
+        });
+        Ok(plan)
     }
 
     /// The liquid acrylic mould of the selected letters: the bases over
     /// the letters and the wall strips under them, as one group. Returns
     /// the number of strips.
+    #[cfg(test)]
     pub fn sign_mould(&mut self) -> usize {
-        let Some((ids, layer)) = self.sign_need_selection() else {
-            return 0;
-        };
-        let outlines = self.sign_outlines(&ids);
-        let Some(bounds) = Self::sign_bounds(&outlines) else {
-            return 0;
-        };
-        let (bases, strips) = returns::mould(&outlines, &self.sc_sign.mould);
-        let total: f64 = strips.iter().map(|s| s.length).sum();
-        self.sc_sign.mould_report = Some((strips.len(), total));
-        if strips.is_empty() {
-            self.status = tr("signcut.sign_returns_none");
-            return 0;
+        match self.sign_mould_plan() {
+            Ok(plan) => self.sign_strips_commit(&plan, true),
+            Err(e) => {
+                self.status = e;
+                0
+            }
         }
-        let mut children = Vec::new();
-        for b in bases.into_iter().filter(|b| !b.elements().is_empty()) {
-            let s = self.sign_path(b, Fill::None, hairline(CUT_COLOR));
-            children.push(s);
-        }
-        // The strips go under the bases, which reach out by the wall.
-        let wall = self.sc_sign.mould.wall;
-        let wall = if wall.is_finite() { wall.max(0.0) } else { 0.0 };
-        let below = bounds.inflate(wall, wall);
-        children.extend(self.sign_strip_shapes(&strips, below, 0.0));
-        let group = self.sign_group("signcut.sign_mould_group", children);
-        self.sign_add("Acrylic Mould", layer, vec![group]);
-        let u = self.units;
-        self.status = trf(
-            "signcut.sign_strips_done",
-            &[
-                ("n", &strips.len().to_string()),
-                ("len", &crate::ui::signcut_docker::fmt_len(u, total)),
-            ],
-        );
-        strips.len()
     }
 
-    /// The tile grid over the selection, with the panel's settings.
-    pub fn sign_tile_grid(&self) -> Option<tiles::TileGrid> {
+    /// The tile grid over `bounds` with the window's settings.
+    fn sign_grid_over(&self, bounds: Rect) -> Option<TileGrid> {
+        let t = &self.sc_sign.tiles;
+        match t.method {
+            TileMethod::Size => {
+                let origin = match t.origin {
+                    TileOrigin::Selection => Point::new(bounds.x0, bounds.y0),
+                    TileOrigin::Page => Point::ZERO,
+                };
+                tiles::grid(bounds, origin, &t.spec)
+            }
+            TileMethod::Table => tiles::grid_by_count(bounds, t.cols, t.rows, t.spec.overlap),
+        }
+    }
+
+    /// The tile grid over the selection, with the window's settings.
+    pub fn sign_tile_grid(&self) -> Option<TileGrid> {
         let ids = self.sign_targets();
         let bounds = Self::sign_bounds(&self.sign_outlines(&ids))?;
-        let origin = match self.sc_sign.tile_origin {
-            TileOrigin::Selection => Point::new(bounds.x0, bounds.y0),
-            TileOrigin::Page => Point::ZERO,
-        };
-        tiles::grid(bounds, origin, &self.sc_sign.tiles)
+        self.sign_grid_over(bounds)
     }
 
     /// Divide the selected objects into tiles: each tile a group of the
@@ -616,12 +1216,8 @@ impl App {
         let Some(bounds) = Self::sign_bounds(&all) else {
             return 0;
         };
-        let origin = match self.sc_sign.tile_origin {
-            TileOrigin::Selection => Point::new(bounds.x0, bounds.y0),
-            TileOrigin::Page => Point::ZERO,
-        };
-        let spec = self.sc_sign.tiles;
-        let Some(grid) = tiles::grid(bounds, origin, &spec) else {
+        let t = self.sc_sign.tiles;
+        let Some(grid) = self.sign_grid_over(bounds) else {
             self.status = tr("signcut.sign_tiles_bad");
             return 0;
         };
@@ -630,7 +1226,7 @@ impl App {
         for row in 0..grid.rows {
             for col in 0..grid.cols {
                 let rect = grid.rect(col, row);
-                let shift = Affine::translate(grid.spread(col, row, spec.gap));
+                let shift = Affine::translate(grid.spread(col, row, t.spec.gap));
                 let mut children = Vec::new();
                 for (leaf, paths) in &pieces {
                     let part = tiles::clip(paths, rect);
@@ -646,7 +1242,7 @@ impl App {
                     continue;
                 }
                 parts += children.len();
-                if self.sc_sign.tile_frames {
+                if t.frames {
                     let frame = shift * rect.to_path(0.01);
                     let mut f = self.sign_path(frame, Fill::None, hairline(TILE_FRAME_COLOR));
                     f.stroke = f.stroke.map(|s| Stroke {
@@ -655,11 +1251,11 @@ impl App {
                     });
                     children.push(f);
                 }
-                if self.sc_sign.tile_labels {
+                if t.labels {
                     let size = (rect.width().min(rect.height()) * 0.04).clamp(3.0, 50.0);
                     let at = shift * Point::new(rect.x0 + size * 0.5, rect.y1 - size * 1.5);
-                    let t = self.sign_label(grid.label(col, row), at, size);
-                    children.push(t);
+                    let label = self.sign_label(grid.label(col, row), at, size);
+                    children.push(label);
                 }
                 let mut g = Shape::new(self.engine.new_shape_id(), ShapeKind::Group { children });
                 g.name = Some(trf(
@@ -697,11 +1293,21 @@ impl App {
         n
     }
 
+    /// The carrier outline of the selection with the current settings
+    /// (nothing changes).
+    pub fn sign_carrier_outline(&self) -> BezPath {
+        let ids = self.sign_targets();
+        if ids.is_empty() {
+            return BezPath::new();
+        }
+        carrier::make(&self.sign_outlines(&ids), &self.sc_sign.carrier)
+    }
+
     /// One carrier outline around the selected letters, put under the
     /// lowest of them. Returns the new object.
     pub fn sign_carrier(&mut self) -> Option<ShapeId> {
         let (ids, _) = self.sign_need_selection()?;
-        let outline = carrier::carrier(&self.sign_outlines(&ids), &self.sc_sign.carrier);
+        let outline = carrier::make(&self.sign_outlines(&ids), &self.sc_sign.carrier);
         if outline.elements().is_empty() {
             self.sc_sign.carrier_report = None;
             self.status = tr("signcut.sign_carrier_none");
@@ -740,6 +1346,15 @@ impl App {
         self.sc_sign.carrier_report = Some(pieces);
         self.status = trf("signcut.sign_carrier_done", &[("n", &pieces.to_string())]);
         Some(id)
+    }
+}
+
+/// A tube drawn as a thick line with round ends.
+fn tube_stroke(d: f64) -> Stroke {
+    Stroke {
+        cap: LineCap::Round,
+        join: LineJoin::Round,
+        ..Stroke::new(rgb(NEON_COLOR), d)
     }
 }
 
@@ -795,8 +1410,7 @@ fn leaves(s: &Shape, parent: Affine, out: &mut Vec<(Shape, Vec<BezPath>)>) {
     }
 }
 
-/// Tools > Sign & Cut > Sign Making: each item opens the panel at its
-/// tool.
+/// Tools > Sign & Cut > Sign Making: each item opens its tool's window.
 pub fn menu(app: &mut App, ui: &mut Ui) {
     let doc = app.has_document() && !app.show_welcome;
     for tool in Tool::ALL {
@@ -810,6 +1424,7 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
 mod tests {
     use super::*;
     use tracedraw_signcut::sign::led::LedMode;
+    use tracedraw_signcut::sign::Sides;
 
     fn rect(app: &mut App, x: f64, y: f64, w: f64, h: f64) -> ShapeId {
         app.new_shape(ShapeKind::Rect {
@@ -849,8 +1464,8 @@ mod tests {
         let a = rect(&mut app, 0.0, 0.0, 200.0, 100.0);
         app.select(vec![a]);
         // 40 x 12 modules, 0.48 W: rows 20 apart, modules 50 apart, edge 5.
-        app.sc_sign.module = 0;
-        app.sc_sign.led = LedSpec {
+        app.sc_sign.led.module = 0;
+        app.sc_sign.led.spec = LedSpec {
             mode: LedMode::Matrix,
             row_pitch: 20.0,
             module_pitch: 50.0,
@@ -880,6 +1495,47 @@ mod tests {
         app.select(vec![]);
         assert_eq!(app.sign_led_layout(), 0);
         assert_eq!(app.status, tr("signcut.sign_select"));
+        assert!(app.sign_led_placements().is_none());
+    }
+
+    #[test]
+    fn leds_follow_an_open_curve() {
+        let mut app = App::headless();
+        let l = line(&mut app, &[(0.0, 0.0), (300.0, 0.0)]);
+        app.select(vec![l]);
+        app.sc_sign.led.spec = LedSpec {
+            mode: LedMode::OnCurve,
+            module_pitch: 100.0,
+            ..Default::default()
+        };
+        let rev = app.engine.revision();
+        let (p, _) = app.sign_led_placements().expect("placements");
+        assert_eq!(p.len(), 4);
+        assert_eq!(app.engine.revision(), rev);
+        assert_eq!(app.sign_led_layout(), 4);
+    }
+
+    #[test]
+    fn led_groups_are_found_and_their_overlaps_fixed() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 200.0, 100.0);
+        app.select(vec![a]);
+        // Modules 40 wide only 30 apart along the outline: they overlap.
+        app.sc_sign.led.spec = LedSpec {
+            mode: LedMode::OnCurve,
+            module_pitch: 30.0,
+            ..Default::default()
+        };
+        let n = app.sign_led_layout();
+        assert!(n > 10);
+        assert_eq!(app.sign_led_select_all(), 1);
+        let group = app.selection[0];
+        let removed = app.sign_led_fix_overlaps(0.0);
+        assert!(removed > 0);
+        assert_eq!(children(&app, group).len(), n - removed);
+        assert_eq!(app.engine.undo_label(), Some("Fix LED Overlaps"));
+        // Nothing overlaps any more.
+        assert_eq!(app.sign_led_fix_overlaps(0.0), 0);
     }
 
     #[test]
@@ -899,7 +1555,7 @@ mod tests {
         assert_eq!(tube.stroke.as_ref().map(|s| s.width), Some(12.0));
         assert_eq!(app.engine.undo_label(), Some("Neon Tubes"));
         // As outlines: closed shapes.
-        app.sc_sign.neon_outline = true;
+        app.sc_sign.neon.outline = true;
         app.select(vec![l]);
         app.sign_neon();
         let group = *top_ids(&app).last().expect("the group");
@@ -908,13 +1564,69 @@ mod tests {
     }
 
     #[test]
-    fn sign_box_uses_the_selection_or_the_panel_size() {
+    fn neon_tools_divide_make_holes_convert_and_measure() {
+        let mut app = App::headless();
+        let l = line(&mut app, &[(0.0, 0.0), (2000.0, 0.0)]);
+        app.select(vec![l]);
+        let rev = app.engine.revision();
+        let r = app.sign_neon_measure().expect("a report");
+        assert_eq!((r.tubes, r.supports), (2, 8));
+        assert_eq!(app.engine.revision(), rev);
+        // Tubes only.
+        assert_eq!(app.sign_neon_parts(true, false), 2);
+        assert_eq!(app.engine.undo_label(), Some("Divide Tubes"));
+        let tubes = *top_ids(&app).last().expect("the group");
+        assert_eq!(children(&app, tubes).len(), 2);
+        // Holes only.
+        app.select(vec![l]);
+        app.sign_neon_parts(false, true);
+        assert_eq!(app.engine.undo_label(), Some("Support Holes"));
+        let holes = *top_ids(&app).last().expect("the group");
+        assert_eq!(children(&app, holes).len(), 8);
+        // The thick tube lines become outlines in one step.
+        app.select(vec![tubes]);
+        assert_eq!(app.sign_neon_to_outlines(), 2);
+        assert_eq!(app.engine.undo_label(), Some("Tubes to Outlines"));
+        let kids = children(&app, tubes);
+        assert!(kids
+            .iter()
+            .all(|k| matches!(k.kind, ShapeKind::Path { closed: true, .. })));
+        assert!((kids[0].page_path().bounding_box().height() - 12.0).abs() < 0.1);
+        // Nothing thick left.
+        assert_eq!(app.sign_neon_to_outlines(), 0);
+    }
+
+    #[test]
+    fn contour_neon_runs_inside_closed_shapes() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 200.0, 200.0);
+        app.select(vec![a]);
+        app.sc_sign.neon.kind = NeonKind::Contour;
+        app.sc_sign.neon.contour = ContourSpec {
+            gap: 4.0,
+            count: 2,
+            spacing: 10.0,
+            round: false,
+        };
+        app.sc_sign.neon.spec.support_spacing = 0.0;
+        assert_eq!(app.sign_neon(), 2);
+        let r = app.sc_sign.neon_report.expect("a report");
+        // Insets 10 and 32: squares of 180 and 136.
+        assert!(
+            (r.length - 4.0 * (180.0 + 136.0)).abs() < 0.1,
+            "{}",
+            r.length
+        );
+    }
+
+    #[test]
+    fn sign_box_uses_the_selection_or_the_window_size() {
         let mut app = App::headless();
         let a = rect(&mut app, 10.0, 10.0, 100.0, 60.0);
         app.select(vec![a]);
-        app.sc_sign.sign_box.depth = 20.0;
-        app.sc_sign.sign_box.holes = true;
-        app.sc_sign.sign_box.hole_spacing = 1000.0;
+        app.sc_sign.sign_box.spec.depth = Sides::all(20.0);
+        app.sc_sign.sign_box.spec.holes = true;
+        app.sc_sign.sign_box.spec.hole_spacing = 1000.0;
         assert!(app.sign_make_box());
         assert_eq!(app.engine.undo_label(), Some("Sign Box"));
         let group = *top_ids(&app).last().expect("the group");
@@ -930,16 +1642,46 @@ mod tests {
             .expect("a fold line")
             .dash
             .is_empty());
-        // Nothing selected: the panel's size on the page's centre.
+        // Nothing selected: the window size on the centre of the page.
         app.select(vec![]);
-        app.sc_sign.box_width = 300.0;
-        app.sc_sign.box_height = 200.0;
-        app.sc_sign.sign_box.holes = false;
+        app.sc_sign.sign_box.width = 300.0;
+        app.sc_sign.sign_box.height = 200.0;
+        app.sc_sign.sign_box.spec.holes = false;
         assert!(app.sign_make_box());
         let group = *top_ids(&app).last().expect("the group");
         let bb = children(&app, group)[0].page_path().bounding_box();
         assert!((bb.width() - 340.0).abs() < 1e-6);
         assert!((bb.center().x - app.page_rect().center().x).abs() < 1e-6);
+        // With "use the selection" off the size fields count.
+        app.select(vec![a]);
+        app.sc_sign.sign_box.use_selection = false;
+        let plan = app.sign_box_plan().expect("a plan");
+        let (w, h) = plan.size.expect("a size");
+        assert!((w - 340.0).abs() < 1e-6 && (h - 240.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sign_box_plan_changes_nothing_and_writes_a_legend() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 400.0, 200.0);
+        app.select(vec![a]);
+        app.sc_sign.sign_box.legend = true;
+        app.sc_sign.sign_box.prefix = "Box ".into();
+        let rev = app.engine.revision();
+        let plan = app.sign_box_plan().expect("a plan");
+        assert_eq!(app.engine.revision(), rev);
+        assert!(plan.is_current(&app));
+        assert_eq!(plan.labels.len(), 1);
+        assert!(plan.labels[0].0.starts_with("Box "));
+        assert!(app.sign_box_commit(&plan));
+        assert_ne!(app.engine.revision(), rev);
+        assert!(!plan.is_current(&app));
+        let group = *top_ids(&app).last().expect("the group");
+        assert!(children(&app, group)
+            .iter()
+            .any(|k| matches!(k.kind, ShapeKind::Text { .. })));
+        assert!(app.engine.undo().is_ok());
+        assert!(app.doc().find_shape(group).is_none());
     }
 
     #[test]
@@ -948,10 +1690,10 @@ mod tests {
         let a = rect(&mut app, 0.0, 100.0, 100.0, 100.0);
         let b = rect(&mut app, 150.0, 100.0, 50.0, 100.0);
         app.select(vec![a, b]);
-        app.sc_sign.returns.depth = 40.0;
-        app.sc_sign.returns.overlap = 10.0;
+        app.sc_sign.returns.spec.depth = 40.0;
+        app.sc_sign.returns.spec.overlap = 10.0;
         assert_eq!(app.sign_returns(), 2);
-        let (n, total) = app.sc_sign.returns_report.expect("a report");
+        let (n, total) = app.sc_sign.win.returns.report.expect("a report");
         assert_eq!(n, 2);
         assert!((total - (410.0 + 310.0)).abs() < 1e-6);
         assert_eq!(app.engine.undo_label(), Some("Letter Returns"));
@@ -962,7 +1704,43 @@ mod tests {
         let strip = kids[0].page_path().bounding_box();
         assert!((strip.width() - 410.0).abs() < 1e-6);
         assert!((strip.y1 - 90.0).abs() < 1e-6, "{strip:?}");
-        assert!(matches!(kids[1].kind, ShapeKind::Text { .. }));
+        assert!(matches!(kids[3].kind, ShapeKind::Text { .. }));
+    }
+
+    #[test]
+    fn returns_plan_follows_the_method() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 100.0, 100.0, 100.0);
+        app.select(vec![a]);
+        app.sc_sign.returns.labels = false;
+        let rev = app.engine.revision();
+        // Notched: one strip with three V notches.
+        let notched = app.sign_returns_plan().expect("a plan");
+        assert_eq!(notched.items.len(), 1);
+        // Marked: a plain strip and two marks a corner.
+        app.sc_sign.returns.method = ReturnMethod::Marked;
+        let marked = app.sign_returns_plan().expect("a plan");
+        assert_eq!(marked.items.len(), 1 + 6);
+        assert!(marked.items.iter().skip(1).all(|(_, r)| *r == Role::Mark));
+        assert!(
+            notched.items[0].0.elements().len() > marked.items[0].0.elements().len(),
+            "the notches add nodes"
+        );
+        // Plain, split at 150 and with the face.
+        app.sc_sign.returns.method = ReturnMethod::Plain;
+        app.sc_sign.returns.spec.max_length = 150.0;
+        app.sc_sign.returns.make_face = true;
+        let plain = app.sign_returns_plan().expect("a plan");
+        assert_eq!(plain.count, 3);
+        assert_eq!(plain.items[0].1, Role::Cut);
+        let face = plain.items[0].0.bounding_box();
+        assert!((face.width() - 98.0).abs() < 0.01);
+        assert_eq!(app.engine.revision(), rev);
+        // Committed in one step.
+        assert_eq!(app.sign_strips_commit(&plain, false), 3);
+        assert_eq!(app.engine.undo_label(), Some("Letter Returns"));
+        app.select(vec![]);
+        assert!(app.sign_returns_plan().is_err());
     }
 
     #[test]
@@ -970,7 +1748,7 @@ mod tests {
         let mut app = App::headless();
         let a = rect(&mut app, 0.0, 100.0, 100.0, 100.0);
         app.select(vec![a]);
-        app.sc_sign.labels = false;
+        app.sc_sign.mould.labels = false;
         assert_eq!(app.sign_mould(), 1);
         assert_eq!(app.engine.undo_label(), Some("Acrylic Mould"));
         let group = *top_ids(&app).last().expect("the group");
@@ -984,17 +1762,34 @@ mod tests {
     }
 
     #[test]
+    fn mould_plan_works_out_the_resin() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 100.0, 100.0, 100.0);
+        app.select(vec![a]);
+        app.sc_sign.mould.spec.inside = 5.0;
+        app.sc_sign.mould.density = 1.2;
+        let plan = app.sign_mould_plan().expect("a plan");
+        // Base, inner contour, strip.
+        assert_eq!(plan.items.len(), 3);
+        let f = plan.mould.expect("figures");
+        assert!((f.perimeter - 400.0).abs() < 1e-6);
+        assert!((f.area - 10_000.0).abs() < 1e-6);
+        // 10000 mm2 x 5 mm = 50 ml, 60 g.
+        assert!((f.volume - 50.0).abs() < 1e-9 && (f.mass - 60.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn smart_divide_replaces_objects_with_tiles() {
         let mut app = App::headless();
         let a = rect(&mut app, 0.0, 0.0, 250.0, 120.0);
         app.select(vec![a]);
-        app.sc_sign.tiles = TileSpec {
+        app.sc_sign.tiles.spec = TileSpec {
             width: 100.0,
             height: 100.0,
             overlap: 10.0,
             gap: 5.0,
         };
-        app.sc_sign.tile_frames = true;
+        app.sc_sign.tiles.frames = true;
         // Columns at 0, 90, 180; rows at 0, 90.
         assert_eq!(app.sign_divide(), 6);
         assert!(app.doc().find_shape(a).is_none());
@@ -1015,12 +1810,34 @@ mod tests {
     }
 
     #[test]
+    fn smart_divide_by_table() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 300.0, 100.0);
+        app.select(vec![a]);
+        app.sc_sign.tiles.method = TileMethod::Table;
+        app.sc_sign.tiles.cols = 3;
+        app.sc_sign.tiles.rows = 1;
+        app.sc_sign.tiles.spec.overlap = 0.0;
+        app.sc_sign.tiles.labels = false;
+        let g = app.sign_tile_grid().expect("a grid");
+        assert_eq!((g.cols, g.rows), (3, 1));
+        assert_eq!(app.sign_divide(), 3);
+        let piece = children(&app, app.selection[1])[0]
+            .page_path()
+            .bounding_box();
+        assert!((piece.x0 - 100.0).abs() < 1e-6 && (piece.width() - 100.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn carrier_goes_under_the_letters() {
         let mut app = App::headless();
         let below = rect(&mut app, 500.0, 500.0, 10.0, 10.0);
         let a = rect(&mut app, 0.0, 0.0, 50.0, 50.0);
         let b = rect(&mut app, 65.0, 0.0, 50.0, 50.0);
         app.select(vec![a, b]);
+        let rev = app.engine.revision();
+        assert!(!app.sign_carrier_outline().elements().is_empty());
+        assert_eq!(app.engine.revision(), rev);
         let id = app.sign_carrier().expect("a carrier");
         assert_eq!(app.sc_sign.carrier_report, Some(1));
         let order = top_ids(&app);
@@ -1032,7 +1849,20 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_opens_the_panel_at_a_tool() {
+    fn a_rectangle_carrier_has_its_margins() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 50.0, 50.0);
+        let b = rect(&mut app, 65.0, 0.0, 50.0, 50.0);
+        app.select(vec![a, b]);
+        app.sc_sign.carrier.method = carrier::CarrierMethod::Rectangle;
+        app.sc_sign.carrier.margins = Sides::all(5.0);
+        let id = app.sign_carrier().expect("a carrier");
+        let bb = app.doc().shape_on_page(id).expect("carrier").bounds();
+        assert!((bb.width() - 125.0).abs() < 0.1 && (bb.height() - 60.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn the_menu_opens_a_tool_window() {
         let mut app = App::headless();
         app.open_sign_tool(Tool::Tiles);
         assert_eq!(app.sc_sign.open, Some(Tool::Tiles));

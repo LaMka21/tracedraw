@@ -7,6 +7,10 @@
 //! long, the split kept a diameter from its ends) within the range that
 //! keeps the tube count, else it stays at the even split. Support holes
 //! go along each tube, evenly spread, at most the support spacing apart.
+//! Lines shorter than the minimum tube length are left out.
+//!
+//! Contour neon: the tubes' centre lines are the closed shapes offset
+//! inwards (see [`contour_lines`]), then split like any centre line.
 
 use super::{finite_path, FLAT_TOL};
 use tracedraw_core::geometry::{
@@ -17,7 +21,8 @@ use tracedraw_core::shaping;
 const ACC: f64 = 1e-4;
 
 /// The tube settings (millimetres).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct NeonSpec {
     pub diameter: f64,
     /// Longest tube.
@@ -25,6 +30,8 @@ pub struct NeonSpec {
     /// Largest distance between support holes along a tube (0: none).
     pub support_spacing: f64,
     pub hole_diameter: f64,
+    /// Centre lines shorter than this are left out (0: none).
+    pub min_length: f64,
 }
 
 impl Default for NeonSpec {
@@ -34,8 +41,80 @@ impl Default for NeonSpec {
             max_length: 1500.0,
             support_spacing: 300.0,
             hole_diameter: 5.0,
+            min_length: 0.0,
         }
     }
+}
+
+/// Where the tubes run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum NeonKind {
+    /// The selected curves are the tubes' centre lines.
+    #[default]
+    CentreLine,
+    /// Tubes follow the outlines of closed shapes inside them.
+    Contour,
+}
+
+/// The contour settings (millimetres).
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct ContourSpec {
+    /// Space between the outline and the outer tube's surface.
+    pub gap: f64,
+    /// Tubes side by side, each further inside.
+    pub count: usize,
+    /// Space between the surfaces of neighbouring tubes.
+    pub spacing: f64,
+    /// Rounded corners (else sharp).
+    pub round: bool,
+}
+
+impl Default for ContourSpec {
+    fn default() -> Self {
+        ContourSpec {
+            gap: 0.0,
+            count: 1,
+            spacing: 50.0,
+            round: true,
+        }
+    }
+}
+
+/// Most contour tubes side by side.
+pub const MAX_CONTOURS: usize = 100;
+
+/// The centre lines of contour tubes of `diameter` in the closed shapes
+/// of one object: the shape offset inwards by the gap plus half the
+/// diameter, then by the diameter plus the spacing for each next tube.
+/// Rounded corners take round joins. A tube that does not fit is left
+/// out.
+pub fn contour_lines(paths: &[BezPath], diameter: f64, spec: &ContourSpec) -> Vec<BezPath> {
+    let clean = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
+    let region = super::region(paths);
+    if region.elements().is_empty() {
+        return Vec::new();
+    }
+    let d = clean(diameter);
+    let join = if spec.round {
+        shaping::Join::Round
+    } else {
+        shaping::Join::Miter
+    };
+    let mut out = Vec::new();
+    for k in 0..spec.count.clamp(1, MAX_CONTOURS) {
+        let inset = clean(spec.gap) + d / 2.0 + k as f64 * (d + clean(spec.spacing));
+        let line = if inset > 1e-9 {
+            shaping::offset_with(&region, -inset, join)
+        } else {
+            region.clone()
+        };
+        if line.elements().is_empty() || line.area().abs() < 1e-9 {
+            break;
+        }
+        out.push(line);
+    }
+    out
 }
 
 /// One tube: its centre line and length.
@@ -85,7 +164,7 @@ pub fn neon(paths: &[BezPath], spec: &NeonSpec) -> NeonResult {
                 .filter(|(_, l)| l.is_finite())
                 .collect();
             let total: f64 = segs.iter().map(|s| s.1).sum();
-            if total < 1e-6 {
+            if total < 1e-6 || (spec.min_length.is_finite() && total < spec.min_length) {
                 continue;
             }
             let cuts = split_points(&segs, total, max, d);
@@ -421,6 +500,7 @@ mod tests {
                 max_length: f64::INFINITY,
                 support_spacing: f64::NAN,
                 hole_diameter: -1.0,
+                min_length: f64::NAN,
             },
         );
         assert!(r.tubes.is_empty());
@@ -443,5 +523,73 @@ mod tests {
         )
         .elements()
         .is_empty());
+    }
+
+    #[test]
+    fn short_lines_are_left_out() {
+        let spec = NeonSpec {
+            min_length: 100.0,
+            ..Default::default()
+        };
+        let r = neon(
+            &[
+                line(&[(0.0, 0.0), (50.0, 0.0)]),
+                line(&[(0.0, 10.0), (150.0, 10.0)]),
+            ],
+            &spec,
+        );
+        assert_eq!(r.tubes.len(), 1);
+        assert!((r.total_length() - 150.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn contour_tubes_run_inside_the_outline() {
+        let sq = Rect::new(0.0, 0.0, 200.0, 200.0).to_path(0.01);
+        // 12 mm tubes 10 from the edge, three of them 20 apart.
+        let spec = ContourSpec {
+            gap: 10.0,
+            count: 3,
+            spacing: 20.0,
+            round: false,
+        };
+        let lines = contour_lines(std::slice::from_ref(&sq), 12.0, &spec);
+        assert_eq!(lines.len(), 3);
+        let insets = [16.0, 48.0, 80.0];
+        for (l, inset) in lines.iter().zip(insets) {
+            let bb = l.bounding_box();
+            assert!((bb.x0 - inset).abs() < 0.01, "{bb:?}");
+            assert!((bb.width() - (200.0 - 2.0 * inset)).abs() < 0.02);
+        }
+        // Sharp corners: the first line is a 168 square.
+        assert!((crate::measure::length(&lines[0]) - 4.0 * 168.0).abs() < 0.1);
+        // Round corners: an inward offset of a convex shape stays sharp.
+        let round = contour_lines(
+            std::slice::from_ref(&sq),
+            12.0,
+            &ContourSpec {
+                round: true,
+                ..spec
+            },
+        );
+        assert_eq!(round.len(), 3);
+        // Too many to fit: only those that do are made.
+        let many = contour_lines(
+            std::slice::from_ref(&sq),
+            12.0,
+            &ContourSpec { count: 50, ..spec },
+        );
+        assert_eq!(many.len(), 3);
+        // The lines go through the tube splitting like any curve.
+        let r = neon(&lines, &NeonSpec::default());
+        assert_eq!(r.tubes.len(), 3);
+        // Bad input.
+        let bad = ContourSpec {
+            gap: f64::NAN,
+            count: 0,
+            spacing: f64::INFINITY,
+            round: true,
+        };
+        assert_eq!(contour_lines(&[sq], f64::NAN, &bad).len(), 1);
+        assert!(contour_lines(&[line(&[(0.0, 0.0), (5.0, 0.0)])], 12.0, &spec).is_empty());
     }
 }
