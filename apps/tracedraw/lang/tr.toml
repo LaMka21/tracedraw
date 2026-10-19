@@ -4447,3 +4447,27 @@ signcut.replace_turn = "Her nesnenin dönüşünü al" # mt
 signcut.replace_keep = "Değiştirilen nesneleri koru" # mt
 signcut.replace_apply = "Değiştir" # mt
 signcut.select_one = "Bir nesne seçin." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "Kesim" # mt
+signcut.area_cut = "Kesim" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "Yerleştirme" # mt
+signcut.area_nest = "Yerleştirme" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "Hesaplamalar" # mt
+signcut.area_calc = "Hesaplamalar" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "Tabela" # mt
+signcut.area_sign = "Tabela" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC ve lazer" # mt
+signcut.area_cnc = "CNC ve lazer" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "Efektler ve desenler" # mt
+signcut.area_fx = "Efektler ve desenler" # mt

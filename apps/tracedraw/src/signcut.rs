@@ -18,6 +18,12 @@ pub enum Section {
     Measure,
     Cleanup,
     Size,
+    Cut,
+    Nest,
+    Calc,
+    Sign,
+    Cnc,
+    Fx,
 }
 
 /// The panel's settings and its last results.

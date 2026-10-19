@@ -4447,3 +4447,27 @@ signcut.replace_turn = "Ambil rotasi setiap objek" # mt
 signcut.replace_keep = "Simpan objek yang diganti" # mt
 signcut.replace_apply = "Ganti" # mt
 signcut.select_one = "Pilih satu objek." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "Pemotongan" # mt
+signcut.area_cut = "Pemotongan" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "Penataan" # mt
+signcut.area_nest = "Penataan" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "Perhitungan" # mt
+signcut.area_calc = "Perhitungan" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "Pembuatan papan reklame" # mt
+signcut.area_sign = "Pembuatan papan reklame" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC dan laser" # mt
+signcut.area_cnc = "CNC dan laser" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "Efek dan pola" # mt
+signcut.area_fx = "Efek dan pola" # mt

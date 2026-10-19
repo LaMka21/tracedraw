@@ -4447,3 +4447,27 @@ signcut.replace_turn = "প্রতিটি অবজেক্টের ঘূ
 signcut.replace_keep = "প্রতিস্থাপিত অবজেক্ট রাখুন" # mt
 signcut.replace_apply = "প্রতিস্থাপন" # mt
 signcut.select_one = "একটি অবজেক্ট নির্বাচন করুন।" # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "কাটিং" # mt
+signcut.area_cut = "কাটিং" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "নেস্টিং" # mt
+signcut.area_nest = "নেস্টিং" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "হিসাব" # mt
+signcut.area_calc = "হিসাব" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "সাইন তৈরি" # mt
+signcut.area_sign = "সাইন তৈরি" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC ও লেজার" # mt
+signcut.area_cnc = "CNC ও লেজার" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "ইফেক্ট ও প্যাটার্ন" # mt
+signcut.area_fx = "ইফেক্ট ও প্যাটার্ন" # mt

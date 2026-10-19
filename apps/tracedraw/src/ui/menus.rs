@@ -3039,6 +3039,25 @@ fn signcut_items(app: &mut App, ui: &mut Ui) {
     if item(ui, "menu.tools.signcut_replace", "", doc) {
         app.open_signcut(Section::Size);
     }
+    sep(ui);
+    sub(ui, "menu.tools.signcut_cut", |ui| {
+        crate::signcut_cut::menu(app, ui)
+    });
+    sub(ui, "menu.tools.signcut_nest", |ui| {
+        crate::signcut_nest::menu(app, ui)
+    });
+    sub(ui, "menu.tools.signcut_calc", |ui| {
+        crate::signcut_calc::menu(app, ui)
+    });
+    sub(ui, "menu.tools.signcut_sign", |ui| {
+        crate::signcut_sign::menu(app, ui)
+    });
+    sub(ui, "menu.tools.signcut_cnc", |ui| {
+        crate::signcut_cnc::menu(app, ui)
+    });
+    sub(ui, "menu.tools.signcut_fx", |ui| {
+        crate::signcut_fx::menu(app, ui)
+    });
 }
 
 fn window_menu(app: &mut App, ui: &mut Ui) {

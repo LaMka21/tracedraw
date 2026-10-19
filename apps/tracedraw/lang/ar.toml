@@ -4447,3 +4447,27 @@ signcut.replace_turn = "أخذ دوران كل كائن" # mt
 signcut.replace_keep = "الإبقاء على الكائنات المستبدلة" # mt
 signcut.replace_apply = "استبدال" # mt
 signcut.select_one = "حدد كائنًا واحدًا." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "القص" # mt
+signcut.area_cut = "القص" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "الترتيب" # mt
+signcut.area_nest = "الترتيب" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "الحسابات" # mt
+signcut.area_calc = "الحسابات" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "صناعة اللافتات" # mt
+signcut.area_sign = "صناعة اللافتات" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC والليزر" # mt
+signcut.area_cnc = "CNC والليزر" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "المؤثرات والأنماط" # mt
+signcut.area_fx = "المؤثرات والأنماط" # mt

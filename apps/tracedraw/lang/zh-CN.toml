@@ -4447,3 +4447,27 @@ signcut.replace_turn = "采用每个对象的旋转" # mt
 signcut.replace_keep = "保留被替换的对象" # mt
 signcut.replace_apply = "替换" # mt
 signcut.select_one = "请选择一个对象。" # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "切割" # mt
+signcut.area_cut = "切割" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "排料" # mt
+signcut.area_nest = "排料" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "计算" # mt
+signcut.area_calc = "计算" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "标牌制作" # mt
+signcut.area_sign = "标牌制作" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC 和激光" # mt
+signcut.area_cnc = "CNC 和激光" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "效果和图案" # mt
+signcut.area_fx = "效果和图案" # mt

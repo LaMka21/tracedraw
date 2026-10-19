@@ -856,6 +856,12 @@ pub struct App {
     pub corners: crate::corners::CornersSettings,
     /// The Sign & Cut panel's settings and last results.
     pub signcut: crate::signcut::SignCutSettings,
+    pub sc_cut: crate::signcut_cut::Settings,
+    pub sc_nest: crate::signcut_nest::Settings,
+    pub sc_calc: crate::signcut_calc::Settings,
+    pub sc_sign: crate::signcut_sign::Settings,
+    pub sc_cnc: crate::signcut_cnc::Settings,
+    pub sc_fx: crate::signcut_fx::Settings,
     /// The Join Curves docker's joint, gap tolerance and radius.
     pub join_settings: crate::corners::JoinSettings,
     /// Outlines a docker previews on the canvas this frame (page space).
@@ -1710,6 +1716,12 @@ impl App {
             snap_mark: std::cell::Cell::new(None),
             corners: Default::default(),
             signcut: Default::default(),
+            sc_cut: Default::default(),
+            sc_nest: Default::default(),
+            sc_calc: Default::default(),
+            sc_sign: Default::default(),
+            sc_cnc: Default::default(),
+            sc_fx: Default::default(),
             join_settings: Default::default(),
             docker_preview: Vec::new(),
             docker_preview_point: None,

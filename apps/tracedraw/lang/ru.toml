@@ -4447,3 +4447,27 @@ signcut.replace_turn = "Принять поворот каждого объек�
 signcut.replace_keep = "Сохранить заменённые объекты" # mt
 signcut.replace_apply = "Заменить" # mt
 signcut.select_one = "Выберите один объект." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "Резка" # mt
+signcut.area_cut = "Резка" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "Раскладка" # mt
+signcut.area_nest = "Раскладка" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "Расчёты" # mt
+signcut.area_calc = "Расчёты" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "Наружная реклама" # mt
+signcut.area_sign = "Наружная реклама" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "ЧПУ и лазер" # mt
+signcut.area_cnc = "ЧПУ и лазер" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "Эффекты и узоры" # mt
+signcut.area_fx = "Эффекты и узоры" # mt

@@ -4447,3 +4447,27 @@ signcut.replace_turn = "各オブジェクトの回転を適用" # mt
 signcut.replace_keep = "置換したオブジェクトを残す" # mt
 signcut.replace_apply = "置換" # mt
 signcut.select_one = "オブジェクトを 1 つ選択してください。" # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "カット" # mt
+signcut.area_cut = "カット" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "ネスティング" # mt
+signcut.area_nest = "ネスティング" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "計算" # mt
+signcut.area_calc = "計算" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "看板製作" # mt
+signcut.area_sign = "看板製作" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC とレーザー" # mt
+signcut.area_cnc = "CNC とレーザー" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "効果とパターン" # mt
+signcut.area_fx = "効果とパターン" # mt

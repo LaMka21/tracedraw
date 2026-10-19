@@ -4447,3 +4447,27 @@ signcut.replace_turn = "Převzít otočení každého objektu" # mt
 signcut.replace_keep = "Ponechat nahrazené objekty" # mt
 signcut.replace_apply = "Nahradit" # mt
 signcut.select_one = "Vyberte jeden objekt." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "Řezání" # mt
+signcut.area_cut = "Řezání" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "Rozmístění" # mt
+signcut.area_nest = "Rozmístění" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "Kalkulace" # mt
+signcut.area_calc = "Kalkulace" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "Výroba reklam" # mt
+signcut.area_sign = "Výroba reklam" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC a laser" # mt
+signcut.area_cnc = "CNC a laser" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "Efekty a vzory" # mt
+signcut.area_fx = "Efekty a vzory" # mt

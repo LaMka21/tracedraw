@@ -4447,3 +4447,27 @@ signcut.replace_turn = "हर ऑब्जेक्ट का घुमाव �
 signcut.replace_keep = "बदले गए ऑब्जेक्ट रखें" # mt
 signcut.replace_apply = "बदलें" # mt
 signcut.select_one = "एक ऑब्जेक्ट चुनें।" # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "कटिंग" # mt
+signcut.area_cut = "कटिंग" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "नेस्टिंग" # mt
+signcut.area_nest = "नेस्टिंग" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "गणना" # mt
+signcut.area_calc = "गणना" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "साइन निर्माण" # mt
+signcut.area_sign = "साइन निर्माण" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC और लेज़र" # mt
+signcut.area_cnc = "CNC और लेज़र" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt
+signcut.area_fx = "प्रभाव और पैटर्न" # mt

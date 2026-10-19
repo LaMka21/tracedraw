@@ -4447,3 +4447,27 @@ signcut.replace_turn = "Tomar la rotación de cada objeto" # mt
 signcut.replace_keep = "Conservar los objetos reemplazados" # mt
 signcut.replace_apply = "Reemplazar" # mt
 signcut.select_one = "Seleccione un objeto." # mt
+
+# Sign & Cut: cut (keys of this area go below, before the blank line)
+menu.tools.signcut_cut = "Corte" # mt
+signcut.area_cut = "Corte" # mt
+
+# Sign & Cut: nest (keys of this area go below, before the blank line)
+menu.tools.signcut_nest = "Anidado" # mt
+signcut.area_nest = "Anidado" # mt
+
+# Sign & Cut: calc (keys of this area go below, before the blank line)
+menu.tools.signcut_calc = "Cálculos" # mt
+signcut.area_calc = "Cálculos" # mt
+
+# Sign & Cut: sign (keys of this area go below, before the blank line)
+menu.tools.signcut_sign = "Rotulación" # mt
+signcut.area_sign = "Rotulación" # mt
+
+# Sign & Cut: cnc (keys of this area go below, before the blank line)
+menu.tools.signcut_cnc = "CNC y láser" # mt
+signcut.area_cnc = "CNC y láser" # mt
+
+# Sign & Cut: fx (keys of this area go below, before the blank line)
+menu.tools.signcut_fx = "Efectos y patrones" # mt
+signcut.area_fx = "Efectos y patrones" # mt

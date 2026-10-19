@@ -24,6 +24,17 @@ pub fn signcut(app: &mut App, ui: &mut Ui) {
     header("signcut.measure", Section::Measure).show(ui, |ui| measure(app, ui));
     header("signcut.cleanup", Section::Cleanup).show(ui, |ui| cleanup(app, ui));
     header("signcut.size", Section::Size).show(ui, |ui| size(app, ui));
+    header("signcut.area_cut", Section::Cut)
+        .show(ui, |ui| crate::ui::signcut_cut::section(app, ui));
+    header("signcut.area_nest", Section::Nest)
+        .show(ui, |ui| crate::ui::signcut_nest::section(app, ui));
+    header("signcut.area_calc", Section::Calc)
+        .show(ui, |ui| crate::ui::signcut_calc::section(app, ui));
+    header("signcut.area_sign", Section::Sign)
+        .show(ui, |ui| crate::ui::signcut_sign::section(app, ui));
+    header("signcut.area_cnc", Section::Cnc)
+        .show(ui, |ui| crate::ui::signcut_cnc::section(app, ui));
+    header("signcut.area_fx", Section::Fx).show(ui, |ui| crate::ui::signcut_fx::section(app, ui));
     // Mark the crossings found, while the drawing is as it was.
     let r = CROSSING_MARK_PX / f64::from(app.view.zoom.max(1e-3));
     for p in app.signcut_crossing_marks() {
@@ -31,12 +42,12 @@ pub fn signcut(app: &mut App, ui: &mut Ui) {
     }
 }
 
-fn dim(ui: &mut Ui, text: String) {
+pub(crate) fn dim(ui: &mut Ui, text: String) {
     ui.label(RichText::new(text).color(Tokens::text_dim()).size(11.0));
 }
 
 /// A length field in the document's units, holding millimetres.
-fn length_field(ui: &mut Ui, u: Units, mm: &mut f64, min: f64) -> bool {
+pub(crate) fn length_field(ui: &mut Ui, u: Units, mm: &mut f64, min: f64) -> bool {
     let mut v = u.world_from_mm(*mm);
     let changed = ui
         .add_sized(
@@ -54,11 +65,11 @@ fn length_field(ui: &mut Ui, u: Units, mm: &mut f64, min: f64) -> bool {
     changed
 }
 
-fn fmt_len(u: Units, mm: f64) -> String {
+pub(crate) fn fmt_len(u: Units, mm: f64) -> String {
     format!("{:.2} {}", u.world_from_mm(mm), u.short())
 }
 
-fn fmt_area(u: Units, mm2: f64) -> String {
+pub(crate) fn fmt_area(u: Units, mm2: f64) -> String {
     let k = u.world_from_mm(1.0);
     let m2 = mm2 / 1_000_000.0;
     format!(
@@ -175,7 +186,7 @@ fn cleanup(app: &mut App, ui: &mut Ui) {
 }
 
 /// The nine anchor points as a grid of small buttons.
-fn anchor_picker(ui: &mut Ui, id: &str, anchor: &mut Anchor) {
+pub(crate) fn anchor_picker(ui: &mut Ui, id: &str, anchor: &mut Anchor) {
     egui::Grid::new(id).spacing([2.0, 2.0]).show(ui, |ui| {
         for (i, a) in Anchor::ALL.iter().enumerate() {
             let on = *anchor == *a;
