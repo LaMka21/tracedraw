@@ -4,8 +4,7 @@
 
 use crate::app::{App, Units};
 use crate::i18n::tr;
-use crate::theme::Tokens;
-use egui::{RichText, Ui};
+use egui::Ui;
 
 /// The panel: every Sign & Cut tool by toolbar group; a click opens its
 /// window (or the panel or dialog TraceDraw has for it).
@@ -37,27 +36,16 @@ pub fn signcut(app: &mut App, ui: &mut Ui) {
     }
 }
 
-pub(crate) fn dim(ui: &mut Ui, text: String) {
-    ui.label(RichText::new(text).color(Tokens::text_dim()).size(11.0));
-}
-
-/// A length field in the document's units, holding millimetres.
-pub(crate) fn length_field(ui: &mut Ui, u: Units, mm: &mut f64, min: f64) -> bool {
-    let mut v = u.world_from_mm(*mm);
-    let changed = ui
-        .add_sized(
-            [90.0, 22.0],
-            crate::ui::field::NumField::new(&mut v)
-                .range(u.world_from_mm(min)..=1_000_000.0)
-                .max_decimals(3)
-                .suffix(format!(" {}", u.short()))
-                .unit_mm(u.mm()),
-        )
-        .changed();
-    if changed {
-        *mm = u.world_to_mm(v);
-    }
-    changed
+/// An area in square document units and in square metres.
+pub(crate) fn fmt_area(u: Units, mm2: f64) -> String {
+    let k = u.world_from_mm(1.0);
+    let m2 = mm2 / 1_000_000.0;
+    format!(
+        "{:.2} {}\u{b2}  ({:.4} m\u{b2})",
+        mm2 * k * k,
+        u.short(),
+        m2
+    )
 }
 
 pub(crate) fn fmt_len(u: Units, mm: f64) -> String {
