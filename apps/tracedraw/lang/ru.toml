@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Внутренние размеры" # mt
 signcut.cnc_box_open = "Без крышки" # mt
 signcut.cnc_box_make = "Создать коробку" # mt
 signcut.cnc_box_bad = "Из этих размеров коробка не получится: каждая сторона должна быть длиннее двух толщин." # mt
+menu.tools.signcut_cnc_joints = "Шипы на кромках..." # mt
+signcut.cnc_joints = "Шипы на кромках" # mt
+signcut.cnc_joints_hint = "Только прямые кромки; кривые части контура остаются как есть." # mt
+signcut.cnc_joint_pair = "Два объекта: соединить ближайшие кромки" # mt
+signcut.cnc_joint_all = "Каждая прямая кромка не короче минимальной" # mt
+signcut.cnc_joint_depth = "Глубина (толщина ответной детали)" # mt
+signcut.cnc_joint_min = "Минимальная длина кромки" # mt
+signcut.cnc_joint_flip = "Вырезать крайние шипы (ответный рисунок)" # mt
+signcut.cnc_joint_make = "Вырезать шипы" # mt
+signcut.cnc_joint_two = "Выделите два объекта для соединения." # mt
+signcut.cnc_joint_none = "Не найдено достаточно длинной прямой кромки." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Эффекты и узоры" # mt

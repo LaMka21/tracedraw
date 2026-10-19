@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "भीतरी माप" # mt
 signcut.cnc_box_open = "ऊपर से खुला" # mt
 signcut.cnc_box_make = "बॉक्स बनाएँ" # mt
 signcut.cnc_box_bad = "इन मापों से बॉक्स नहीं बनता: हर भुजा मोटाई के दोगुने से लंबी होनी चाहिए।" # mt
+menu.tools.signcut_cnc_joints = "किनारों पर फिंगर जॉइंट..." # mt
+signcut.cnc_joints = "किनारों पर फिंगर जॉइंट" # mt
+signcut.cnc_joints_hint = "केवल सीधे किनारे; आउटलाइन के घुमावदार भाग जैसे हैं वैसे रहते हैं।" # mt
+signcut.cnc_joint_pair = "दो वस्तुएँ: निकटतम किनारे जोड़ें" # mt
+signcut.cnc_joint_all = "न्यूनतम लंबाई का हर सीधा किनारा" # mt
+signcut.cnc_joint_depth = "गहराई (मिलने वाले भाग की मोटाई)" # mt
+signcut.cnc_joint_min = "न्यूनतम किनारा लंबाई" # mt
+signcut.cnc_joint_flip = "सिरे की फिंगर काटें (मिलान पैटर्न)" # mt
+signcut.cnc_joint_make = "जॉइंट काटें" # mt
+signcut.cnc_joint_two = "जोड़ने के लिए दो वस्तुएँ चुनें।" # mt
+signcut.cnc_joint_none = "पर्याप्त लंबा कोई सीधा किनारा नहीं मिला।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt

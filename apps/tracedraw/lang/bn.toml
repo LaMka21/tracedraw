@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "ভিতরের মাপ" # mt
 signcut.cnc_box_open = "খোলা উপর" # mt
 signcut.cnc_box_make = "বাক্স তৈরি করুন" # mt
 signcut.cnc_box_bad = "এই মাপে বাক্স হয় না: প্রতিটি দিক পুরুত্বের দ্বিগুণের চেয়ে লম্বা হতে হবে।" # mt
+menu.tools.signcut_cnc_joints = "কিনারায় ফিঙ্গার জয়েন্ট..." # mt
+signcut.cnc_joints = "কিনারায় ফিঙ্গার জয়েন্ট" # mt
+signcut.cnc_joints_hint = "শুধু সোজা কিনারা; আউটলাইনের বাঁকা অংশ যেমন আছে থাকে।" # mt
+signcut.cnc_joint_pair = "দুটি বস্তু: নিকটতম কিনারা জোড়া" # mt
+signcut.cnc_joint_all = "ন্যূনতম দৈর্ঘ্যের প্রতিটি সোজা কিনারা" # mt
+signcut.cnc_joint_depth = "গভীরতা (মিলিত অংশের পুরুত্ব)" # mt
+signcut.cnc_joint_min = "ন্যূনতম কিনারার দৈর্ঘ্য" # mt
+signcut.cnc_joint_flip = "শেষ ফিঙ্গার কাটুন (মিলিত নকশা)" # mt
+signcut.cnc_joint_make = "জয়েন্ট কাটুন" # mt
+signcut.cnc_joint_two = "জোড়ার জন্য দুটি বস্তু নির্বাচন করুন।" # mt
+signcut.cnc_joint_none = "যথেষ্ট লম্বা কোনো সোজা কিনারা পাওয়া যায়নি।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "ইফেক্ট ও প্যাটার্ন" # mt

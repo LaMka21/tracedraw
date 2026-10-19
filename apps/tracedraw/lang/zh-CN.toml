@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "内部尺寸" # mt
 signcut.cnc_box_open = "无顶盖" # mt
 signcut.cnc_box_make = "生成盒子" # mt
 signcut.cnc_box_bad = "这些尺寸无法构成盒子: 每条边须大于厚度的两倍。" # mt
+menu.tools.signcut_cnc_joints = "边上的指接榫..." # mt
+signcut.cnc_joints = "边上的指接榫" # mt
+signcut.cnc_joints_hint = "仅限直边; 轮廓的曲线部分保持不变。" # mt
+signcut.cnc_joint_pair = "两个对象: 连接最近的边" # mt
+signcut.cnc_joint_all = "每条不短于最小长度的直边" # mt
+signcut.cnc_joint_depth = "深度 (配合件厚度)" # mt
+signcut.cnc_joint_min = "最小边长" # mt
+signcut.cnc_joint_flip = "切除端部指榫 (配合样式)" # mt
+signcut.cnc_joint_make = "切出接榫" # mt
+signcut.cnc_joint_two = "请选择两个要连接的对象。" # mt
+signcut.cnc_joint_none = "未找到足够长的直边。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "效果和图案" # mt

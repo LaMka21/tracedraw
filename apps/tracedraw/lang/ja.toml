@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "内寸" # mt
 signcut.cnc_box_open = "上面なし" # mt
 signcut.cnc_box_make = "箱を作成" # mt
 signcut.cnc_box_bad = "この寸法では箱になりません: 各辺は厚さの 2 倍より長くしてください。" # mt
+menu.tools.signcut_cnc_joints = "辺にフィンガージョイント..." # mt
+signcut.cnc_joints = "辺にフィンガージョイント" # mt
+signcut.cnc_joints_hint = "直線の辺のみ。輪郭の曲線部分はそのままです。" # mt
+signcut.cnc_joint_pair = "2 つのオブジェクト: 最も近い辺を接合" # mt
+signcut.cnc_joint_all = "最小長さ以上のすべての直線の辺" # mt
+signcut.cnc_joint_depth = "深さ (相手材の厚さ)" # mt
+signcut.cnc_joint_min = "辺の最小長さ" # mt
+signcut.cnc_joint_flip = "端のフィンガーを切る (相手側の形)" # mt
+signcut.cnc_joint_make = "ジョイントを切る" # mt
+signcut.cnc_joint_two = "接合する 2 つのオブジェクトを選択してください。" # mt
+signcut.cnc_joint_none = "十分な長さの直線の辺がありません。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "効果とパターン" # mt

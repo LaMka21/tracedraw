@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Vnitřní rozměry" # mt
 signcut.cnc_box_open = "Bez víka" # mt
 signcut.cnc_box_make = "Vytvořit krabici" # mt
 signcut.cnc_box_bad = "Z těchto rozměrů nelze udělat krabici: každá strana musí být delší než dvojnásobek tloušťky." # mt
+menu.tools.signcut_cnc_joints = "Ozubové spoje na hranách..." # mt
+signcut.cnc_joints = "Ozubové spoje na hranách" # mt
+signcut.cnc_joints_hint = "Jen rovné hrany; zakřivené části obrysu zůstanou." # mt
+signcut.cnc_joint_pair = "Dva objekty: spojit nejbližší hrany" # mt
+signcut.cnc_joint_all = "Každá rovná hrana alespoň minimální délky" # mt
+signcut.cnc_joint_depth = "Hloubka (tloušťka protikusu)" # mt
+signcut.cnc_joint_min = "Minimální délka hrany" # mt
+signcut.cnc_joint_flip = "Vyříznout krajní zuby (protikus)" # mt
+signcut.cnc_joint_make = "Vyříznout spoje" # mt
+signcut.cnc_joint_two = "Vyberte dva objekty ke spojení." # mt
+signcut.cnc_joint_none = "Nenalezena dost dlouhá rovná hrana." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty a vzory" # mt

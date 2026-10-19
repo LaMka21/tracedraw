@@ -19,6 +19,34 @@ pub fn section(app: &mut App, ui: &mut Ui) {
     sub(ui, "signcut.cnc_gcode", |ui| gcode(app, ui));
     sub(ui, "signcut.cnc_hot_wire", |ui| hot_wire(app, ui));
     sub(ui, "signcut.cnc_box", |ui| finger_box(app, ui));
+    sub(ui, "signcut.cnc_joints", |ui| finger_joints(app, ui));
+}
+
+fn finger_joints(app: &mut App, ui: &mut Ui) {
+    let u = app.units;
+    dim(ui, tr("signcut.cnc_joints_hint"));
+    let s = &mut app.sc_cnc;
+    ui.radio_value(&mut s.joint_pair, true, tr("signcut.cnc_joint_pair"));
+    ui.radio_value(&mut s.joint_pair, false, tr("signcut.cnc_joint_all"));
+    let j = &mut s.joint;
+    egui::Grid::new("cnc_joint_grid")
+        .num_columns(2)
+        .spacing([8.0, 3.0])
+        .show(ui, |ui| {
+            row(ui, "signcut.cnc_finger", |ui| {
+                length_field(ui, u, &mut j.finger, 0.5);
+            });
+            row(ui, "signcut.cnc_joint_depth", |ui| {
+                length_field(ui, u, &mut j.depth, 0.1);
+            });
+            row(ui, "signcut.cnc_joint_min", |ui| {
+                length_field(ui, u, &mut j.min_length, 0.0);
+            });
+        });
+    ui.checkbox(&mut j.flip, tr("signcut.cnc_joint_flip"));
+    if ui.button(tr("signcut.cnc_joint_make")).clicked() {
+        app.cnc_finger_joints();
+    }
 }
 
 fn finger_box(app: &mut App, ui: &mut Ui) {

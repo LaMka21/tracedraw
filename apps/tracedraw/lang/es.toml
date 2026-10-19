@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Medidas interiores" # mt
 signcut.cnc_box_open = "Sin tapa" # mt
 signcut.cnc_box_make = "Crear la caja" # mt
 signcut.cnc_box_bad = "Estas medidas no forman una caja: cada lado debe superar el doble del grosor." # mt
+menu.tools.signcut_cnc_joints = "Uniones de dedos en bordes..." # mt
+signcut.cnc_joints = "Uniones de dedos en bordes" # mt
+signcut.cnc_joints_hint = "Solo bordes rectos; las partes curvas del contorno se quedan igual." # mt
+signcut.cnc_joint_pair = "Dos objetos: unir sus bordes más cercanos" # mt
+signcut.cnc_joint_all = "Cada borde recto de al menos la longitud mínima" # mt
+signcut.cnc_joint_depth = "Profundidad (grosor de la pieza opuesta)" # mt
+signcut.cnc_joint_min = "Longitud mínima del borde" # mt
+signcut.cnc_joint_flip = "Cortar los dedos de los extremos (patrón opuesto)" # mt
+signcut.cnc_joint_make = "Cortar las uniones" # mt
+signcut.cnc_joint_two = "Seleccione dos objetos para unir." # mt
+signcut.cnc_joint_none = "No se encontró ningún borde recto suficientemente largo." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efectos y patrones" # mt

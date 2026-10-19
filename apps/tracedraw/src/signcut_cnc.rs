@@ -10,6 +10,7 @@ use tracedraw_core::geometry::{Affine, BezPath, Point};
 use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
 use tracedraw_signcut::cnc::fingerbox::BoxSpec;
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
+use tracedraw_signcut::cnc::joints::{self, JointSpec};
 
 /// The CNC and Laser section's settings and last results.
 #[derive(Debug, Clone)]
@@ -34,6 +35,10 @@ pub struct Settings {
     pub wire_tool: usize,
     /// Finger-joint box.
     pub box_spec: BoxSpec,
+    /// Finger joints on edges; with `joint_pair` two objects are joined
+    /// at their nearest edges, else every long straight edge is cut.
+    pub joint: JointSpec,
+    pub joint_pair: bool,
 }
 
 /// What the preview's tool paths depend on.
@@ -67,6 +72,8 @@ impl Default for Settings {
             wire_start_y: 0.0,
             wire_tool: 3,
             box_spec: BoxSpec::default(),
+            joint: JointSpec::default(),
+            joint_pair: true,
         }
     }
 }
@@ -354,6 +361,91 @@ impl App {
     }
 }
 
+impl App {
+    /// The targets whose outline can be rewritten (curves and basic
+    /// shapes without live effects, unlocked; groups opened), each in
+    /// page space.
+    fn cnc_editable(&self) -> Vec<Shape> {
+        fn walk(s: &Shape, out: &mut Vec<ShapeId>) {
+            if s.locked {
+                return;
+            }
+            match &s.kind {
+                ShapeKind::Group { children } => {
+                    for c in children {
+                        walk(c, out);
+                    }
+                }
+                ShapeKind::Rect { .. }
+                | ShapeKind::Ellipse { .. }
+                | ShapeKind::Polygon { .. }
+                | ShapeKind::Path { .. }
+                    if s.effects.is_empty() =>
+                {
+                    out.push(s.id);
+                }
+                _ => {}
+            }
+        }
+        let doc = self.doc();
+        let mut ids = Vec::new();
+        for id in self.signcut_targets() {
+            if let Some(s) = doc.find_shape(id) {
+                walk(s, &mut ids);
+            }
+        }
+        ids.iter().filter_map(|id| doc.shape_on_page(*id)).collect()
+    }
+
+    /// Cut finger joints: into the nearest straight edges of two
+    /// objects (mating patterns), or into every long straight edge of
+    /// each object. One undo step; returns how many objects changed.
+    pub fn cnc_finger_joints(&mut self) -> usize {
+        let shapes = self.cnc_editable();
+        let spec = self.sc_cnc.joint;
+        let mut changed: Vec<(&Shape, BezPath)> = Vec::new();
+        if self.sc_cnc.joint_pair {
+            let [a, b] = &shapes[..] else {
+                self.status = tr("signcut.cnc_joint_two");
+                return 0;
+            };
+            if let Some((pa, pb, _, _)) = joints::between(&a.page_path(), &b.page_path(), &spec) {
+                changed.push((a, pa));
+                changed.push((b, pb));
+            }
+        } else {
+            for s in &shapes {
+                if let Some((p, _)) = joints::on_all_edges(&s.page_path(), &spec) {
+                    changed.push((s, p));
+                }
+            }
+        }
+        let cmds: Vec<Command> = changed
+            .iter()
+            .filter_map(|(s, p)| {
+                let det = s.transform.determinant();
+                (det.is_finite() && det.abs() > 1e-12).then(|| Command::SetShapeKind {
+                    shape: s.id,
+                    kind: ShapeKind::Path {
+                        path: s.transform.inverse() * p.clone(),
+                        closed: true,
+                    },
+                })
+            })
+            .collect();
+        if cmds.is_empty() {
+            self.status = tr("signcut.cnc_joint_none");
+            return 0;
+        }
+        let n = cmds.len();
+        if let Err(e) = self.engine.run_batch("Finger Joints", &cmds) {
+            self.status = e.to_string();
+            return 0;
+        }
+        n
+    }
+}
+
 /// Outline colour of generated cut lines.
 pub const CUT_RED: Color = Color::Rgb {
     r: 0.9,
@@ -405,6 +497,9 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
         app.cnc_hot_wire();
     }
     if item(ui, "menu.tools.signcut_cnc_box", "", doc) {
+        app.open_signcut(Section::Cnc);
+    }
+    if item(ui, "menu.tools.signcut_cnc_joints", "", doc) {
         app.open_signcut(Section::Cnc);
     }
 }
@@ -545,5 +640,37 @@ mod tests {
         // Sizes that cannot make a box add nothing.
         app.sc_cnc.box_spec.thickness = 200.0;
         assert!(app.cnc_finger_box().is_none());
+    }
+
+    #[test]
+    fn finger_joints_rewrite_two_objects_in_one_step() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 100.0, 50.0);
+        let b = rect(&mut app, 0.0, 60.0, 100.0, 50.0);
+        let c = rect(&mut app, 200.0, 0.0, 90.0, 20.0);
+        // Two objects needed for a pair.
+        app.select(vec![a]);
+        assert_eq!(app.cnc_finger_joints(), 0);
+        app.select(vec![a, b]);
+        assert_eq!(app.cnc_finger_joints(), 2);
+        assert_eq!(app.engine.undo_label(), Some("Finger Joints"));
+        let pa = app.doc().shape_on_page(a).expect("a");
+        assert!(matches!(pa.kind, ShapeKind::Path { closed: true, .. }));
+        // Still in place, with slots in its top edge.
+        let ba = pa.bounds();
+        assert!((ba.width() - 100.0).abs() < 1e-6 && (ba.height() - 50.0).abs() < 1e-6);
+        let m = tracedraw_signcut::measure::measure(&[vec![pa.page_path()]]);
+        assert!((m.area - (5000.0 - 5.0 * 100.0 / 11.0 * 3.0)).abs() < 1e-6);
+        // Every long edge of one object.
+        app.sc_cnc.joint_pair = false;
+        app.sc_cnc.joint.min_length = 50.0;
+        app.select(vec![c]);
+        assert_eq!(app.cnc_finger_joints(), 1);
+        let m = tracedraw_signcut::measure::measure(&[vec![app
+            .doc()
+            .shape_on_page(c)
+            .expect("c")
+            .page_path()]]);
+        assert!((m.area - (1800.0 - 2.0 * 4.0 * 30.0)).abs() < 1e-6);
     }
 }

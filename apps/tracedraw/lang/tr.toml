@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "İç ölçüler" # mt
 signcut.cnc_box_open = "Üstü açık" # mt
 signcut.cnc_box_make = "Kutuyu oluştur" # mt
 signcut.cnc_box_bad = "Bu ölçülerle kutu olmaz: her kenar kalınlığın iki katından uzun olmalı." # mt
+menu.tools.signcut_cnc_joints = "Kenarlara parmak geçme..." # mt
+signcut.cnc_joints = "Kenarlara parmak geçme" # mt
+signcut.cnc_joints_hint = "Yalnızca düz kenarlar; anahattın eğri kısımları olduğu gibi kalır." # mt
+signcut.cnc_joint_pair = "İki nesne: en yakın kenarları birleştir" # mt
+signcut.cnc_joint_all = "En az asgari uzunluktaki her düz kenar" # mt
+signcut.cnc_joint_depth = "Derinlik (karşı parça kalınlığı)" # mt
+signcut.cnc_joint_min = "Asgari kenar uzunluğu" # mt
+signcut.cnc_joint_flip = "Uç parmakları kes (karşı desen)" # mt
+signcut.cnc_joint_make = "Geçmeleri kes" # mt
+signcut.cnc_joint_two = "Birleştirilecek iki nesne seçin." # mt
+signcut.cnc_joint_none = "Yeterince uzun düz kenar bulunamadı." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efektler ve desenler" # mt

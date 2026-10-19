@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "مقاسات داخلية" # mt
 signcut.cnc_box_open = "مفتوح من الأعلى" # mt
 signcut.cnc_box_make = "إنشاء الصندوق" # mt
 signcut.cnc_box_bad = "هذه المقاسات لا تصنع صندوقاً: يجب أن يكون كل جانب أطول من ضعف السماكة." # mt
+menu.tools.signcut_cnc_joints = "وصلات أصابع على الحواف..." # mt
+signcut.cnc_joints = "وصلات أصابع على الحواف" # mt
+signcut.cnc_joints_hint = "الحواف المستقيمة فقط؛ تبقى الأجزاء المنحنية كما هي." # mt
+signcut.cnc_joint_pair = "كائنان: وصل أقرب حافتين" # mt
+signcut.cnc_joint_all = "كل حافة مستقيمة بطول الحد الأدنى على الأقل" # mt
+signcut.cnc_joint_depth = "العمق (سماكة القطعة المقابلة)" # mt
+signcut.cnc_joint_min = "أدنى طول للحافة" # mt
+signcut.cnc_joint_flip = "قص الأصابع الطرفية (النمط المقابل)" # mt
+signcut.cnc_joint_make = "قص الوصلات" # mt
+signcut.cnc_joint_two = "حدد كائنين لوصلهما." # mt
+signcut.cnc_joint_none = "لم يُعثر على حافة مستقيمة طويلة بما يكفي." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "المؤثرات والأنماط" # mt

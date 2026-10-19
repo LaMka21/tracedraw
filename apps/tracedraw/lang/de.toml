@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Innenmaße" # mt
 signcut.cnc_box_open = "Oben offen" # mt
 signcut.cnc_box_make = "Box erzeugen" # mt
 signcut.cnc_box_bad = "Mit diesen Maßen entsteht keine Box: jede Seite muss länger als die doppelte Stärke sein." # mt
+menu.tools.signcut_cnc_joints = "Fingerzinken an Kanten..." # mt
+signcut.cnc_joints = "Fingerzinken an Kanten" # mt
+signcut.cnc_joints_hint = "Nur gerade Kanten; gebogene Teile der Kontur bleiben, wie sie sind." # mt
+signcut.cnc_joint_pair = "Zwei Objekte: nächste Kanten verbinden" # mt
+signcut.cnc_joint_all = "Jede gerade Kante ab der Mindestlänge" # mt
+signcut.cnc_joint_depth = "Tiefe (Stärke des Gegenstücks)" # mt
+signcut.cnc_joint_min = "Mindestlänge der Kante" # mt
+signcut.cnc_joint_flip = "Endzinken ausschneiden (Gegenmuster)" # mt
+signcut.cnc_joint_make = "Zinken schneiden" # mt
+signcut.cnc_joint_two = "Zwei Objekte zum Verbinden auswählen." # mt
+signcut.cnc_joint_none = "Keine ausreichend lange gerade Kante gefunden." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effekte und Muster" # mt

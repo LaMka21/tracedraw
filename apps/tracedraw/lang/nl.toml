@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Binnenmaten" # mt
 signcut.cnc_box_open = "Open bovenkant" # mt
 signcut.cnc_box_make = "Doos maken" # mt
 signcut.cnc_box_bad = "Met deze maten ontstaat geen doos: elke zijde moet langer zijn dan tweemaal de dikte." # mt
+menu.tools.signcut_cnc_joints = "Vingerverbindingen op randen..." # mt
+signcut.cnc_joints = "Vingerverbindingen op randen" # mt
+signcut.cnc_joints_hint = "Alleen rechte randen; gebogen delen van de omtrek blijven zoals ze zijn." # mt
+signcut.cnc_joint_pair = "Twee objecten: dichtstbijzijnde randen verbinden" # mt
+signcut.cnc_joint_all = "Elke rechte rand van ten minste de minimale lengte" # mt
+signcut.cnc_joint_depth = "Diepte (dikte van het tegenstuk)" # mt
+signcut.cnc_joint_min = "Minimale randlengte" # mt
+signcut.cnc_joint_flip = "Eindvingers uitsnijden (tegenpatroon)" # mt
+signcut.cnc_joint_make = "Verbindingen snijden" # mt
+signcut.cnc_joint_two = "Selecteer twee objecten om te verbinden." # mt
+signcut.cnc_joint_none = "Geen rechte rand die lang genoeg is gevonden." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effecten en patronen" # mt

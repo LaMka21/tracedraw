@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Dimensions intérieures" # mt
 signcut.cnc_box_open = "Sans couvercle" # mt
 signcut.cnc_box_make = "Créer la boîte" # mt
 signcut.cnc_box_bad = "Ces dimensions ne font pas une boîte : chaque côté doit dépasser le double de l'épaisseur." # mt
+menu.tools.signcut_cnc_joints = "Entures sur les bords..." # mt
+signcut.cnc_joints = "Entures sur les bords" # mt
+signcut.cnc_joints_hint = "Bords droits seulement ; les parties courbes du contour restent telles quelles." # mt
+signcut.cnc_joint_pair = "Deux objets : joindre leurs bords les plus proches" # mt
+signcut.cnc_joint_all = "Chaque bord droit d'au moins la longueur minimale" # mt
+signcut.cnc_joint_depth = "Profondeur (épaisseur de la pièce opposée)" # mt
+signcut.cnc_joint_min = "Longueur minimale du bord" # mt
+signcut.cnc_joint_flip = "Découper les entures d'extrémité (motif opposé)" # mt
+signcut.cnc_joint_make = "Découper les entures" # mt
+signcut.cnc_joint_two = "Sélectionnez deux objets à joindre." # mt
+signcut.cnc_joint_none = "Aucun bord droit assez long trouvé." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effets et motifs" # mt

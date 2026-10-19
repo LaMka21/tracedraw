@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Ukuran dalam" # mt
 signcut.cnc_box_open = "Atas terbuka" # mt
 signcut.cnc_box_make = "Buat kotak" # mt
 signcut.cnc_box_bad = "Ukuran ini tidak bisa jadi kotak: tiap sisi harus lebih panjang dari dua kali ketebalan." # mt
+menu.tools.signcut_cnc_joints = "Sambungan jari pada tepi..." # mt
+signcut.cnc_joints = "Sambungan jari pada tepi" # mt
+signcut.cnc_joints_hint = "Hanya tepi lurus; bagian lengkung garis tetap seperti semula." # mt
+signcut.cnc_joint_pair = "Dua objek: gabungkan tepi terdekat" # mt
+signcut.cnc_joint_all = "Setiap tepi lurus minimal panjang minimum" # mt
+signcut.cnc_joint_depth = "Kedalaman (tebal pasangan)" # mt
+signcut.cnc_joint_min = "Panjang tepi minimum" # mt
+signcut.cnc_joint_flip = "Potong jari ujung (pola pasangan)" # mt
+signcut.cnc_joint_make = "Potong sambungan" # mt
+signcut.cnc_joint_two = "Pilih dua objek untuk digabung." # mt
+signcut.cnc_joint_none = "Tidak ada tepi lurus yang cukup panjang." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efek dan pola" # mt

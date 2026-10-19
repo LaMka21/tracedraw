@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Wymiary wewnętrzne" # mt
 signcut.cnc_box_open = "Otwarta góra" # mt
 signcut.cnc_box_make = "Utwórz pudełko" # mt
 signcut.cnc_box_bad = "Z tych wymiarów nie powstanie pudełko: każdy bok musi być dłuższy niż dwie grubości." # mt
+menu.tools.signcut_cnc_joints = "Wczepy palcowe na krawędziach..." # mt
+signcut.cnc_joints = "Wczepy palcowe na krawędziach" # mt
+signcut.cnc_joints_hint = "Tylko proste krawędzie; zakrzywione części konturu pozostają bez zmian." # mt
+signcut.cnc_joint_pair = "Dwa obiekty: połącz najbliższe krawędzie" # mt
+signcut.cnc_joint_all = "Każda prosta krawędź co najmniej minimalnej długości" # mt
+signcut.cnc_joint_depth = "Głębokość (grubość elementu współpracującego)" # mt
+signcut.cnc_joint_min = "Minimalna długość krawędzi" # mt
+signcut.cnc_joint_flip = "Wytnij skrajne wczepy (wzór współpracujący)" # mt
+signcut.cnc_joint_make = "Wytnij wczepy" # mt
+signcut.cnc_joint_two = "Zaznacz dwa obiekty do połączenia." # mt
+signcut.cnc_joint_none = "Nie znaleziono wystarczająco długiej prostej krawędzi." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty i wzory" # mt

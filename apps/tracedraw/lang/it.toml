@@ -4546,6 +4546,17 @@ signcut.cnc_box_inside = "Misure interne" # mt
 signcut.cnc_box_open = "Aperta sopra" # mt
 signcut.cnc_box_make = "Crea la scatola" # mt
 signcut.cnc_box_bad = "Queste misure non formano una scatola: ogni lato deve superare il doppio dello spessore." # mt
+menu.tools.signcut_cnc_joints = "Incastri a dita sui bordi..." # mt
+signcut.cnc_joints = "Incastri a dita sui bordi" # mt
+signcut.cnc_joints_hint = "Solo bordi diritti; le parti curve del contorno restano come sono." # mt
+signcut.cnc_joint_pair = "Due oggetti: unire i bordi più vicini" # mt
+signcut.cnc_joint_all = "Ogni bordo diritto lungo almeno il minimo" # mt
+signcut.cnc_joint_depth = "Profondità (spessore del pezzo opposto)" # mt
+signcut.cnc_joint_min = "Lunghezza minima del bordo" # mt
+signcut.cnc_joint_flip = "Tagliare le dita alle estremità (schema opposto)" # mt
+signcut.cnc_joint_make = "Taglia gli incastri" # mt
+signcut.cnc_joint_two = "Selezionare due oggetti da unire." # mt
+signcut.cnc_joint_none = "Nessun bordo diritto abbastanza lungo trovato." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effetti e motivi" # mt

@@ -164,6 +164,39 @@ finger width 10 mm, kerf 0.1 mm, gap 5 mm, closed top.
   Sizes that cannot make a box (a side not longer than 2 T, a thickness
   or finger width of 0) add nothing and say so.
 
+## Finger joints on edges
+
+Cuts fingers into straight edges of existing closed outlines so two
+flat parts interlock at a corner. Defaults: finger width 10 mm, depth
+3 mm (the thickness of the mating part), minimum edge length 30 mm,
+end fingers kept.
+
+- Edges: straight segments (lines, or curves whose handles lie on
+  their chord within 0.000001 mm) of closed subpaths, at least the
+  minimum length long. Curved segments, open subpaths and shorter
+  edges are kept as they are.
+- An edge of length L takes n fingers, n odd and L / n nearest to the
+  finger width (as for the box). Every other finger is cut in by the
+  depth, square to the edge and into the material (the material side
+  from the subpath's direction and even-odd nesting: a hole's material
+  is outside it). Normally the slots are fingers 2, 4, ...; with **Cut
+  the end fingers** they are 1, 3, ..., n, the mating pattern.
+- **Two objects: join their nearest edges** (the default): exactly two
+  objects must be selected (or be the targets); among their long
+  straight edges the pair whose middles lie nearest is joined, both
+  with the finger count of the shorter edge (each edge split over its
+  own length), the second object with the opposite pattern of the
+  first.
+- **Every straight edge at least the minimum length**: each object gets
+  fingers on all its long straight edges, with the chosen pattern.
+- Rectangles, ellipses, polygons and curves without live effects take
+  part (groups opened); text, bitmaps and locked objects do not. A
+  changed object becomes a closed curve in the same place, keeping its
+  fill and outline. One undo step ("Finger Joints").
+- Limits: no kerf allowance and no check that the slots fit the part
+  (a depth larger than the part's width cuts through it); fingers run
+  square to the edge, so parts meet at right angles.
+
 ## Checks
 
 - `tracedraw_signcut::cnc::tests::*`: flattening with non-finite points,
@@ -184,7 +217,12 @@ finger width 10 mm, kerf 0.1 mm, gap 5 mm, closed top.
   the panels fill the shell exactly (`panels_fill_the_shell_exactly`),
   open top with inside sizes, the front panel's corners and slots,
   kerf, impossible sizes.
-- `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
+- `tracedraw_signcut::cnc::joints::tests::*`: odd counts, long edges
+  only with their material side (holes too), every other strip taken
+  out (and the flipped pattern), two parts with mating patterns on
+  their nearest edges, curves kept and bad input.
+- `signcut_cnc::tests::finger_joints_rewrite_two_objects_in_one_step`,
+  `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
   `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
   `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`,
   `signcut_cnc::tests::hot_wire_path_is_one_open_curve_in_one_step`.
