@@ -328,37 +328,49 @@ pub fn cost(
     report
 }
 
-fn material_unit_text(u: MaterialUnit) -> &'static str {
-    match u {
-        MaterialUnit::Area => "m2",
-        MaterialUnit::Roll => "roll",
+impl MaterialUnit {
+    /// The unit's name in CSV and settings files: `m2` or `roll`.
+    pub fn id(self) -> &'static str {
+        match self {
+            MaterialUnit::Area => "m2",
+            MaterialUnit::Roll => "roll",
+        }
+    }
+
+    /// The unit for a name (see [`MaterialUnit::id`]; `m²`, `sqm`,
+    /// `area`, `m`, `lm` and `running` are understood too).
+    pub fn from_id(s: &str) -> Option<MaterialUnit> {
+        match s.trim().to_lowercase().as_str() {
+            "m2" | "m\u{b2}" | "sqm" | "area" => Some(MaterialUnit::Area),
+            "roll" | "m" | "lm" | "running" => Some(MaterialUnit::Roll),
+            _ => None,
+        }
     }
 }
 
-fn read_material_unit(s: &str) -> Option<MaterialUnit> {
-    match s.trim().to_lowercase().as_str() {
-        "m2" | "m\u{b2}" | "sqm" | "area" => Some(MaterialUnit::Area),
-        "roll" | "m" | "lm" | "running" => Some(MaterialUnit::Roll),
-        _ => None,
+impl ServiceUnit {
+    /// The unit's name in CSV and settings files: `m`, `m2`, `piece` or
+    /// `hour`.
+    pub fn id(self) -> &'static str {
+        match self {
+            ServiceUnit::Metre => "m",
+            ServiceUnit::SquareMetre => "m2",
+            ServiceUnit::Piece => "piece",
+            ServiceUnit::Hour => "hour",
+        }
     }
-}
 
-fn service_unit_text(u: ServiceUnit) -> &'static str {
-    match u {
-        ServiceUnit::Metre => "m",
-        ServiceUnit::SquareMetre => "m2",
-        ServiceUnit::Piece => "piece",
-        ServiceUnit::Hour => "hour",
-    }
-}
-
-fn read_service_unit(s: &str) -> Option<ServiceUnit> {
-    match s.trim().to_lowercase().as_str() {
-        "m" | "metre" | "meter" | "lm" => Some(ServiceUnit::Metre),
-        "m2" | "m\u{b2}" | "sqm" => Some(ServiceUnit::SquareMetre),
-        "piece" | "pc" | "pcs" | "each" => Some(ServiceUnit::Piece),
-        "hour" | "h" | "hr" => Some(ServiceUnit::Hour),
-        _ => None,
+    /// The unit for a name (see [`ServiceUnit::id`]; `metre`, `meter`,
+    /// `lm`, `m²`, `sqm`, `pc`, `pcs`, `each`, `h` and `hr` are
+    /// understood too).
+    pub fn from_id(s: &str) -> Option<ServiceUnit> {
+        match s.trim().to_lowercase().as_str() {
+            "m" | "metre" | "meter" | "lm" => Some(ServiceUnit::Metre),
+            "m2" | "m\u{b2}" | "sqm" => Some(ServiceUnit::SquareMetre),
+            "piece" | "pc" | "pcs" | "each" => Some(ServiceUnit::Piece),
+            "hour" | "h" | "hr" => Some(ServiceUnit::Hour),
+            _ => None,
+        }
     }
 }
 
@@ -379,7 +391,7 @@ pub fn materials_to_csv(list: &[Material]) -> String {
     for m in list {
         rows.push(vec![
             m.name.clone(),
-            material_unit_text(m.unit).into(),
+            m.unit.id().into(),
             csv::number(m.price),
             csv::number(m.roll_width),
         ]);
@@ -395,7 +407,7 @@ pub fn materials_from_csv(text: &str) -> Imported<Material> {
         if name.is_empty() {
             return None;
         }
-        let unit = read_material_unit(r.get(1)?)?;
+        let unit = MaterialUnit::from_id(r.get(1)?)?;
         let price = read_price(r.get(2)?)?;
         let roll_width = r.get(3).and_then(|f| csv::parse_number(f));
         let roll_width = match unit {
@@ -418,7 +430,7 @@ pub fn services_to_csv(list: &[Service]) -> String {
     for s in list {
         rows.push(vec![
             s.name.clone(),
-            service_unit_text(s.unit).into(),
+            s.unit.id().into(),
             csv::number(s.price),
         ]);
     }
@@ -435,7 +447,7 @@ pub fn services_from_csv(text: &str) -> Imported<Service> {
         }
         Some(Service {
             name: name.to_string(),
-            unit: read_service_unit(r.get(1)?)?,
+            unit: ServiceUnit::from_id(r.get(1)?)?,
             price: read_price(r.get(2)?)?,
             selected: false,
         })
