@@ -13,7 +13,10 @@
 //! - [`weight`]: volume, weight and edge area from a density list.
 //! - [`csv`]: the CSV text the price lists are imported from and
 //!   exported to.
+//! - [`arrange`]: the ways Set Size sizes objects and how Replace picks
+//!   one of several masters.
 
+pub mod arrange;
 pub mod cost;
 pub mod csv;
 pub mod time;
@@ -33,6 +36,8 @@ pub struct Job {
     pub blocks: Vec<Rect>,
     /// The head's moves between outlines.
     pub travel: Travel,
+    /// Each move with the tool up (from, to), in order.
+    pub moves: Vec<(Point, Point)>,
 }
 
 /// Measure `objects` (each given by its outlines, see
@@ -53,10 +58,12 @@ pub fn job(objects: &[Vec<BezPath>], start: Point, order: TravelOrder) -> Job {
         m.add(&one);
     }
     let paths: Vec<BezPath> = objects.iter().flatten().cloned().collect();
+    let (travel, moves) = time::travel_moves(&paths, start, order);
     Job {
         measurement: m,
         blocks,
-        travel: time::travel(&paths, start, order),
+        travel,
+        moves,
     }
 }
 
@@ -89,6 +96,7 @@ mod tests {
         assert_eq!(j.travel.outlines, 2);
         // From the origin to (0,0), then from (0,0) to (20,0).
         assert!((j.travel.travel_length - 20.0).abs() < 1e-9);
+        assert_eq!(j.moves.len(), 2);
     }
 
     #[test]

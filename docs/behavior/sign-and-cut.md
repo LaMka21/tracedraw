@@ -75,6 +75,12 @@ tools.
 
 ## Size
 
+The tool windows of Set Size, Reference Scale and Replace (and of
+Perimeter and Area) are described in `sign-and-cut-calc.md`, Windows:
+the Set Size window also sizes to the largest or smallest object, by a
+change or a scale, and turns; Replace there also takes several masters.
+The panel items below are the operations they share.
+
 - **Set size**: Width and Height, each with a check box (Width on,
   100 mm; Height off, 100 mm); Keep proportions (on); Change: Every
   object, Only larger objects (maximum: shrink only) or Only smaller

@@ -149,6 +149,27 @@ fn stops(paths: &[BezPath]) -> Vec<Stop> {
 /// The moves between the outlines of `paths` (page space, mm), starting
 /// at `start`.
 pub fn travel(paths: &[BezPath], start: Point, order: TravelOrder) -> Travel {
+    walk(paths, start, order, |_, _| {})
+}
+
+/// [`travel`] and each move of the head with the tool up, from where it
+/// is to where the next outline starts, in the order they are made.
+pub fn travel_moves(
+    paths: &[BezPath],
+    start: Point,
+    order: TravelOrder,
+) -> (Travel, Vec<(Point, Point)>) {
+    let mut moves = Vec::new();
+    let t = walk(paths, start, order, |a, b| moves.push((a, b)));
+    (t, moves)
+}
+
+fn walk(
+    paths: &[BezPath],
+    start: Point,
+    order: TravelOrder,
+    mut on_move: impl FnMut(Point, Point),
+) -> Travel {
     let stops = stops(paths);
     let start = if finite(start) { start } else { Point::ZERO };
     let nodes: usize = stops.iter().map(|s| s.entries.len()).sum();
@@ -164,6 +185,7 @@ pub fn travel(paths: &[BezPath], start: Point, order: TravelOrder) -> Travel {
     if !nearest || t.as_drawn_fallback {
         for s in &stops {
             t.travel_length += (s.first - pos).hypot();
+            on_move(pos, s.first);
             pos = if s.closed { s.first } else { s.last };
         }
         return t;
@@ -171,12 +193,12 @@ pub fn travel(paths: &[BezPath], start: Point, order: TravelOrder) -> Travel {
     let mut left: Vec<usize> = (0..stops.len()).collect();
     while !left.is_empty() {
         // (position in `left`, entry point, its distance, exit point)
-        let mut best: Option<(usize, f64, Point)> = None;
+        let mut best: Option<(usize, f64, Point, Point)> = None;
         for (k, &i) in left.iter().enumerate() {
             let Some(s) = stops.get(i) else { continue };
             for &e in &s.entries {
                 let d = (e - pos).hypot();
-                if best.is_none_or(|(_, bd, _)| d < bd) {
+                if best.is_none_or(|(_, bd, _, _)| d < bd) {
                     let exit = if s.closed {
                         e
                     } else if e == s.first {
@@ -184,12 +206,15 @@ pub fn travel(paths: &[BezPath], start: Point, order: TravelOrder) -> Travel {
                     } else {
                         s.first
                     };
-                    best = Some((k, d, exit));
+                    best = Some((k, d, e, exit));
                 }
             }
         }
-        let Some((k, d, exit)) = best else { break };
+        let Some((k, d, entry, exit)) = best else {
+            break;
+        };
         t.travel_length += d;
+        on_move(pos, entry);
         pos = exit;
         left.swap_remove(k);
     }
@@ -378,6 +403,22 @@ mod tests {
         );
         assert_eq!(t.outlines, 1);
         assert!((t.travel_length - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_moves_add_up_to_the_travel() {
+        let paths = [square(100.0, 0.0, 10.0), square(10.0, 0.0, 10.0)];
+        for order in [TravelOrder::Nearest, TravelOrder::AsDrawn] {
+            let (t, moves) = travel_moves(&paths, Point::ZERO, order);
+            assert_eq!(t, travel(&paths, Point::ZERO, order));
+            assert_eq!(moves.len(), 2);
+            let sum: f64 = moves.iter().map(|(a, b)| (*b - *a).hypot()).sum();
+            assert!((sum - t.travel_length).abs() < 1e-9);
+            assert_eq!(moves[0].0, Point::ZERO);
+        }
+        let (t, moves) = travel_moves(&[], Point::ZERO, TravelOrder::Nearest);
+        assert_eq!(t.outlines, 0);
+        assert!(moves.is_empty());
     }
 
     #[test]
