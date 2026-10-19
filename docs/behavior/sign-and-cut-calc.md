@@ -2,38 +2,46 @@
 
 How long a job takes to cut, what it costs and what it weighs. The
 geometry is in `crates/signcut/src/calc/` (`time.rs`, `cost.rs`,
-`weight.rs`, `csv.rs`); the settings and operations are in
-`apps/tracedraw/src/signcut_calc.rs` and the panel section in
-`ui/signcut_calc.rs`.
+`weight.rs`, `csv.rs`, and `arrange.rs` for Set Size and Replace); the
+settings and operations are in `apps/tracedraw/src/signcut_calc.rs` and
+the windows in `ui/signcut_win_calc.rs` (see Windows below). This page
+also describes the windows of Perimeter, Area, Set Size, Reference Scale
+and Replace, whose operations are in `apps/tracedraw/src/signcut.rs`.
 
-The calculations only read the drawing: nothing here adds, changes or
-deletes an object, and nothing is an undo step.
+Set Size, Reference Scale and Replace change the drawing, each in one
+undo step.
+
+The calculations only read the drawing: nothing they do adds, changes
+or deletes an object, and nothing is an undo step.
 
 ## Opening it
 
-- Window > Panels > Sign & Cut, section **Calculations**.
-- Tools > Sign & Cut > Calculations > **Cutting Time**, **Cost** or
-  **Volume and Weight**: each measures the objects, opens the panel at
-  the section and sums the results up in the status line ("Cutting time
-  0:01:23, cost 12.30 EUR, weight 3.570 kg").
+- The Sign & Cut toolbar's Measure and Calculate button, or the Sign &
+  Cut panel: Perimeter, Area, Cost, Cutting Time, Volume and Weight
+  (Set Size and Replace are on the Arrange button, Reference Scale on
+  CAD and Machining).
+- Tools > Sign & Cut > Calculations > **Cutting Time** or **Volume and
+  Weight**: opens the window, measures the objects and sums the results
+  up in the status line ("Cutting time 0:01:23, cost 12.30 EUR, weight
+  3.570 kg"); **Cost** opens the Cost window and adds the objects as a
+  row.
 
 ## Which objects
 
-Like the rest of the panel: the selection, in stacking order; with
-nothing selected, every visible, unlocked object of the page. The
-section says which. Outlines are taken as Measure takes them (a group by
+Like the rest of Sign & Cut: the selection, in stacking order; with
+nothing selected, every visible, unlocked object of the page. Outlines are taken as Measure takes them (a group by
 its members, a clip frame by its frame, text by its glyphs). Each
 object is one **block** for the cost (a group is one block); an object
 without a single segment has no block.
 
-**Calculate** measures the objects once: length and areas through
-`tracedraw_signcut::measure` (the same numbers as Measure), each
-object's bounding box, and the head's travel between outlines. Time,
-cost and weight are then worked out from that measurement and the
-current settings every time the section is drawn, so a new price,
-profile or thickness shows at once. When the drawing, the objects or the
-travel order change, the results stay and the section says to calculate
-again.
+Opening a calculator window, or **Update**, measures the objects once:
+length and areas through `tracedraw_signcut::measure` (the same numbers
+as Measure), each object's bounding box, and the head's travel between
+outlines with each move. Time, cost and weight are then worked out from
+that measurement and the current settings every time the window is
+drawn, so a new price, profile or thickness shows at once. When the
+drawing, the objects or the travel order change, the results stay, grey,
+and the window says to press Update.
 
 ## Cutting time
 
@@ -215,6 +223,175 @@ defaults; a value that is missing or out of range keeps its default or
 is brought into range; rows missing a name or with an unknown unit are
 dropped. The measurement is not kept.
 
+## Windows
+
+Each tool of the Measure and Calculate button of the Sign & Cut toolbar,
+and Set Size, Reference Scale and Replace, has a window of its own
+(`ui/signcut_win_calc.rs` and `ui/signcut_win_calc/`). The calculators
+(Perimeter, Area, Cost, Cutting Time, Volume and Weight) change nothing
+in the drawing: Update at the bottom left, Close at the right. They
+measure the objects (the selection, else the page) when the window
+opens and with Update; when the drawing or the objects change after
+that, the results turn grey and the window says "Changed since: press
+Update." The calculators take sizes as drawn on the page (millimetres
+of the page, whatever the drawing scale).
+
+Their Units lists are their own (mm, cm, m, in, ft; areas and volumes
+in the square and cube): Perimeter and Area start in m, Volume and
+Weight in mm. The units, the prices of the windows and the price per
+hour are kept with the lists in `signcut_calc.json`.
+
+### Perimeter (310 x 250)
+
+One group Perimeter: **Perimeter** (bold, the outline length in the
+unit), a line with a **More** link at its right that opens the Area
+window, **Price per <unit>** (1.00 at first, 0 to 1 000 000 000),
+**Cost** (perimeter x price, with the currency of the cost lists) and
+**Units**.
+
+### Area (280 x 470)
+
+A white list of five rows, each with a picture of what it counts (a
+plate with a round hole and a small part beside it, filled where the
+row counts), the name and the value in bold: **Object area** (outer
+areas less holes), **Outer area**, **Inner area (holes)**, **Bounding
+box area** (with the box's width x height under it) and **Perimeter**.
+Under it **Objects** (how many) and **Units**.
+
+### Cost (880 x 330, resizable)
+
+A table with a row per **Add**: Add takes the objects (the selection,
+else the page) as one row; objects without an outline give no row
+("Nothing to bill"). Columns: **No.** with a swatch of the first plain
+fill colour among the row's objects (a click selects the row's objects
+that still exist; the number is grey when the drawing changed since the
+row was measured), **Name** (free text), **Material** (a list: No
+material or a material of the price list; a new row takes the material
+chosen last), **Material qty** (m2 or running m), **Material cost**,
+**Services** (the services billed), **Services cost**, **Total** and a
+cross that deletes the row. The last row, **Total**, sums the costs, and
+the quantities when every row has the same unit. Each row is worked out
+as in Cost above with its own objects and material, the services
+billed, the job settings and the cutting time of its objects with the
+profile in use; a new price shows at once.
+
+Bottom: **Update** measures every row again from its objects (objects
+that are gone leave the row, a row with none left goes), **Add**,
+**Price Lists** (shows or hides the lists under the table) and
+**Close**. The lists have three tabs: **Materials** and **Services**
+(edited in place as in The lists below; a service's check box says it
+is billed) and **Job**: Technical reserve, Minimum billed width and
+height, Copies and Currency. While the window is open the billed blocks
+of the rows measured on the current drawing are outlined on the
+drawing.
+
+### Cutting Time (400 x 320, resizable)
+
+Tabs:
+
+- **Time**: the profile list with a button that opens Parameters;
+  **Estimated time** (bold, "0 h 1 min 23 s"); **Cutting share** (cutting
+  time / total time, %); **Price per hour** (100.00 at first) with the
+  price per m2 of net area beside it; **Total** (total time in hours x
+  price per hour, with the currency).
+- **Parameters**: the profile's Name, Cutting speed, Travel speed, Lift
+  and lower, Acceleration factor and Passes, the **Travel order**, and
+  Add and Delete (as in Cutting time above).
+- **Preview**: the outlines measured, the moves with the tool up in red
+  and the start point (the page's origin) as a green cross; under it
+  Cut length, Cutting, Travel (length and time) and Lifts (count and
+  time).
+
+A thin green bar above the buttons shows the cutting share.
+
+### Volume and Weight (310 x 560)
+
+- **Volume**: Volume (bold, net area x thickness), Area (net), Edge area
+  (outline length x thickness), **Material thickness** (3 mm at first,
+  in the window's unit) and **Units**.
+- **Mass**: **Material** (the density list), **Density (kg/m3)** (the
+  material's density, editable: it changes the list), **Units** (g, kg,
+  t, lb), **Mass** (bold) and **Material Density List**, which shows or
+  hides the density list (edited as in The lists below).
+- **Price**: **Cost** (1.0000 at first), **Cost per** (the mass unit, m2
+  of net area or m3 of volume) and **Price** = cost x the quantity.
+
+### Set Size (300 x 660)
+
+A command window: Close only. Group Set Size: **Change Width Only**,
+**Change Height Only** and **Change Size**, each with a picture, apply
+at once to the selected, unlocked objects (one undo step "Set Size";
+the status line says how many changed, or "Nothing to change.").
+**Reference position**: the point of each object's box that stays put
+(Center at first, nine choices). Group Size from, one of:
+
+- **Same as the largest**: the largest width and height among the
+  selected objects (each taken on its own).
+- **Same as the smallest**: the smallest width and height above zero.
+- **Size**: **Width** and **Height** (100 mm each at first).
+- **Change by**: the object's own size plus **Width change** and
+  **Height change** (0 at first; a change that leaves nothing keeps
+  that side).
+- **Scale**: the object's own size x **Scale (%)** (100 at first).
+
+**Keep proportions** (on at first): one factor for both sides; with
+both sides given the object fits inside them; with one side only (the
+Width Only or Height Only button) the other side follows. Off: Width
+Only changes only the width. **Change** limits which objects change:
+Every object, Only larger objects (shrink only), Only smaller objects
+(grow only). **Rotate** with **Angle (°)** (counter-clockwise, -360 to
+360) also turns each object about the same point of its new box. Then
+**Units** (the document's units).
+
+### Reference Scale (320 x 400)
+
+Group Reference: **Measure** (Width, Height or Length; changing it
+measures the reference again and takes that value as the real size),
+**Use Selected Object as Reference** (one object selected), **Reference
+measures** (its value now), **Real size** and **Scale factor** (real
+size / measured value, and in %). Group Scale: **Objects** (Every object
+on the page, or The selection and the reference) and **Fixed point**
+(bottom left at first). Then **Units**. While the window is open the
+reference's bounding box is outlined on the drawing.
+
+Apply scales (one undo step "Reference Scale") and stays open; OK
+scales and closes; Cancel closes. Apply and OK are greyed while there
+is no reference or the factor is 1.
+
+### Replace (400 x 290)
+
+Tabs **One master** and **Several masters**. One master: **Set Master**
+(one object selected; the button reads "! Set Master" while no master
+is set) and **Replace with Master** (enabled with a master and another
+object selected). Several masters: **Set Masters** takes every selected
+object as a master, in selection order; **Replace with Masters** puts
+in each place the master that **Option** picks: **In turn** (the first
+object to replace gets the first master, the next the next, and round
+again) or **Closest proportions** (the master whose width to height is
+closest to the object's; a flat object or flat masters fall back to In
+turn). Both tabs: **Preserve angle** (No/Yes: the copy takes each
+object's rotation, as Take each object's rotation), **Size** (Keep the
+master's size, Fit inside each object, Stretch to each object) and Keep
+the replaced objects. One undo step ("Replace"); the copies are
+selected. A grey line says how many masters are set; their boxes are
+outlined on the drawing. Bottom: **Select Master** (selects the masters)
+and Close.
+
+### Left out
+
+- Area: a raster-sampled area (the bitmap area of the reference
+  layout): it is the same area as Object area within the raster's
+  accuracy and adds nothing for cut work.
+- Cost: a per-row second size column for the services; services are
+  billed in different units (m, m2, pieces, hours), so the table shows
+  their names and cost.
+- Volume and Weight: a units list per result (the volume and area share
+  the window's unit).
+- Replace: a repeat button; Replace with Master is pressed again
+  instead.
+- Set Size: the reference's two "Specify size" entries are Size and
+  Change by here.
+
 ## Limits
 
 - The roll use takes the objects as they lie: no nesting, copies one
@@ -245,6 +422,29 @@ dropped. The measurement is not kept.
   revision, no undo step), cost of material and services and a new
   price at once, weight of acrylic, CSV import and export, settings
   through JSON and bad files.
-- `ui::signcut_calc::tests::*`: the section and every list editor draw
-  before and after measuring and with empty lists, the billed block on
-  the drawing; row indices after a deletion.
+- `tracedraw_signcut::calc::time::tests::the_moves_add_up_to_the_travel`.
+- `tracedraw_signcut::calc::arrange::tests::*`: as large as the largest,
+  as small as the smallest with the proportions kept, width only with
+  and without the lock, change by and scale, rotate about the fixed
+  point, bad numbers and flat objects; masters picked in turn or by
+  proportions.
+- `signcut_calc::tests::calc_cost_rows_follow_the_lists_and_the_drawing`
+  (rows by area and by roll, a deleted material, Update drops deleted
+  objects, nothing to bill), `calc_time_and_weight_prices`,
+  `calc_units_convert`.
+- `signcut::tests::the_measurement_is_outdated_by_a_change_or_another_selection`,
+  `resize_modes_and_sides_in_one_step` (one undo step, nothing to do is
+  no step), `replace_with_several_masters_picks_by_proportions`.
+- `ui::signcut_win_calc::tests::every_calc_window_draws_and_changes_nothing`,
+  `a_window_counts_as_opened_after_a_frame_without_it`,
+  `numbers_drop_trailing_zeros`.
+- `ui::signcut_win_calc::measure::tests::perimeter_and_area_show_the_selection_in_the_chosen_unit`;
+  `cost::tests::the_cost_window_draws_its_table_and_every_list` (billed
+  blocks on the drawing, no change), `row_indices_follow_a_deleted_row`;
+  `time::tests::the_time_window_draws_every_tab`,
+  `times_read_as_hours_minutes_seconds`;
+  `weight::tests::the_weight_window_draws_with_and_without_densities`;
+  `arrange::tests::the_arrange_windows_draw_in_every_mode_and_tab`,
+  `reference_scale_apply_is_one_step`.
+- Not looked at on screen yet: the windows are checked by drawing them
+  headless only.

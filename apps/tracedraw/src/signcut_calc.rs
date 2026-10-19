@@ -1,6 +1,6 @@
 //! Sign & Cut, Calculations: settings and operations (cutting time, cost and material volume and weight).
-//! The geometry is in `tracedraw_signcut::calc`; the panel section is
-//! `ui/signcut_calc.rs`. See docs/behavior/sign-and-cut-calc.md.
+//! The geometry is in `tracedraw_signcut::calc`; the windows are in
+//! `ui/signcut_win_calc.rs`. See docs/behavior/sign-and-cut-calc.md.
 //!
 //! The calculations read the drawing and change nothing in it: no
 //! commands, no undo steps. The objects are measured once
@@ -12,7 +12,7 @@ use crate::app::App;
 use crate::i18n::{tr, trf};
 use egui::Ui;
 use serde_json::{json, Value};
-use tracedraw_core::geometry::Point;
+use tracedraw_core::geometry::{BezPath, Point};
 use tracedraw_core::ShapeId;
 use tracedraw_signcut::calc::cost::{
     self, CostReport, CostSpec, Material, MaterialUnit, Quantities, Service, ServiceUnit,
@@ -28,6 +28,8 @@ pub const MAX_ROWS: usize = 500;
 pub const MAX_NAME: usize = 120;
 /// Sheet thickness accepted (mm).
 pub const THICKNESS_RANGE: (f64, f64) = (0.0, 10_000.0);
+/// Highest price accepted.
+pub const MAX_PRICE: f64 = 1.0e9;
 
 /// The last measurement of the objects.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,6 +41,193 @@ pub struct Measured {
     /// The travel order it was measured with.
     pub order: TravelOrder,
     pub job: Job,
+    /// The outlines measured (page space), for the preview.
+    pub paths: Vec<BezPath>,
+}
+
+/// A length unit of the calculators' Units lists. Areas and volumes are
+/// shown in its square and cube.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CalcUnit {
+    Mm,
+    Cm,
+    #[default]
+    M,
+    In,
+    Ft,
+}
+
+impl CalcUnit {
+    pub const ALL: [CalcUnit; 5] = [
+        CalcUnit::Mm,
+        CalcUnit::Cm,
+        CalcUnit::M,
+        CalcUnit::In,
+        CalcUnit::Ft,
+    ];
+
+    /// Millimetres per unit.
+    pub fn mm(self) -> f64 {
+        match self {
+            CalcUnit::Mm => 1.0,
+            CalcUnit::Cm => 10.0,
+            CalcUnit::M => 1000.0,
+            CalcUnit::In => 25.4,
+            CalcUnit::Ft => 304.8,
+        }
+    }
+
+    /// The unit's symbol, also its name in the settings file.
+    pub fn id(self) -> &'static str {
+        match self {
+            CalcUnit::Mm => "mm",
+            CalcUnit::Cm => "cm",
+            CalcUnit::M => "m",
+            CalcUnit::In => "in",
+            CalcUnit::Ft => "ft",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<CalcUnit> {
+        CalcUnit::ALL.into_iter().find(|u| u.id() == id)
+    }
+
+    /// `mm` millimetres in this unit.
+    pub fn len(self, mm: f64) -> f64 {
+        mm / self.mm()
+    }
+
+    /// `mm2` square millimetres in this unit squared.
+    pub fn area(self, mm2: f64) -> f64 {
+        mm2 / (self.mm() * self.mm())
+    }
+
+    /// `mm3` cubic millimetres in this unit cubed.
+    pub fn volume(self, mm3: f64) -> f64 {
+        mm3 / (self.mm() * self.mm() * self.mm())
+    }
+
+    /// The symbol of the square of the unit.
+    pub fn area_id(self) -> String {
+        format!("{}\u{b2}", self.id())
+    }
+
+    /// The symbol of the cube of the unit.
+    pub fn volume_id(self) -> String {
+        format!("{}\u{b3}", self.id())
+    }
+}
+
+/// The unit a mass is shown in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MassUnit {
+    G,
+    #[default]
+    Kg,
+    T,
+    Lb,
+}
+
+impl MassUnit {
+    pub const ALL: [MassUnit; 4] = [MassUnit::G, MassUnit::Kg, MassUnit::T, MassUnit::Lb];
+
+    /// Grams per unit.
+    pub fn grams(self) -> f64 {
+        match self {
+            MassUnit::G => 1.0,
+            MassUnit::Kg => 1000.0,
+            MassUnit::T => 1_000_000.0,
+            MassUnit::Lb => 453.592_37,
+        }
+    }
+
+    pub fn id(self) -> &'static str {
+        match self {
+            MassUnit::G => "g",
+            MassUnit::Kg => "kg",
+            MassUnit::T => "t",
+            MassUnit::Lb => "lb",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<MassUnit> {
+        MassUnit::ALL.into_iter().find(|u| u.id() == id)
+    }
+}
+
+/// What the price of the Volume and Weight window is given per.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PricePer {
+    /// Per unit of the mass list.
+    #[default]
+    Mass,
+    /// Per square metre of net area.
+    SquareMetre,
+    /// Per cubic metre of volume.
+    CubicMetre,
+}
+
+impl PricePer {
+    pub const ALL: [PricePer; 3] = [PricePer::Mass, PricePer::SquareMetre, PricePer::CubicMetre];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            PricePer::Mass => "mass",
+            PricePer::SquareMetre => "m2",
+            PricePer::CubicMetre => "m3",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<PricePer> {
+        PricePer::ALL.into_iter().find(|u| u.id() == id)
+    }
+}
+
+/// The tab of the Cutting Time window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TimeTab {
+    #[default]
+    Time,
+    Parameters,
+    Preview,
+}
+
+/// The part of the Cost window under the table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CostLists {
+    /// Only the table.
+    #[default]
+    Hidden,
+    Materials,
+    Services,
+    Job,
+}
+
+/// A row of the Cost window's table: objects added together.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CostRow {
+    /// Typed by the user (empty at first).
+    pub name: String,
+    /// The objects of the row.
+    pub targets: Vec<ShapeId>,
+    /// The drawing revision the row was measured at.
+    pub revision: u64,
+    pub job: Job,
+    /// The material billed (an index of the material list).
+    pub material: Option<usize>,
+    /// The fill colour of the row's first object with a plain fill.
+    pub colour: Option<[u8; 3]>,
+}
+
+/// One row's cost, split into material and services.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowCost {
+    pub report: CostReport,
+    pub material_qty: f64,
+    /// The material's quantity unit: m2 or running m (`None`: no material).
+    pub material_unit: Option<cost::QtyUnit>,
+    pub material_cost: f64,
+    pub services_cost: f64,
 }
 
 /// The editable lists of the section.
@@ -79,6 +268,24 @@ pub struct Settings {
     pub densities: Vec<Density>,
     pub density: usize,
     pub thickness: f64,
+    /// Perimeter window: its unit and the price per unit of length.
+    pub perimeter_unit: CalcUnit,
+    pub perimeter_price: f64,
+    /// Area window: its unit.
+    pub area_unit: CalcUnit,
+    /// Volume and Weight window: units and the price.
+    pub volume_unit: CalcUnit,
+    pub mass_unit: MassUnit,
+    pub weight_price: f64,
+    pub weight_per: PricePer,
+    /// Cutting Time window: the price of an hour of cutting.
+    pub price_per_hour: f64,
+    pub time_tab: TimeTab,
+    /// Cost window: the table and the part shown under it.
+    pub cost_rows: Vec<CostRow>,
+    pub cost_lists: CostLists,
+    /// Volume and Weight window: the density list is shown.
+    pub density_editor: bool,
     /// The last measurement.
     pub measured: Option<Measured>,
     /// The lists were read from the preferences folder (or that was
@@ -112,6 +319,18 @@ impl Default for Settings {
             densities: weight::default_densities(),
             density: 0,
             thickness: 3.0,
+            perimeter_unit: CalcUnit::M,
+            perimeter_price: 1.0,
+            area_unit: CalcUnit::M,
+            volume_unit: CalcUnit::Mm,
+            mass_unit: MassUnit::Kg,
+            weight_price: 1.0,
+            weight_per: PricePer::Mass,
+            price_per_hour: 100.0,
+            time_tab: TimeTab::Time,
+            cost_rows: Vec::new(),
+            cost_lists: CostLists::Hidden,
+            density_editor: false,
             measured: None,
             loaded: false,
             dirty: false,
@@ -145,8 +364,32 @@ impl Settings {
         if self.material.is_some_and(|i| i >= self.materials.len()) {
             self.material = None;
         }
+        let n = self.materials.len();
+        for r in &mut self.cost_rows {
+            if r.material.is_some_and(|i| i >= n) {
+                r.material = None;
+            }
+        }
         if self.density >= self.densities.len() {
             self.density = self.densities.len().saturating_sub(1);
+        }
+    }
+
+    /// Delete row `i` of the material list; what billed it bills no
+    /// material, the indices after it move up.
+    pub fn remove_material(&mut self, i: usize) {
+        if i >= self.materials.len() {
+            return;
+        }
+        self.materials.remove(i);
+        let shift = |m: Option<usize>| match m {
+            Some(m) if m == i => None,
+            Some(m) if m > i => Some(m - 1),
+            m => m,
+        };
+        self.material = shift(self.material);
+        for r in &mut self.cost_rows {
+            r.material = shift(r.material);
         }
     }
 
@@ -178,6 +421,9 @@ impl Settings {
                 if n > 0 {
                     self.materials = items;
                     self.material = Some(0);
+                    for r in &mut self.cost_rows {
+                        r.material = Some(0);
+                    }
                 }
                 (n, skipped)
             }
@@ -252,6 +498,14 @@ impl Settings {
             })).collect::<Vec<_>>(),
             "density": self.density,
             "thickness": self.thickness,
+            "perimeter_unit": self.perimeter_unit.id(),
+            "perimeter_price": self.perimeter_price,
+            "area_unit": self.area_unit.id(),
+            "volume_unit": self.volume_unit.id(),
+            "mass_unit": self.mass_unit.id(),
+            "weight_price": self.weight_price,
+            "weight_per": self.weight_per.id(),
+            "price_per_hour": self.price_per_hour,
         })
     }
 
@@ -366,6 +620,32 @@ impl Settings {
         }
         if let Some(t) = num(&v, "thickness") {
             s.thickness = t.clamp(THICKNESS_RANGE.0, THICKNESS_RANGE.1);
+        }
+        let id = |k: &str| v.get(k).and_then(Value::as_str);
+        if let Some(u) = id("perimeter_unit").and_then(CalcUnit::from_id) {
+            s.perimeter_unit = u;
+        }
+        if let Some(u) = id("area_unit").and_then(CalcUnit::from_id) {
+            s.area_unit = u;
+        }
+        if let Some(u) = id("volume_unit").and_then(CalcUnit::from_id) {
+            s.volume_unit = u;
+        }
+        if let Some(u) = id("mass_unit").and_then(MassUnit::from_id) {
+            s.mass_unit = u;
+        }
+        if let Some(u) = id("weight_per").and_then(PricePer::from_id) {
+            s.weight_per = u;
+        }
+        let price = |k: &str| num(&v, k).map(|p| p.clamp(0.0, MAX_PRICE));
+        if let Some(p) = price("perimeter_price") {
+            s.perimeter_price = p;
+        }
+        if let Some(p) = price("weight_price") {
+            s.weight_price = p;
+        }
+        if let Some(p) = price("price_per_hour") {
+            s.price_per_hour = p;
         }
         s.fix_indices();
         Some(s)
@@ -483,8 +763,131 @@ impl App {
             targets,
             order,
             job: job.clone(),
+            paths: outlines.into_iter().flatten().collect(),
         });
         job
+    }
+
+    /// Measure `ids` (page outlines) for a row of the Cost window.
+    fn sc_calc_job_of(&self, ids: &[ShapeId]) -> (Job, Option<[u8; 3]>) {
+        let doc = self.doc();
+        let mut colour = None;
+        let outlines: Vec<Vec<BezPath>> = ids
+            .iter()
+            .map(|id| match doc.shape_on_page(*id) {
+                Some(s) => {
+                    if colour.is_none() {
+                        colour = plain_colour(&s);
+                    }
+                    tracedraw_signcut::outlines(&s)
+                }
+                None => Vec::new(),
+            })
+            .collect();
+        (
+            calc::job(&outlines, Point::ZERO, self.sc_calc.order),
+            colour,
+        )
+    }
+
+    /// Add the objects the tools work on (the selection, else the page)
+    /// as a new row of the Cost window. Returns false when they have
+    /// nothing to bill.
+    pub fn sc_calc_add_row(&mut self) -> bool {
+        let targets = self.signcut_targets();
+        let (job, colour) = self.sc_calc_job_of(&targets);
+        if job.blocks.is_empty() {
+            self.status = tr("signcut.wcalc_cost_nothing");
+            return false;
+        }
+        if self.sc_calc.cost_rows.len() >= MAX_ROWS {
+            return false;
+        }
+        let material = self.sc_calc.material;
+        self.sc_calc.cost_rows.push(CostRow {
+            name: String::new(),
+            targets,
+            revision: self.engine.revision(),
+            job,
+            material,
+            colour,
+        });
+        true
+    }
+
+    /// Measure every row of the Cost window again as the drawing is now;
+    /// objects that are gone leave their row, a row with none left goes.
+    pub fn sc_calc_update_rows(&mut self) {
+        let rev = self.engine.revision();
+        let rows = std::mem::take(&mut self.sc_calc.cost_rows);
+        let mut kept = Vec::new();
+        for mut r in rows {
+            let doc = self.doc();
+            r.targets.retain(|id| doc.find_shape(*id).is_some());
+            let (job, colour) = self.sc_calc_job_of(&r.targets);
+            if r.targets.is_empty() || job.blocks.is_empty() {
+                continue;
+            }
+            r.job = job;
+            r.colour = colour;
+            r.revision = rev;
+            kept.push(r);
+        }
+        self.sc_calc.cost_rows = kept;
+    }
+
+    /// The cost of a row of the Cost window with the lists as they are
+    /// now (the hours of hourly services from its cutting time).
+    pub fn sc_calc_row_cost(&self, row: &CostRow) -> RowCost {
+        let s = &self.sc_calc;
+        let t = time::estimate(
+            row.job.measurement.length,
+            &row.job.travel,
+            &s.current_profile(),
+        );
+        let q = Quantities {
+            blocks: row.job.blocks.clone(),
+            cut_length: row.job.measurement.length,
+            hours: t.total_s / 3600.0,
+        };
+        let material = row.material.and_then(|i| s.materials.get(i));
+        let report = cost::cost(&q, material, &s.services, &s.spec);
+        let m = report.lines.iter().find(|l| l.material);
+        RowCost {
+            material_qty: m.map_or(0.0, |l| l.quantity),
+            material_unit: m.map(|l| l.unit),
+            material_cost: m.map_or(0.0, |l| l.amount),
+            services_cost: report
+                .lines
+                .iter()
+                .filter(|l| !l.material)
+                .map(|l| l.amount)
+                .sum(),
+            report,
+        }
+    }
+
+    /// The price of the cutting time at the price per hour, and that
+    /// price per square metre of net area (`None` without an area).
+    pub fn sc_calc_time_price(&self) -> Option<(f64, Option<f64>)> {
+        let t = self.sc_calc_time()?;
+        let m = self.sc_calc.measured.as_ref()?;
+        let price = t.total_s / 3600.0 * self.sc_calc.price_per_hour.clamp(0.0, MAX_PRICE);
+        let m2 = m.job.measurement.area / 1_000_000.0;
+        Some((price, (m2 > 1e-12).then(|| price / m2)))
+    }
+
+    /// The price of the Volume and Weight window: the price times the
+    /// mass (in the mass unit), the net area (m2) or the volume (m3).
+    pub fn sc_calc_weight_price(&self) -> Option<f64> {
+        let w = self.sc_calc_weight()?;
+        let s = &self.sc_calc;
+        let qty = match s.weight_per {
+            PricePer::Mass => w.weight / s.mass_unit.grams(),
+            PricePer::SquareMetre => w.area / 1_000_000.0,
+            PricePer::CubicMetre => w.volume / 1_000_000_000.0,
+        };
+        Some(qty * s.weight_price.clamp(0.0, MAX_PRICE))
     }
 
     /// The last measurement no longer matches the drawing, the objects or
@@ -614,6 +1017,17 @@ impl App {
     }
 }
 
+/// The colour of a plain (solid) fill, for the swatch of a cost row.
+fn plain_colour(s: &tracedraw_core::Shape) -> Option<[u8; 3]> {
+    match &s.fill {
+        tracedraw_core::Fill::Solid(c) => Some(c.to_rgb8()),
+        _ => match &s.kind {
+            tracedraw_core::ShapeKind::Group { children } => children.iter().find_map(plain_colour),
+            _ => None,
+        },
+    }
+}
+
 /// A weight in grams as g or kg.
 pub fn fmt_weight(g: f64) -> String {
     if g.abs() >= 1000.0 {
@@ -623,20 +1037,26 @@ pub fn fmt_weight(g: f64) -> String {
     }
 }
 
-/// Tools > Sign & Cut > Calculations: each item measures the objects,
-/// opens the panel at the section and sums the results up in the status
-/// line.
+/// Tools > Sign & Cut > Calculations: each item opens its window and
+/// measures the objects (Cost adds them as a row of its table).
 pub fn menu(app: &mut App, ui: &mut Ui) {
+    use crate::signcut_tools::ToolId;
     use crate::ui::menus::item;
     let doc = app.has_document() && !app.show_welcome;
-    for key in [
-        "menu.tools.signcut_calc_time",
-        "menu.tools.signcut_calc_cost",
-        "menu.tools.signcut_calc_weight",
+    for (key, tool) in [
+        ("menu.tools.signcut_calc_time", ToolId::CuttingTime),
+        ("menu.tools.signcut_calc_cost", ToolId::Cost),
+        ("menu.tools.signcut_calc_weight", ToolId::Weight),
     ] {
         if item(ui, key, "", doc) {
-            app.open_signcut(crate::signcut::Section::Calc);
-            app.sc_calc_run();
+            app.sc_calc.ensure_loaded();
+            if tool == ToolId::Cost {
+                app.open_signcut(crate::signcut::Section::Calc);
+                app.sc_calc_add_row();
+            } else {
+                app.signcut_tool(tool);
+                app.sc_calc_run();
+            }
         }
     }
 }
@@ -757,6 +1177,115 @@ mod tests {
     }
 
     #[test]
+    fn calc_cost_rows_follow_the_lists_and_the_drawing() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 990.0, 490.0);
+        let b = rect(&mut app, 2000.0, 0.0, 90.0, 90.0);
+        let s = &mut app.sc_calc;
+        s.materials = vec![
+            Material {
+                name: "Board".into(),
+                unit: MaterialUnit::Area,
+                price: 20.0,
+                roll_width: 0.0,
+            },
+            Material {
+                name: "Film".into(),
+                unit: MaterialUnit::Roll,
+                price: 10.0,
+                roll_width: 1000.0,
+            },
+        ];
+        s.material = Some(0);
+        s.services = vec![Service {
+            name: "Cutting".into(),
+            unit: ServiceUnit::Metre,
+            price: 1.0,
+            selected: true,
+        }];
+        s.spec.reserve = 5.0;
+        let rev = app.engine.revision();
+        app.select(vec![a]);
+        assert!(app.sc_calc_add_row());
+        app.select(vec![b]);
+        assert!(app.sc_calc_add_row());
+        assert_eq!(app.engine.revision(), rev);
+        assert_eq!(app.sc_calc.cost_rows.len(), 2);
+        let c = app.sc_calc_row_cost(&app.sc_calc.cost_rows[0].clone());
+        assert!((c.material_cost - 10.0).abs() < 1e-9);
+        assert!((c.material_qty - 0.5).abs() < 1e-9);
+        assert!((c.services_cost - 2.96).abs() < 1e-9);
+        // The second row on the roll: 100 mm of roll at 10 per metre.
+        app.sc_calc.cost_rows[1].material = Some(1);
+        let c = app.sc_calc_row_cost(&app.sc_calc.cost_rows[1].clone());
+        assert!((c.material_cost - 1.0).abs() < 1e-9);
+        assert_eq!(c.material_unit, Some(cost::QtyUnit::Metre));
+        // Deleting the board: the first row bills no material, the
+        // second keeps the film.
+        app.sc_calc.remove_material(0);
+        assert_eq!(app.sc_calc.cost_rows[0].material, None);
+        assert_eq!(app.sc_calc.cost_rows[1].material, Some(0));
+        // Update drops the objects that are gone.
+        app.run(tracedraw_core::Command::DeleteShapes { shapes: vec![b] });
+        app.sc_calc_update_rows();
+        assert_eq!(app.sc_calc.cost_rows.len(), 1);
+        assert_eq!(app.sc_calc.cost_rows[0].revision, app.engine.revision());
+        // Nothing to bill: no row.
+        app.run(tracedraw_core::Command::DeleteShapes { shapes: vec![a] });
+        app.select(vec![]);
+        assert!(!app.sc_calc_add_row());
+    }
+
+    #[test]
+    fn calc_time_and_weight_prices() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 1000.0, 1000.0);
+        app.select(vec![a]);
+        app.sc_calc.profiles = vec![TimeProfile {
+            name: "Test".into(),
+            cut_speed: 100.0,
+            travel_speed: 500.0,
+            lift_time: 0.0,
+            accel_factor: 1.0,
+            passes: 9,
+        }];
+        app.sc_calc.profile = 0;
+        app.sc_calc.price_per_hour = 100.0;
+        app.sc_calc_run();
+        // 4000 mm at 100 mm/s, 9 passes: 360 s = 0.1 h; 1 m2.
+        let (price, per_m2) = app.sc_calc_time_price().expect("price");
+        assert!((price - 10.0).abs() < 1e-9);
+        assert!((per_m2.expect("area") - 10.0).abs() < 1e-9);
+        app.sc_calc.thickness = 3.0;
+        app.sc_calc.density = 0;
+        app.sc_calc.weight_price = 2.0;
+        app.sc_calc.mass_unit = MassUnit::Kg;
+        app.sc_calc.weight_per = PricePer::Mass;
+        assert!((app.sc_calc_weight_price().expect("price") - 7.14).abs() < 1e-9);
+        app.sc_calc.weight_per = PricePer::SquareMetre;
+        assert!((app.sc_calc_weight_price().expect("price") - 2.0).abs() < 1e-9);
+        app.sc_calc.weight_per = PricePer::CubicMetre;
+        assert!((app.sc_calc_weight_price().expect("price") - 0.006).abs() < 1e-12);
+    }
+
+    #[test]
+    fn calc_units_convert() {
+        assert_eq!(CalcUnit::M.len(1500.0), 1.5);
+        assert_eq!(CalcUnit::Cm.area(100.0), 1.0);
+        assert_eq!(CalcUnit::M.volume(1.0e9), 1.0);
+        assert_eq!(CalcUnit::M.area_id(), "m\u{b2}");
+        for u in CalcUnit::ALL {
+            assert_eq!(CalcUnit::from_id(u.id()), Some(u));
+        }
+        for u in MassUnit::ALL {
+            assert_eq!(MassUnit::from_id(u.id()), Some(u));
+        }
+        for u in PricePer::ALL {
+            assert_eq!(PricePer::from_id(u.id()), Some(u));
+        }
+    }
+
+    #[test]
     fn calc_csv_import_replaces_a_list_and_export_reads_back() {
         let mut app = App::headless();
         let (n, skipped) = app.sc_calc_import_text(
@@ -787,7 +1316,15 @@ mod tests {
         s.order = TravelOrder::AsDrawn;
         s.profiles[1].passes = 3;
         s.services[2].selected = true;
+        s.perimeter_unit = CalcUnit::Ft;
+        s.mass_unit = MassUnit::Lb;
+        s.weight_per = PricePer::CubicMetre;
+        s.price_per_hour = 55.5;
         let back = Settings::from_json(&s.to_json().to_string()).expect("read back");
+        assert_eq!(back.perimeter_unit, CalcUnit::Ft);
+        assert_eq!(back.mass_unit, MassUnit::Lb);
+        assert_eq!(back.weight_per, PricePer::CubicMetre);
+        assert_eq!(back.price_per_hour, 55.5);
         assert_eq!(back.currency, "CHF");
         assert_eq!(back.thickness, 5.0);
         assert_eq!(back.material, None);

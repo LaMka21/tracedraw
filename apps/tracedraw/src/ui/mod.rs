@@ -73,7 +73,6 @@ pub mod rulers;
 pub mod save_as;
 pub mod shaping_docker;
 pub mod shelf_docker;
-pub mod signcut_calc;
 pub mod signcut_docker;
 pub mod signcut_kit;
 pub mod signcut_sign;

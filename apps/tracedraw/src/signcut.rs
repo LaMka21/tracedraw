@@ -6,6 +6,7 @@
 use crate::app::App;
 use tracedraw_core::geometry::{Affine, BezPath, Point, Rect, Shape as _, Vec2};
 use tracedraw_core::{Command, Shape, ShapeId, ShapeKind};
+use tracedraw_signcut::calc::arrange::{self, MasterPick, ResizeSpec, Sides, SizeMode};
 use tracedraw_signcut::cleanup::{self, EdgeResult};
 use tracedraw_signcut::crossings::{self, Crossing};
 use tracedraw_signcut::measure::{self, Measurement};
@@ -41,8 +42,20 @@ pub struct SignCutSettings {
     /// The width and height fields keep their values while switched off.
     pub size_width: f64,
     pub size_height: f64,
+    // Only the former panel section reads these two (Set Size with
+    // check boxes); they go with it.
+    #[allow(dead_code)]
     pub use_width: bool,
+    #[allow(dead_code)]
     pub use_height: bool,
+    /// How the Set Size window sizes the objects, and its other values:
+    /// the change (mm), the scale (%), the turn (degrees).
+    pub size_mode: SizeMode,
+    pub size_dx: f64,
+    pub size_dy: f64,
+    pub size_scale: f64,
+    pub size_rotate: bool,
+    pub size_angle: f64,
     pub ref_measure: RefMeasure,
     /// The reference object and its value when it was picked (mm).
     pub reference: Option<(ShapeId, f64)>,
@@ -54,13 +67,39 @@ pub struct SignCutSettings {
     pub ref_anchor: Anchor,
     /// The master object of Replace.
     pub master: Option<ShapeId>,
+    /// The masters of Replace with several masters, in the order set.
+    pub masters: Vec<ShapeId>,
+    /// Replace uses the several masters (else the one).
+    pub replace_multi: bool,
+    pub replace_pick: MasterPick,
     pub replace_fit: ReplaceFit,
     pub replace_turn: bool,
     pub replace_keep: bool,
     /// Last measurement, with the drawing revision it was taken at.
     pub measured: Option<(u64, Measurement)>,
+    /// The objects of the last measurement.
+    pub measured_targets: Vec<ShapeId>,
     /// Last crossings found, with the drawing revision.
     pub crossings: Option<(u64, Vec<Crossing>)>,
+}
+
+impl SignCutSettings {
+    /// What the Set Size window does, from its fields.
+    pub fn resize_spec(&self) -> ResizeSpec {
+        ResizeSpec {
+            mode: self.size_mode,
+            width: self.size_width,
+            height: self.size_height,
+            dx: self.size_dx,
+            dy: self.size_dy,
+            scale: self.size_scale,
+            lock_ratio: self.size.proportional,
+            rule: self.size.rule,
+            anchor: self.size.anchor,
+            rotate: self.size_rotate,
+            angle: self.size_angle,
+        }
+    }
 }
 
 impl Default for SignCutSettings {
@@ -75,16 +114,26 @@ impl Default for SignCutSettings {
             size_height: 100.0,
             use_width: true,
             use_height: false,
+            size_mode: SizeMode::Size,
+            size_dx: 0.0,
+            size_dy: 0.0,
+            size_scale: 100.0,
+            size_rotate: false,
+            size_angle: 0.0,
             ref_measure: RefMeasure::Width,
             reference: None,
             ref_wanted: 1000.0,
             ref_whole_page: true,
             ref_anchor: Anchor::BottomLeft,
             master: None,
+            masters: Vec::new(),
+            replace_multi: false,
+            replace_pick: MasterPick::InTurn,
             replace_fit: ReplaceFit::Fit,
             replace_turn: true,
             replace_keep: false,
             measured: None,
+            measured_targets: Vec::new(),
             crossings: None,
         }
     }
@@ -170,7 +219,20 @@ impl App {
         let ids = self.signcut_targets();
         let m = measure::measure(&self.signcut_outlines(&ids));
         self.signcut.measured = Some((self.engine.revision(), m));
+        self.signcut.measured_targets = ids;
         m
+    }
+
+    /// The last measurement no longer matches the drawing or the objects
+    /// (or there is none).
+    pub fn signcut_measure_outdated(&self) -> bool {
+        match self.signcut.measured {
+            Some((rev, _)) => {
+                rev != self.engine.revision()
+                    || self.signcut.measured_targets != self.signcut_targets()
+            }
+            None => true,
+        }
     }
 
     /// Find objects repeating an earlier one; delete or select them.
@@ -339,20 +401,47 @@ impl App {
         }
     }
 
-    /// Give each selected object the size of the panel. Returns how many
-    /// changed.
+    /// Give each selected object the width and height that are switched
+    /// on (Set Size with a size). Returns how many changed. Only the
+    /// former panel section calls it; it goes with it.
+    #[allow(dead_code)]
     pub fn signcut_set_size(&mut self) -> usize {
-        let mut spec = self.signcut.size;
-        spec.width = self.signcut.use_width.then_some(self.signcut.size_width);
-        spec.height = self.signcut.use_height.then_some(self.signcut.size_height);
+        let sides = match (self.signcut.use_width, self.signcut.use_height) {
+            (true, true) => Sides::Both,
+            (true, false) => Sides::Width,
+            (false, true) => Sides::Height,
+            (false, false) => return 0,
+        };
+        let spec = ResizeSpec {
+            mode: SizeMode::Size,
+            rotate: false,
+            ..self.signcut.resize_spec()
+        };
+        self.signcut_resize_with(&spec, sides)
+    }
+
+    /// Set Size as the window has it, on `sides` (the Change Width Only,
+    /// Change Height Only and Change Size buttons). Returns how many
+    /// objects changed.
+    pub fn signcut_resize(&mut self, sides: Sides) -> usize {
+        let spec = self.signcut.resize_spec();
+        self.signcut_resize_with(&spec, sides)
+    }
+
+    fn signcut_resize_with(&mut self, spec: &ResizeSpec, sides: Sides) -> usize {
         let doc = self.doc();
-        let cmds: Vec<Command> = self
+        let shapes: Vec<Shape> = self
             .selection
             .iter()
             .filter_map(|id| doc.shape_on_page(*id))
             .filter(|s| !s.locked)
-            .filter_map(|s| {
-                sizing::size_transform(s.bounds(), &spec).map(|t| Command::TransformShapes {
+            .collect();
+        let bounds: Vec<Rect> = shapes.iter().map(|s| s.bounds()).collect();
+        let cmds: Vec<Command> = shapes
+            .iter()
+            .zip(arrange::resize_transforms(&bounds, spec, sides))
+            .filter_map(|(s, t)| {
+                t.map(|t| Command::TransformShapes {
                     shapes: vec![s.id],
                     transform: t,
                 })
@@ -360,12 +449,14 @@ impl App {
             .collect();
         let n = cmds.len();
         if n == 0 {
+            self.status = crate::i18n::tr("signcut.wcalc_size_nothing");
             return 0;
         }
         if let Err(e) = self.engine.run_batch("Set Size", &cmds) {
             self.status = e.to_string();
             return 0;
         }
+        self.status = crate::i18n::trf("signcut.wcalc_size_done", &[("n", &n.to_string())]);
         n
     }
 
@@ -455,27 +546,66 @@ impl App {
         true
     }
 
-    /// Put a copy of the master in the place of each selected object.
-    /// Returns how many were replaced.
-    pub fn signcut_replace(&mut self) -> usize {
-        let Some(mid) = self.signcut.master else {
-            self.status = crate::i18n::tr("signcut.no_master");
-            return 0;
-        };
+    /// Take the selected objects as the masters of Replace with several
+    /// masters. Returns how many.
+    pub fn signcut_pick_masters(&mut self) -> usize {
+        let ids: Vec<ShapeId> = self
+            .selection
+            .iter()
+            .copied()
+            .filter(|id| self.doc().find_shape(*id).is_some())
+            .collect();
+        if ids.is_empty() {
+            self.status = crate::i18n::tr("signcut.wcalc_select_masters");
+        }
+        self.signcut.masters = ids;
+        self.signcut.masters.len()
+    }
+
+    /// The masters Replace uses now (the one, or the several), those
+    /// still in the drawing.
+    pub fn signcut_current_masters(&self) -> Vec<ShapeId> {
         let doc = self.doc();
-        let Some(master) = doc.shape_on_page(mid) else {
-            self.signcut.master = None;
+        let ids: Vec<ShapeId> = if self.signcut.replace_multi {
+            self.signcut.masters.clone()
+        } else {
+            self.signcut.master.into_iter().collect()
+        };
+        ids.into_iter()
+            .filter(|id| doc.find_shape(*id).is_some())
+            .collect()
+    }
+
+    /// Put a copy of the master in the place of each selected object
+    /// (with several masters, the one the pick option chooses). Returns
+    /// how many were replaced.
+    pub fn signcut_replace(&mut self) -> usize {
+        let mids = self.signcut_current_masters();
+        if mids.is_empty() {
+            if !self.signcut.replace_multi {
+                self.signcut.master = None;
+            }
             self.status = crate::i18n::tr("signcut.no_master");
             return 0;
-        };
+        }
+        let doc = self.doc();
         let turn = self.signcut.replace_turn;
-        let Some(mframe) = frame_of(&master, turn) else {
+        let masters: Vec<(Shape, Frame)> = mids
+            .iter()
+            .filter_map(|id| {
+                let m = doc.shape_on_page(*id)?;
+                let f = frame_of(&m, turn)?;
+                Some((m, f))
+            })
+            .collect();
+        if masters.is_empty() {
             return 0;
-        };
+        }
+        let frames: Vec<Frame> = masters.iter().map(|(_, f)| *f).collect();
         let targets: Vec<(Shape, tracedraw_core::LayerId)> = self
             .selection
             .iter()
-            .filter(|id| **id != mid)
+            .filter(|id| !mids.contains(id))
             .filter_map(|id| {
                 let s = doc.shape_on_page(*id)?;
                 let top = doc.top_level_of(*id).unwrap_or(*id);
@@ -489,11 +619,17 @@ impl App {
         let mut cmds = Vec::new();
         let mut new_ids = Vec::new();
         let mut gone = Vec::new();
-        for (target, layer) in targets {
+        for (i, (target, layer)) in targets.into_iter().enumerate() {
             let Some(tframe) = frame_of(&target, turn) else {
                 continue;
             };
-            let t = sizing::replace_transform(mframe, tframe, self.signcut.replace_fit, turn);
+            let Some((master, mframe)) =
+                arrange::pick_master(&frames, &tframe, i, self.signcut.replace_pick)
+                    .and_then(|k| masters.get(k))
+            else {
+                continue;
+            };
+            let t = sizing::replace_transform(*mframe, tframe, self.signcut.replace_fit, turn);
             let id = self.engine.new_shape_id();
             let mut copy = crate::app::reid_pub(master.clone(), id, &mut self.engine);
             copy.transform = t * master.transform;
@@ -506,6 +642,9 @@ impl App {
             cmds.push(Command::DeleteShapes { shapes: gone });
         }
         let n = new_ids.len();
+        if n == 0 {
+            return 0;
+        }
         if let Err(e) = self.engine.run_batch("Replace", &cmds) {
             self.status = e.to_string();
             return 0;
@@ -672,6 +811,84 @@ mod tests {
         assert!((bounds(&app, r).width() - 100.0).abs() < 1e-9);
         let bo = bounds(&app, other);
         assert!((bo.x0 - 120.0).abs() < 1e-9 && (bo.width() - 40.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_measurement_is_outdated_by_a_change_or_another_selection() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 10.0, 10.0);
+        rect(&mut app, 20.0, 0.0, 10.0, 10.0);
+        assert!(app.signcut_measure_outdated());
+        app.select(vec![a]);
+        app.signcut_measure();
+        assert!(!app.signcut_measure_outdated());
+        app.select(vec![]);
+        assert!(app.signcut_measure_outdated());
+        app.select(vec![a]);
+        assert!(!app.signcut_measure_outdated());
+        app.run(Command::TransformShapes {
+            shapes: vec![a],
+            transform: Affine::translate((5.0, 0.0)),
+        });
+        assert!(app.signcut_measure_outdated());
+    }
+
+    #[test]
+    fn resize_modes_and_sides_in_one_step() {
+        let mut app = App::headless();
+        let a = rect(&mut app, 0.0, 0.0, 10.0, 5.0);
+        let b = rect(&mut app, 50.0, 0.0, 40.0, 20.0);
+        app.select(vec![a, b]);
+        app.signcut.size_mode = SizeMode::Largest;
+        app.signcut.size.proportional = false;
+        app.signcut.size.anchor = Anchor::BottomLeft;
+        assert_eq!(app.signcut_resize(Sides::Width), 1);
+        let ba = bounds(&app, a);
+        assert!((ba.width() - 40.0).abs() < 1e-9 && (ba.height() - 5.0).abs() < 1e-9);
+        assert_eq!(app.engine.undo_label(), Some("Set Size"));
+        app.signcut.size_mode = SizeMode::Scale;
+        app.signcut.size_scale = 50.0;
+        assert_eq!(app.signcut_resize(Sides::Both), 2);
+        let bb = bounds(&app, b);
+        assert!((bb.width() - 20.0).abs() < 1e-9 && (bb.height() - 10.0).abs() < 1e-9);
+        assert!((bb.x0 - 50.0).abs() < 1e-9);
+        // Nothing to do: no step.
+        app.signcut.size_scale = 100.0;
+        assert_eq!(app.signcut_resize(Sides::Both), 0);
+        assert!(app.engine.undo().is_ok());
+        assert!((bounds(&app, b).width() - 40.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn replace_with_several_masters_picks_by_proportions() {
+        let mut app = App::headless();
+        let square = rect(&mut app, 0.0, 0.0, 10.0, 10.0);
+        let wide = app
+            .new_shape(ShapeKind::Ellipse {
+                rect: Rect::new(0.0, 20.0, 40.0, 30.0),
+                arc: None,
+            })
+            .expect("layer");
+        let t1 = rect(&mut app, 100.0, 100.0, 80.0, 20.0);
+        let t2 = rect(&mut app, 200.0, 100.0, 20.0, 20.0);
+        app.select(vec![square, wide]);
+        assert_eq!(app.signcut_pick_masters(), 2);
+        app.signcut.replace_multi = true;
+        app.signcut.replace_pick = MasterPick::ClosestShape;
+        app.signcut.replace_fit = ReplaceFit::Fit;
+        app.select(vec![t1, t2]);
+        assert_eq!(app.signcut_replace(), 2);
+        let kinds: Vec<_> = app
+            .selection
+            .iter()
+            .filter_map(|id| app.doc().shape_on_page(*id))
+            .map(|s| matches!(s.kind, ShapeKind::Ellipse { .. }))
+            .collect();
+        assert_eq!(kinds, vec![true, false]);
+        assert_eq!(app.engine.undo_label(), Some("Replace"));
+        // The single master is still unset: nothing to do.
+        app.signcut.replace_multi = false;
+        assert_eq!(app.signcut_replace(), 0);
     }
 
     #[test]
