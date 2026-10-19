@@ -197,6 +197,32 @@ end fingers kept.
   (a depth larger than the part's width cuts through it); fingers run
   square to the edge, so parts meet at right angles.
 
+## Door panels
+
+Outlines for a cabinet door or panel. Defaults: 400 x 600 mm, frame
+60 mm, square inner panel, corner radius 20 mm, arch rise 60 mm, no
+grooves (first groove 10 mm inside, then every 5 mm).
+
+- Outer outline: with exactly one object selected, its bounding box
+  (size and place); otherwise a W x H rectangle centred on the page.
+- Inner panel: the outer rectangle inset by the frame width, with
+  - Square corners;
+  - Rounded corners: radius at most half the inner panel's shorter
+    side;
+  - Arched top: the top side replaced by a circular arc through the two
+    top corners lowered by the rise and the middle of the top (radius
+    (c^2 + h^2) / 2h for half width c and rise h); the rise is at most
+    half the width (a half circle) and the panel's height.
+- Groove lines: n closed outlines offset inwards from the inner panel
+  by the first distance, then each by the spacing more (sharp corners
+  for a square panel, round otherwise); one that vanishes ends the
+  row. Grooves with a distance that is not positive are skipped.
+- **Make the Door** adds the outer and inner outlines (red hairline)
+  and the grooves (blue hairline, for an engraving job of their own in
+  the G-code export) as closed curves in one group, selected, one undo
+  step ("Door Panel"). A frame that leaves no inner panel adds nothing
+  and says so.
+
 ## Checks
 
 - `tracedraw_signcut::cnc::tests::*`: flattening with non-finite points,
@@ -221,7 +247,11 @@ end fingers kept.
   only with their material side (holes too), every other strip taken
   out (and the flipped pattern), two parts with mating patterns on
   their nearest edges, curves kept and bad input.
-- `signcut_cnc::tests::finger_joints_rewrite_two_objects_in_one_step`,
+- `tracedraw_signcut::cnc::door::tests::*`: square panel with grooves,
+  rounded corners by area, the arch by its crown and area (and the half
+  circle limit), a frame too wide and non-finite values.
+- `signcut_cnc::tests::door_panel_fills_the_selected_box_or_the_page_centre`,
+  `signcut_cnc::tests::finger_joints_rewrite_two_objects_in_one_step`,
   `signcut_cnc::tests::finger_box_is_one_group_of_panels_in_one_step`,
   `signcut_cnc::tests::gcode_jobs_by_outline_colour`,
   `signcut_cnc::tests::gcode_follows_the_selection_and_opens_groups`,

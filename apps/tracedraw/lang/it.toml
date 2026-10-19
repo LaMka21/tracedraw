@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Tagliare le dita alle estremità (schema opposto)" # m
 signcut.cnc_joint_make = "Taglia gli incastri" # mt
 signcut.cnc_joint_two = "Selezionare due oggetti da unire." # mt
 signcut.cnc_joint_none = "Nessun bordo diritto abbastanza lungo trovato." # mt
+menu.tools.signcut_cnc_door = "Anta..." # mt
+signcut.cnc_door = "Anta" # mt
+signcut.cnc_door_hint = "Con un oggetto selezionato l'anta ne riempie il riquadro; altrimenti è centrata nella pagina." # mt
+signcut.cnc_door_frame = "Larghezza telaio" # mt
+signcut.cnc_door_inner = "Pannello interno" # mt
+signcut.cnc_door_square = "Angoli retti" # mt
+signcut.cnc_door_rounded = "Angoli arrotondati" # mt
+signcut.cnc_door_arch = "Sommità ad arco" # mt
+signcut.cnc_door_radius = "Raggio angoli" # mt
+signcut.cnc_door_rise = "Freccia dell'arco" # mt
+signcut.cnc_door_grooves = "Linee di scanalatura" # mt
+signcut.cnc_door_groove_offset = "Prima scanalatura all'interno" # mt
+signcut.cnc_door_groove_spacing = "Distanza scanalature" # mt
+signcut.cnc_door_make = "Crea l'anta" # mt
+signcut.cnc_door_bad = "Il telaio non lascia spazio al pannello interno." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effetti e motivi" # mt

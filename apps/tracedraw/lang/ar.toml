@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "قص الأصابع الطرفية (النمط الم�
 signcut.cnc_joint_make = "قص الوصلات" # mt
 signcut.cnc_joint_two = "حدد كائنين لوصلهما." # mt
 signcut.cnc_joint_none = "لم يُعثر على حافة مستقيمة طويلة بما يكفي." # mt
+menu.tools.signcut_cnc_door = "لوح باب..." # mt
+signcut.cnc_door = "لوح باب" # mt
+signcut.cnc_door_hint = "عند تحديد كائن واحد يملأ الباب إطاره؛ وإلا يتوسط الصفحة." # mt
+signcut.cnc_door_frame = "عرض الإطار" # mt
+signcut.cnc_door_inner = "اللوح الداخلي" # mt
+signcut.cnc_door_square = "زوايا قائمة" # mt
+signcut.cnc_door_rounded = "زوايا مستديرة" # mt
+signcut.cnc_door_arch = "قمة مقوسة" # mt
+signcut.cnc_door_radius = "نصف قطر الزاوية" # mt
+signcut.cnc_door_rise = "ارتفاع القوس" # mt
+signcut.cnc_door_grooves = "خطوط التجاويف" # mt
+signcut.cnc_door_groove_offset = "أول تجويف للداخل" # mt
+signcut.cnc_door_groove_spacing = "تباعد التجاويف" # mt
+signcut.cnc_door_make = "إنشاء الباب" # mt
+signcut.cnc_door_bad = "لا يترك الإطار مكاناً للوح الداخلي." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "المؤثرات والأنماط" # mt

@@ -8,6 +8,7 @@ use crate::signcut::Section;
 use egui::Ui;
 use tracedraw_core::geometry::{Affine, BezPath, Point};
 use tracedraw_core::{Color, Command, Fill, Shape, ShapeId, ShapeKind, Stroke};
+use tracedraw_signcut::cnc::door::DoorSpec;
 use tracedraw_signcut::cnc::fingerbox::BoxSpec;
 use tracedraw_signcut::cnc::gcode::{self, Cut, Job, Machine, Summary, Tool};
 use tracedraw_signcut::cnc::joints::{self, JointSpec};
@@ -39,6 +40,8 @@ pub struct Settings {
     /// at their nearest edges, else every long straight edge is cut.
     pub joint: JointSpec,
     pub joint_pair: bool,
+    /// Door panels.
+    pub door: DoorSpec,
 }
 
 /// What the preview's tool paths depend on.
@@ -74,6 +77,7 @@ impl Default for Settings {
             box_spec: BoxSpec::default(),
             joint: JointSpec::default(),
             joint_pair: true,
+            door: DoorSpec::default(),
         }
     }
 }
@@ -253,9 +257,20 @@ impl App {
         color: Color,
         group: bool,
     ) -> Vec<ShapeId> {
-        let paths: Vec<(BezPath, bool)> = paths
+        let paths = paths.into_iter().map(|(p, c)| (p, c, color)).collect();
+        self.cnc_add_colored(label, paths, group)
+    }
+
+    /// As [`App::cnc_add_curves`], each curve with its own outline colour.
+    pub(crate) fn cnc_add_colored(
+        &mut self,
+        label: &'static str,
+        paths: Vec<(BezPath, bool, Color)>,
+        group: bool,
+    ) -> Vec<ShapeId> {
+        let paths: Vec<(BezPath, bool, Color)> = paths
             .into_iter()
-            .filter(|(p, _)| !p.elements().is_empty())
+            .filter(|(p, _, _)| !p.elements().is_empty())
             .collect();
         let Some(layer) = self.active_layer() else {
             return Vec::new();
@@ -265,7 +280,7 @@ impl App {
         }
         let mut shapes: Vec<Shape> = paths
             .into_iter()
-            .map(|(path, closed)| {
+            .map(|(path, closed, color)| {
                 let id = self.engine.new_shape_id();
                 let mut s = Shape::new(id, ShapeKind::Path { path, closed });
                 s.fill = Fill::None;
@@ -446,6 +461,42 @@ impl App {
     }
 }
 
+impl App {
+    /// Draw a door panel: in the box of the one selected object, else
+    /// of the panel's size centred on the page. Outer and inner outlines
+    /// red, grooves blue, grouped, one undo step. Returns the group.
+    pub fn cnc_door(&mut self) -> Option<ShapeId> {
+        let spec = self.sc_cnc.door;
+        let doc = self.doc();
+        let rect = match &self.selection[..] {
+            [id] => doc.shape_on_page(*id).map(|s| s.bounds()),
+            _ => None,
+        }
+        .unwrap_or_else(|| {
+            let c = self.page_rect().center();
+            tracedraw_core::geometry::Rect::from_center_size(c, (spec.width, spec.height))
+        });
+        let Some(d) = tracedraw_signcut::cnc::door::door(&spec, rect) else {
+            self.status = tr("signcut.cnc_door_bad");
+            return None;
+        };
+        let mut paths = vec![(d.outer, true, CUT_RED), (d.inner, true, CUT_RED)];
+        for g in d.grooves {
+            paths.push((g, true, GROOVE_BLUE));
+        }
+        self.cnc_add_colored("Door Panel", paths, true)
+            .first()
+            .copied()
+    }
+}
+
+/// Outline colour of generated engraving and groove lines.
+pub const GROOVE_BLUE: Color = Color::Rgb {
+    r: 0.1,
+    g: 0.2,
+    b: 0.9,
+};
+
 /// Outline colour of generated cut lines.
 pub const CUT_RED: Color = Color::Rgb {
     r: 0.9,
@@ -500,6 +551,9 @@ pub fn menu(app: &mut App, ui: &mut Ui) {
         app.open_signcut(Section::Cnc);
     }
     if item(ui, "menu.tools.signcut_cnc_joints", "", doc) {
+        app.open_signcut(Section::Cnc);
+    }
+    if item(ui, "menu.tools.signcut_cnc_door", "", doc) {
         app.open_signcut(Section::Cnc);
     }
 }
@@ -672,5 +726,37 @@ mod tests {
             .expect("c")
             .page_path()]]);
         assert!((m.area - (1800.0 - 2.0 * 4.0 * 30.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn door_panel_fills_the_selected_box_or_the_page_centre() {
+        let mut app = App::headless();
+        app.sc_cnc.door.grooves = 1;
+        let g = app.cnc_door().expect("a door");
+        let s = app.doc().shape_on_page(g).expect("group");
+        let b = s.bounds();
+        let c = app.page_rect().center();
+        assert!((b.width() - 400.0).abs() < 1e-6 && (b.height() - 600.0).abs() < 1e-6);
+        assert!((b.center() - c).hypot() < 1e-6);
+        let ShapeKind::Group { children } = &s.kind else {
+            panic!("not a group");
+        };
+        // Outer, inner and one groove, the groove blue.
+        assert_eq!(children.len(), 3);
+        assert_eq!(
+            children[2].stroke.as_ref().map(|s| s.color),
+            Some(GROOVE_BLUE)
+        );
+        assert_eq!(app.engine.undo_label(), Some("Door Panel"));
+        // In the box of the selected object.
+        let r = rect(&mut app, 10.0, 10.0, 300.0, 500.0);
+        app.select(vec![r]);
+        let g = app.cnc_door().expect("a door");
+        let b = app.doc().shape_on_page(g).expect("group").bounds();
+        assert!((b.x0 - 10.0).abs() < 1e-6 && (b.width() - 300.0).abs() < 1e-6);
+        // A frame too wide for it: nothing.
+        app.select(vec![r]);
+        app.sc_cnc.door.frame = 200.0;
+        assert!(app.cnc_door().is_none());
     }
 }

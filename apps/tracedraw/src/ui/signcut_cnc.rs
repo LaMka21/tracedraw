@@ -20,6 +20,66 @@ pub fn section(app: &mut App, ui: &mut Ui) {
     sub(ui, "signcut.cnc_hot_wire", |ui| hot_wire(app, ui));
     sub(ui, "signcut.cnc_box", |ui| finger_box(app, ui));
     sub(ui, "signcut.cnc_joints", |ui| finger_joints(app, ui));
+    sub(ui, "signcut.cnc_door", |ui| door(app, ui));
+}
+
+fn door(app: &mut App, ui: &mut Ui) {
+    use tracedraw_signcut::cnc::door::InnerShape;
+    let u = app.units;
+    dim(ui, tr("signcut.cnc_door_hint"));
+    let d = &mut app.sc_cnc.door;
+    egui::Grid::new("cnc_door_grid")
+        .num_columns(2)
+        .spacing([8.0, 3.0])
+        .show(ui, |ui| {
+            row(ui, "signcut.width", |ui| {
+                length_field(ui, u, &mut d.width, 1.0);
+            });
+            row(ui, "signcut.height", |ui| {
+                length_field(ui, u, &mut d.height, 1.0);
+            });
+            row(ui, "signcut.cnc_door_frame", |ui| {
+                length_field(ui, u, &mut d.frame, 0.0);
+            });
+            row(ui, "signcut.cnc_door_inner", |ui| {
+                ui.vertical(|ui| {
+                    ui.radio_value(
+                        &mut d.inner,
+                        InnerShape::Square,
+                        tr("signcut.cnc_door_square"),
+                    );
+                    ui.radio_value(
+                        &mut d.inner,
+                        InnerShape::Rounded,
+                        tr("signcut.cnc_door_rounded"),
+                    );
+                    ui.radio_value(&mut d.inner, InnerShape::Arch, tr("signcut.cnc_door_arch"));
+                });
+            });
+            match d.inner {
+                InnerShape::Rounded => row(ui, "signcut.cnc_door_radius", |ui| {
+                    length_field(ui, u, &mut d.radius, 0.0);
+                }),
+                InnerShape::Arch => row(ui, "signcut.cnc_door_rise", |ui| {
+                    length_field(ui, u, &mut d.arch, 0.0);
+                }),
+                InnerShape::Square => {}
+            }
+            row(ui, "signcut.cnc_door_grooves", |ui| {
+                ui.add(NumField::new(&mut d.grooves).range(0..=20));
+            });
+            if d.grooves > 0 {
+                row(ui, "signcut.cnc_door_groove_offset", |ui| {
+                    length_field(ui, u, &mut d.groove_offset, 0.0);
+                });
+                row(ui, "signcut.cnc_door_groove_spacing", |ui| {
+                    length_field(ui, u, &mut d.groove_spacing, 0.0);
+                });
+            }
+        });
+    if ui.button(tr("signcut.cnc_door_make")).clicked() {
+        app.cnc_door();
+    }
 }
 
 fn finger_joints(app: &mut App, ui: &mut Ui) {

@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "শেষ ফিঙ্গার কাটুন (ম�
 signcut.cnc_joint_make = "জয়েন্ট কাটুন" # mt
 signcut.cnc_joint_two = "জোড়ার জন্য দুটি বস্তু নির্বাচন করুন।" # mt
 signcut.cnc_joint_none = "যথেষ্ট লম্বা কোনো সোজা কিনারা পাওয়া যায়নি।" # mt
+menu.tools.signcut_cnc_door = "দরজার প্যানেল..." # mt
+signcut.cnc_door = "দরজার প্যানেল" # mt
+signcut.cnc_door_hint = "একটি বস্তু নির্বাচিত থাকলে দরজা তার বাক্স ভরে; নইলে পৃষ্ঠার মাঝখানে বসে।" # mt
+signcut.cnc_door_frame = "ফ্রেমের প্রস্থ" # mt
+signcut.cnc_door_inner = "ভিতরের প্যানেল" # mt
+signcut.cnc_door_square = "সমকোণী কোণ" # mt
+signcut.cnc_door_rounded = "গোলাকার কোণ" # mt
+signcut.cnc_door_arch = "খিলান করা উপরিভাগ" # mt
+signcut.cnc_door_radius = "কোণের ব্যাসার্ধ" # mt
+signcut.cnc_door_rise = "খিলানের উচ্চতা" # mt
+signcut.cnc_door_grooves = "খাঁজের রেখা" # mt
+signcut.cnc_door_groove_offset = "প্রথম খাঁজ ভিতরে" # mt
+signcut.cnc_door_groove_spacing = "খাঁজের ব্যবধান" # mt
+signcut.cnc_door_make = "দরজা তৈরি করুন" # mt
+signcut.cnc_door_bad = "ফ্রেম ভিতরের প্যানেলের জন্য জায়গা রাখে না।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "ইফেক্ট ও প্যাটার্ন" # mt

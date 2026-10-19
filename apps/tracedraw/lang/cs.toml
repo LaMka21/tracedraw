@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Vyříznout krajní zuby (protikus)" # mt
 signcut.cnc_joint_make = "Vyříznout spoje" # mt
 signcut.cnc_joint_two = "Vyberte dva objekty ke spojení." # mt
 signcut.cnc_joint_none = "Nenalezena dost dlouhá rovná hrana." # mt
+menu.tools.signcut_cnc_door = "Dvířka..." # mt
+signcut.cnc_door = "Dvířka" # mt
+signcut.cnc_door_hint = "Je-li vybrán jeden objekt, dvířka vyplní jeho rámeček; jinak jsou uprostřed stránky." # mt
+signcut.cnc_door_frame = "Šířka rámu" # mt
+signcut.cnc_door_inner = "Vnitřní výplň" # mt
+signcut.cnc_door_square = "Pravé rohy" # mt
+signcut.cnc_door_rounded = "Zaoblené rohy" # mt
+signcut.cnc_door_arch = "Obloukový horní okraj" # mt
+signcut.cnc_door_radius = "Poloměr rohu" # mt
+signcut.cnc_door_rise = "Vzepětí oblouku" # mt
+signcut.cnc_door_grooves = "Drážky" # mt
+signcut.cnc_door_groove_offset = "První drážka uvnitř" # mt
+signcut.cnc_door_groove_spacing = "Rozestup drážek" # mt
+signcut.cnc_door_make = "Vytvořit dvířka" # mt
+signcut.cnc_door_bad = "Rám nenechává místo pro výplň." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efekty a vzory" # mt

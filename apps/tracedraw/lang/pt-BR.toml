@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Cortar os dedos das pontas (padrão oposto)" # mt
 signcut.cnc_joint_make = "Cortar as juntas" # mt
 signcut.cnc_joint_two = "Selecione dois objetos para unir." # mt
 signcut.cnc_joint_none = "Nenhuma borda reta longa o suficiente foi encontrada." # mt
+menu.tools.signcut_cnc_door = "Painel de porta..." # mt
+signcut.cnc_door = "Painel de porta" # mt
+signcut.cnc_door_hint = "Com um objeto selecionado a porta preenche sua caixa; senão fica centralizada na página." # mt
+signcut.cnc_door_frame = "Largura do quadro" # mt
+signcut.cnc_door_inner = "Painel interno" # mt
+signcut.cnc_door_square = "Cantos retos" # mt
+signcut.cnc_door_rounded = "Cantos arredondados" # mt
+signcut.cnc_door_arch = "Topo em arco" # mt
+signcut.cnc_door_radius = "Raio do canto" # mt
+signcut.cnc_door_rise = "Flecha do arco" # mt
+signcut.cnc_door_grooves = "Linhas de ranhura" # mt
+signcut.cnc_door_groove_offset = "Primeira ranhura para dentro" # mt
+signcut.cnc_door_groove_spacing = "Espaçamento das ranhuras" # mt
+signcut.cnc_door_make = "Criar a porta" # mt
+signcut.cnc_door_bad = "O quadro não deixa espaço para o painel interno." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efeitos e padrões" # mt

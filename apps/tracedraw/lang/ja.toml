@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "端のフィンガーを切る (相手側の形)" # mt
 signcut.cnc_joint_make = "ジョイントを切る" # mt
 signcut.cnc_joint_two = "接合する 2 つのオブジェクトを選択してください。" # mt
 signcut.cnc_joint_none = "十分な長さの直線の辺がありません。" # mt
+menu.tools.signcut_cnc_door = "扉パネル..." # mt
+signcut.cnc_door = "扉パネル" # mt
+signcut.cnc_door_hint = "オブジェクトを 1 つ選択するとその枠に合わせ、そうでなければページ中央に置きます。" # mt
+signcut.cnc_door_frame = "枠の幅" # mt
+signcut.cnc_door_inner = "内側のパネル" # mt
+signcut.cnc_door_square = "角あり" # mt
+signcut.cnc_door_rounded = "角丸" # mt
+signcut.cnc_door_arch = "アーチ型の上部" # mt
+signcut.cnc_door_radius = "角の半径" # mt
+signcut.cnc_door_rise = "アーチの高さ" # mt
+signcut.cnc_door_grooves = "溝の線" # mt
+signcut.cnc_door_groove_offset = "最初の溝の内側距離" # mt
+signcut.cnc_door_groove_spacing = "溝の間隔" # mt
+signcut.cnc_door_make = "扉を作成" # mt
+signcut.cnc_door_bad = "枠が広すぎて内側のパネルが入りません。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "効果とパターン" # mt

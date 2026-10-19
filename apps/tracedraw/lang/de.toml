@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Endzinken ausschneiden (Gegenmuster)" # mt
 signcut.cnc_joint_make = "Zinken schneiden" # mt
 signcut.cnc_joint_two = "Zwei Objekte zum Verbinden auswählen." # mt
 signcut.cnc_joint_none = "Keine ausreichend lange gerade Kante gefunden." # mt
+menu.tools.signcut_cnc_door = "Türfront..." # mt
+signcut.cnc_door = "Türfront" # mt
+signcut.cnc_door_hint = "Ist ein Objekt ausgewählt, füllt die Front dessen Rahmen; sonst wird sie auf der Seite zentriert." # mt
+signcut.cnc_door_frame = "Rahmenbreite" # mt
+signcut.cnc_door_inner = "Füllung" # mt
+signcut.cnc_door_square = "Eckig" # mt
+signcut.cnc_door_rounded = "Abgerundete Ecken" # mt
+signcut.cnc_door_arch = "Bogen oben" # mt
+signcut.cnc_door_radius = "Eckenradius" # mt
+signcut.cnc_door_rise = "Bogenhöhe" # mt
+signcut.cnc_door_grooves = "Nutlinien" # mt
+signcut.cnc_door_groove_offset = "Erste Nut innen" # mt
+signcut.cnc_door_groove_spacing = "Nutabstand" # mt
+signcut.cnc_door_make = "Front erzeugen" # mt
+signcut.cnc_door_bad = "Der Rahmen lässt keinen Platz für die Füllung." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effekte und Muster" # mt

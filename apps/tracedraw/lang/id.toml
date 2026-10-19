@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Potong jari ujung (pola pasangan)" # mt
 signcut.cnc_joint_make = "Potong sambungan" # mt
 signcut.cnc_joint_two = "Pilih dua objek untuk digabung." # mt
 signcut.cnc_joint_none = "Tidak ada tepi lurus yang cukup panjang." # mt
+menu.tools.signcut_cnc_door = "Panel pintu..." # mt
+signcut.cnc_door = "Panel pintu" # mt
+signcut.cnc_door_hint = "Dengan satu objek dipilih pintu mengisi kotaknya; jika tidak, diletakkan di tengah halaman." # mt
+signcut.cnc_door_frame = "Lebar bingkai" # mt
+signcut.cnc_door_inner = "Panel dalam" # mt
+signcut.cnc_door_square = "Sudut siku" # mt
+signcut.cnc_door_rounded = "Sudut membulat" # mt
+signcut.cnc_door_arch = "Atas melengkung" # mt
+signcut.cnc_door_radius = "Jari-jari sudut" # mt
+signcut.cnc_door_rise = "Tinggi lengkung" # mt
+signcut.cnc_door_grooves = "Garis alur" # mt
+signcut.cnc_door_groove_offset = "Alur pertama ke dalam" # mt
+signcut.cnc_door_groove_spacing = "Jarak alur" # mt
+signcut.cnc_door_make = "Buat pintu" # mt
+signcut.cnc_door_bad = "Bingkai tidak menyisakan ruang untuk panel dalam." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efek dan pola" # mt

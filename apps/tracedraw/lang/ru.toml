@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Вырезать крайние шипы (ответн
 signcut.cnc_joint_make = "Вырезать шипы" # mt
 signcut.cnc_joint_two = "Выделите два объекта для соединения." # mt
 signcut.cnc_joint_none = "Не найдено достаточно длинной прямой кромки." # mt
+menu.tools.signcut_cnc_door = "Филёнчатая дверца..." # mt
+signcut.cnc_door = "Филёнчатая дверца" # mt
+signcut.cnc_door_hint = "Если выделен один объект, дверца заполняет его рамку; иначе ставится в центр страницы." # mt
+signcut.cnc_door_frame = "Ширина рамки" # mt
+signcut.cnc_door_inner = "Филёнка" # mt
+signcut.cnc_door_square = "Прямые углы" # mt
+signcut.cnc_door_rounded = "Скруглённые углы" # mt
+signcut.cnc_door_arch = "Арочный верх" # mt
+signcut.cnc_door_radius = "Радиус угла" # mt
+signcut.cnc_door_rise = "Стрела арки" # mt
+signcut.cnc_door_grooves = "Канавки" # mt
+signcut.cnc_door_groove_offset = "Первая канавка внутрь" # mt
+signcut.cnc_door_groove_spacing = "Шаг канавок" # mt
+signcut.cnc_door_make = "Создать дверцу" # mt
+signcut.cnc_door_bad = "Рамка не оставляет места для филёнки." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Эффекты и узоры" # mt

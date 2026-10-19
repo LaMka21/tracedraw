@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Uç parmakları kes (karşı desen)" # mt
 signcut.cnc_joint_make = "Geçmeleri kes" # mt
 signcut.cnc_joint_two = "Birleştirilecek iki nesne seçin." # mt
 signcut.cnc_joint_none = "Yeterince uzun düz kenar bulunamadı." # mt
+menu.tools.signcut_cnc_door = "Kapı paneli..." # mt
+signcut.cnc_door = "Kapı paneli" # mt
+signcut.cnc_door_hint = "Tek nesne seçiliyse kapı onun kutusunu doldurur; değilse sayfanın ortasına konur." # mt
+signcut.cnc_door_frame = "Çerçeve genişliği" # mt
+signcut.cnc_door_inner = "İç panel" # mt
+signcut.cnc_door_square = "Dik köşeler" # mt
+signcut.cnc_door_rounded = "Yuvarlak köşeler" # mt
+signcut.cnc_door_arch = "Kemerli üst" # mt
+signcut.cnc_door_radius = "Köşe yarıçapı" # mt
+signcut.cnc_door_rise = "Kemer yüksekliği" # mt
+signcut.cnc_door_grooves = "Oluk çizgileri" # mt
+signcut.cnc_door_groove_offset = "İlk oluk içeride" # mt
+signcut.cnc_door_groove_spacing = "Oluk aralığı" # mt
+signcut.cnc_door_make = "Kapıyı oluştur" # mt
+signcut.cnc_door_bad = "Çerçeve iç panele yer bırakmıyor." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Efektler ve desenler" # mt

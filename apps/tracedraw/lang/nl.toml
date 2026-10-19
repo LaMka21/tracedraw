@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "Eindvingers uitsnijden (tegenpatroon)" # mt
 signcut.cnc_joint_make = "Verbindingen snijden" # mt
 signcut.cnc_joint_two = "Selecteer twee objecten om te verbinden." # mt
 signcut.cnc_joint_none = "Geen rechte rand die lang genoeg is gevonden." # mt
+menu.tools.signcut_cnc_door = "Deurpaneel..." # mt
+signcut.cnc_door = "Deurpaneel" # mt
+signcut.cnc_door_hint = "Met één object geselecteerd vult de deur zijn kader; anders wordt hij op de pagina gecentreerd." # mt
+signcut.cnc_door_frame = "Kaderbreedte" # mt
+signcut.cnc_door_inner = "Binnenpaneel" # mt
+signcut.cnc_door_square = "Rechte hoeken" # mt
+signcut.cnc_door_rounded = "Afgeronde hoeken" # mt
+signcut.cnc_door_arch = "Boog bovenaan" # mt
+signcut.cnc_door_radius = "Hoekstraal" # mt
+signcut.cnc_door_rise = "Booghoogte" # mt
+signcut.cnc_door_grooves = "Groeflijnen" # mt
+signcut.cnc_door_groove_offset = "Eerste groef binnen" # mt
+signcut.cnc_door_groove_spacing = "Groefafstand" # mt
+signcut.cnc_door_make = "Deur maken" # mt
+signcut.cnc_door_bad = "Het kader laat geen ruimte voor het binnenpaneel." # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "Effecten en patronen" # mt

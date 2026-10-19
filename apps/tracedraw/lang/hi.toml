@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "सिरे की फिंगर काटें (�
 signcut.cnc_joint_make = "जॉइंट काटें" # mt
 signcut.cnc_joint_two = "जोड़ने के लिए दो वस्तुएँ चुनें।" # mt
 signcut.cnc_joint_none = "पर्याप्त लंबा कोई सीधा किनारा नहीं मिला।" # mt
+menu.tools.signcut_cnc_door = "दरवाज़ा पैनल..." # mt
+signcut.cnc_door = "दरवाज़ा पैनल" # mt
+signcut.cnc_door_hint = "एक वस्तु चुनी हो तो दरवाज़ा उसके बॉक्स को भरता है; नहीं तो पृष्ठ के बीच में आता है।" # mt
+signcut.cnc_door_frame = "फ़्रेम की चौड़ाई" # mt
+signcut.cnc_door_inner = "भीतरी पैनल" # mt
+signcut.cnc_door_square = "सीधे कोने" # mt
+signcut.cnc_door_rounded = "गोल कोने" # mt
+signcut.cnc_door_arch = "मेहराबदार ऊपरी भाग" # mt
+signcut.cnc_door_radius = "कोने की त्रिज्या" # mt
+signcut.cnc_door_rise = "मेहराब की ऊँचाई" # mt
+signcut.cnc_door_grooves = "खांचे की रेखाएँ" # mt
+signcut.cnc_door_groove_offset = "पहला खांचा भीतर" # mt
+signcut.cnc_door_groove_spacing = "खांचों का अंतर" # mt
+signcut.cnc_door_make = "दरवाज़ा बनाएँ" # mt
+signcut.cnc_door_bad = "फ़्रेम भीतरी पैनल के लिए जगह नहीं छोड़ता।" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "प्रभाव और पैटर्न" # mt

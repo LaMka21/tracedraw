@@ -4557,6 +4557,21 @@ signcut.cnc_joint_flip = "切除端部指榫 (配合樣式)" # mt
 signcut.cnc_joint_make = "切出接榫" # mt
 signcut.cnc_joint_two = "請選取兩個要連接的物件。" # mt
 signcut.cnc_joint_none = "找不到足夠長的直邊。" # mt
+menu.tools.signcut_cnc_door = "門板..." # mt
+signcut.cnc_door = "門板" # mt
+signcut.cnc_door_hint = "選取一個物件時門板填滿其外框, 否則置於頁面中央。" # mt
+signcut.cnc_door_frame = "框寬" # mt
+signcut.cnc_door_inner = "內板" # mt
+signcut.cnc_door_square = "直角" # mt
+signcut.cnc_door_rounded = "圓角" # mt
+signcut.cnc_door_arch = "拱形頂部" # mt
+signcut.cnc_door_radius = "圓角半徑" # mt
+signcut.cnc_door_rise = "拱高" # mt
+signcut.cnc_door_grooves = "凹槽線" # mt
+signcut.cnc_door_groove_offset = "第一條凹槽內縮" # mt
+signcut.cnc_door_groove_spacing = "凹槽間距" # mt
+signcut.cnc_door_make = "產生門板" # mt
+signcut.cnc_door_bad = "框太寬, 沒有內板的空間。" # mt
 
 # Sign & Cut: fx (keys of this area go below, before the blank line)
 menu.tools.signcut_fx = "效果和圖樣" # mt
