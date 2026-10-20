@@ -233,6 +233,7 @@ Counts: works 189, partial 6 (`.cdr` content coverage; CMX import; print preview
 | Capability | Status |
 |---|---|
 | Undo/redo with history panel, repeat (Ctrl+R) | works |
+| traceCUT Measure docker: perimeter, net, outer and hole area, bounding box, objects, paths and nodes of the selection or the page, in the drawing's unit, live | works (see `behavior/tracecut-measure.md`) |
 | Copy, paste, paste in view, Paste Special (system clipboard as text, bitmap or objects), duplicate, clone (linked to its master: follows its fill, outline and shape until edited; Select Master, Select Clones, Revert to Master; see `behavior/clones.md`), copy properties from; Ctrl+V takes what was copied last, here or in another program, including images and files copied in a file manager | works |
 | Find and Replace: text (match case, whole word); objects by name or kind | partial: no search or replace by fill, outline, font or effects |
 | Scripts panel: JavaScript object model (documents, pages, layers, shapes, fills, outlines, colours, curves with their subpaths and nodes, effects listed, added and removed), run, record macro, load/save | works (`scripting::tests`) |

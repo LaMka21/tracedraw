@@ -1031,6 +1031,8 @@ pub struct App {
     pub effect_picker: crate::ui::effect_picker::EffectPicker,
     /// The Comments docker's state.
     pub comments: crate::comments::CommentsState,
+    /// traceCUT: what its Measure docker last measured.
+    pub tracecut: crate::tracecut::TraceCut,
     /// The Painterly Brush tool's brush and size.
     pub painterly: crate::painterly_tool::PainterlySettings,
     /// The Variable Outline tool's picked node and drag.
@@ -1467,10 +1469,11 @@ pub enum DockerTab {
     AiGenerate,
     Effects,
     Macros,
+    Measure,
 }
 
 impl DockerTab {
-    pub const ALL: [DockerTab; 42] = [
+    pub const ALL: [DockerTab; 43] = [
         DockerTab::Properties,
         DockerTab::Objects,
         DockerTab::Hints,
@@ -1513,6 +1516,7 @@ impl DockerTab {
         DockerTab::Shelf,
         DockerTab::Effects,
         DockerTab::Macros,
+        DockerTab::Measure,
     ];
 
     /// Window > Panels, in groups divided by separators, in the order of
@@ -1531,7 +1535,11 @@ impl DockerTab {
             DockerTab::Export,
             DockerTab::AiGenerate,
         ],
-        &[DockerTab::Transformations, DockerTab::Coordinates],
+        &[
+            DockerTab::Transformations,
+            DockerTab::Coordinates,
+            DockerTab::Measure,
+        ],
         &[DockerTab::Guidelines],
         &[DockerTab::AlignDistribute, DockerTab::StepAndRepeat],
         &[
@@ -1619,6 +1627,7 @@ impl DockerTab {
             DockerTab::AiGenerate => "docker.ai_generate",
             DockerTab::Macros => "docker.macros",
             DockerTab::Effects => "docker.effects",
+            DockerTab::Measure => "docker.tracecut_measure",
         }
     }
 
@@ -1884,6 +1893,7 @@ impl App {
             perspective: None,
             effect_picker: Default::default(),
             comments: Default::default(),
+            tracecut: Default::default(),
             painterly: Default::default(),
             vo: Default::default(),
             page_rasters: Default::default(),

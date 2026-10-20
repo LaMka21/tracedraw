@@ -145,6 +145,7 @@ mod time_tracker;
 mod tools;
 mod tools2;
 mod trace;
+mod tracecut;
 mod ui;
 mod updates;
 mod variable_outline;

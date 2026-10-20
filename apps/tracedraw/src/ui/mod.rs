@@ -59,6 +59,7 @@ pub mod lab_dialog;
 pub mod layout_options;
 pub mod line_style;
 pub mod macros_ui;
+pub mod measure_docker;
 pub mod menu_glyphs;
 pub mod menu_pics;
 pub mod menus;

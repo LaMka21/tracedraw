@@ -207,6 +207,7 @@ pub fn docker_topic(t: DockerTab) -> &'static str {
         DockerTab::Comments => "objects/comments",
         DockerTab::AiGenerate => "customize/ai#generate",
         DockerTab::Effects => "effects/effects-docker",
+        DockerTab::Measure => "objects/measure",
     }
 }
 

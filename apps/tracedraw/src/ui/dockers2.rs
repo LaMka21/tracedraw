@@ -65,6 +65,7 @@ pub fn show(app: &mut App, ui: &mut Ui, tab: DockerTab) {
         DockerTab::Shelf => crate::ui::shelf_docker::shelf(app, ui),
         DockerTab::Export => crate::ui::export_docker::export_docker(app, ui),
         DockerTab::Comments => crate::ui::comments_docker::comments_docker(app, ui),
+        DockerTab::Measure => crate::ui::measure_docker::measure_docker(app, ui),
         DockerTab::AiGenerate => crate::ui::ai_generate_docker::ai_generate(app, ui),
         DockerTab::Effects => crate::ui::effects_docker::effects_docker(app, ui),
         DockerTab::Macros => crate::ui::macros_ui::manager(app, ui),

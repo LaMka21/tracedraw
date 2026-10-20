@@ -44,6 +44,7 @@ objects/index
   objects/shelf
   objects/find-replace
   objects/comments
+  objects/measure
   objects/tables
   objects/barcodes
 color/index

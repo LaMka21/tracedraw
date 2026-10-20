@@ -3983,6 +3983,7 @@ dependencies = [
  "tracedraw-io",
  "tracedraw-render",
  "tracedraw-text",
+ "tracedraw-tracecut",
  "tracedraw-vba",
  "tracedraw-vba-project",
  "ureq",
@@ -4079,6 +4080,13 @@ dependencies = [
  "rustybuzz",
  "tracedraw-core",
  "ttf-parser",
+]
+
+[[package]]
+name = "tracedraw-tracecut"
+version = "0.10.0"
+dependencies = [
+ "tracedraw-core",
 ]
 
 [[package]]
