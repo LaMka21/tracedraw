@@ -476,6 +476,66 @@ mod tests {
         assert!(renders(&app) >= at_rest + 3);
     }
 
+    /// Each drawing keeps its own pictures of its other pages (#1663).
+    /// Page ids repeat from drawing to drawing: with one set of pictures
+    /// for every window, another drawing's pages showed the first one's
+    /// pictures until they rendered anew.
+    #[test]
+    fn each_drawing_keeps_its_own_page_pictures() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        app.show_welcome = false;
+        let fill = |app: &mut App| {
+            for _ in 0..2 {
+                app.add_page();
+                app.new_shape(tracedraw_core::ShapeKind::Rect {
+                    rect: Rect::new(10.0, 10.0, 60.0, 40.0),
+                    radius: 0.0,
+                    corners: None,
+                });
+            }
+            app.page = app.doc().pages[0].id;
+        };
+        let mut t = 0.0;
+        let mut rest = |app: &mut App, at_least: u64| {
+            for _ in 0..400 {
+                t += 0.02;
+                frame_at(&ctx, app, t);
+                if renders(app) >= at_least {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let keys = |app: &App| {
+            let mut k: Vec<PageId> = app.page_rasters.borrow().keys().copied().collect();
+            k.sort_by_key(|p| p.0);
+            k
+        };
+        fill(&mut app);
+        app.set_multipage(true);
+        rest(&mut app, 2);
+        let a_renders = renders(&app);
+        let a_pages = keys(&app);
+        assert!(
+            a_renders >= 2 && a_pages.len() == 2,
+            "{a_renders} {a_pages:?}"
+        );
+        // A second drawing, its pages under the same ids.
+        app.new_document();
+        fill(&mut app);
+        let b_ids: Vec<PageId> = app.doc().pages.iter().skip(1).map(|p| p.id).collect();
+        assert_eq!(b_ids, a_pages, "the same page ids");
+        assert!(keys(&app).is_empty(), "no picture of the first drawing");
+        assert!(app.page_snapshot.borrow().is_none());
+        rest(&mut app, 2);
+        assert_eq!(keys(&app), b_ids, "its own pictures");
+        // Back to the first drawing: its pictures, not rendered again.
+        app.switch_document(0);
+        assert_eq!(keys(&app), a_pages);
+        assert_eq!(renders(&app), a_renders);
+    }
+
     /// The other pages' guidelines show in the Multipage View, each
     /// where its page sits in the grid and within that page; they used
     /// to show only while their page was the current one (#1448).

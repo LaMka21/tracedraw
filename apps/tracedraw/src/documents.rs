@@ -65,6 +65,12 @@ pub struct DocSlot {
     /// The drawing's rendered page, kept while another drawing is active
     /// (its window shows it when windows are tiled or cascaded).
     pub raster: crate::raster::Raster,
+    /// The window's pictures of the other pages in the Multipage View, and
+    /// the copy of the drawing their renders share, kept while another
+    /// window is active. Page ids repeat from drawing to drawing, so one
+    /// set for all windows showed one drawing's pages in another (#1663).
+    pub page_rasters: std::collections::HashMap<PageId, crate::raster::Raster>,
+    pub page_snapshot: Option<(u64, std::sync::Arc<tracedraw_core::Document>)>,
     /// Where the drawing's canvas began on screen when it was last drawn
     /// (see `App::anchor_view`).
     pub view_anchor: Option<egui::Pos2>,
@@ -95,6 +101,8 @@ impl Default for DocSlot {
             pivots: Default::default(),
             picked_layer: None,
             raster: Default::default(),
+            page_rasters: Default::default(),
+            page_snapshot: None,
             view_anchor: None,
         }
     }
@@ -120,6 +128,8 @@ impl App {
         std::mem::swap(&mut self.open_view_pending, &mut slot.open_view_pending);
         std::mem::swap(&mut self.picked_layer, &mut slot.picked_layer);
         std::mem::swap(self.raster.get_mut(), &mut slot.raster);
+        std::mem::swap(self.page_rasters.get_mut(), &mut slot.page_rasters);
+        std::mem::swap(self.page_snapshot.get_mut(), &mut slot.page_snapshot);
         std::mem::swap(&mut self.view_anchor, &mut slot.view_anchor);
         // Measured in another window.
         *self.visual_cache.get_mut() = (u64::MAX, Default::default());

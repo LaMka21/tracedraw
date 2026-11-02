@@ -1346,7 +1346,8 @@ pub struct App {
     pub painterly: crate::painterly_tool::PainterlySettings,
     /// The Variable Outline tool's picked node and drag.
     pub vo: crate::variable_outline::VariableOutlineState,
-    /// Textures of the other pages in the Multipage View.
+    /// Textures of the other pages in the Multipage View, of the active
+    /// window (each window keeps its own, see `DocSlot::page_rasters`).
     pub page_rasters: std::cell::RefCell<std::collections::HashMap<PageId, crate::raster::Raster>>,
     /// The drawing at a revision, shared by the other pages' renders on
     /// their threads (one copy a change, not one a page) (#903).

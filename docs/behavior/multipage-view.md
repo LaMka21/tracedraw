@@ -41,6 +41,12 @@ off too and is lit while it is on (#1019).
 - Each other page keeps its own picture. While the view pans or zooms,
   the last picture is scaled and moved with its paper, and the pages are
   rendered anew once the view has rested for 0.12 s.
+- The pictures belong to their window: each open drawing (and each
+  window of one) keeps its own, with the copy of the drawing their
+  renders on a thread share, and switching drawings swaps them with the
+  window. Page ids repeat from drawing to drawing, so one set for all
+  windows showed another drawing's pages until they rendered anew (#1663,
+  `multipage::tests::each_drawing_keeps_its_own_page_pictures`).
 - A page that covers no more of the screen than the canvas is rendered
   whole; a larger one only where it shows.
 - One frame spends at most 10 ms rendering the current page and the
