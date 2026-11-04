@@ -62,6 +62,9 @@ mod documents;
 mod drawing_scale;
 mod drop_files;
 mod drop_menu;
+mod effect_line;
+#[cfg(test)]
+mod effect_line_tests;
 mod effects_ui;
 mod encode;
 mod envelope_edit;
@@ -104,6 +107,8 @@ mod kind_nodes;
 mod knife;
 mod lens;
 mod live_guides;
+#[cfg(test)]
+mod macos_package;
 mod macro_forms;
 mod macros;
 mod mcp;
@@ -131,6 +136,7 @@ mod perspective_draw;
 #[cfg(test)]
 mod pick_drag_tests;
 mod picture_mosaic;
+mod picture_plates;
 mod placeholder;
 mod preflight;
 mod prefs;
@@ -161,6 +167,7 @@ mod spell_windows;
 mod splash;
 #[cfg(not(target_arch = "wasm32"))]
 mod startup_log;
+mod step_merge;
 mod step_repeat;
 mod storage_full;
 mod straighten;
@@ -168,7 +175,10 @@ mod styles;
 mod symbol_paste;
 mod symmetry_edit;
 mod system_chars;
+mod system_locale;
 mod system_prefs;
+#[cfg(any(target_os = "macos", test))]
+mod system_quit;
 mod table;
 mod table_tool;
 mod templates;
@@ -205,10 +215,25 @@ mod x11_clipboard;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "../../../vendor/winit/src/pen_pressure.rs"]
 mod winit_pen_pressure;
+// The pen pressure of the patched eframe's web layer, with its tests
+// (vendor/README.md, #1410), so that the gate runs them.
+#[cfg(test)]
+#[path = "../../../vendor/eframe/src/web/pen_pressure.rs"]
+mod eframe_web_pen_pressure;
 // The queue of files macOS asks to open, of the same copy (#646).
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "../../../vendor/winit/src/opened_files.rs"]
 mod winit_opened_files;
+// The program's say on a quit of the application on macOS, of the same
+// copy (#1669).
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "../../../vendor/winit/src/quit_request.rs"]
+mod winit_quit_request;
+// Files dragged over a window on Wayland, of the same copy (#1142).
+#[cfg(all(test, unix, not(target_arch = "wasm32")))]
+#[allow(dead_code)]
+#[path = "../../../vendor/winit/src/file_drop.rs"]
+mod winit_file_drop;
 mod workspace_file;
 
 /// The desktop program: the window, with the command line's files and
@@ -293,6 +318,13 @@ pub fn run() -> eframe::Result<()> {
         winit::platform::macos::set_open_files_handler(move |files| {
             instance::deliver_opened(&sink, ctx.get(), files);
         });
+        // Command+Q, the application menu's and the Dock's Quit, a
+        // log-out: with unsaved drawings TraceDraw takes the quit over
+        // and asks about each, as File > Exit does (#1669).
+        let ctx = wake.clone();
+        winit::platform::macos::set_quit_handler(move || {
+            system_quit::SYSTEM_QUIT.system_asks(ctx.get())
+        });
         Some(wake)
     };
     let mut settings = settings::Settings::load();
@@ -302,11 +334,9 @@ pub fn run() -> eframe::Result<()> {
         settings = settings.reset_keeping_history();
         settings.save();
     }
-    i18n::set_language(&if settings.language.is_empty() {
-        i18n::system_language().to_string()
-    } else {
-        settings.language.clone()
-    });
+    // The language picked in Options, else the installer's, else the
+    // system's (docs/behavior/language.md).
+    i18n::set_language(i18n::startup_language_here(&settings.language));
     let splash = settings.show_splash && !plain;
     let viewport = if splash {
         // The splash has no frame, so it cannot be dragged larger; it is
@@ -377,6 +407,9 @@ pub fn run() -> eframe::Result<()> {
             options,
             Box::new(move |cc| {
                 gpu::note_renderer(cc, mode);
+                // A paste shortcut reads the clipboard's text only when it
+                // offers text (#1488).
+                eframe::set_paste_text_gate(clipboard::paste_may_read_text);
                 system_chars::set_context(&cc.egui_ctx);
                 if let Some(w) = &wake {
                     let _ = w.set(cc.egui_ctx.clone());
@@ -465,6 +498,10 @@ struct Shell {
     /// `splash::WindowSettle`).
     #[cfg(not(target_arch = "wasm32"))]
     window_settle: splash::WindowSettle,
+    /// The splash window growing into the main window: drawn plain until
+    /// it has its size (see `splash::WindowGrow`, #1673).
+    #[cfg(not(target_arch = "wasm32"))]
+    window_grow: Option<splash::WindowGrow>,
     /// Where the check of the OpenGL renderer stands (see
     /// `check_renderer`).
     #[cfg(not(target_arch = "wasm32"))]
@@ -543,6 +580,8 @@ impl Shell {
             #[cfg(not(target_arch = "wasm32"))]
             window_settle: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
+            window_grow: None,
+            #[cfg(not(target_arch = "wasm32"))]
             renderer_check: RendererCheck::At(gpu::CHECKED_FRAME),
             #[cfg(not(target_arch = "wasm32"))]
             blind_reads: 0,
@@ -565,6 +604,8 @@ impl Shell {
             handed_over: None,
             pacer: gpu::Pacer::new(cc),
             window_settle: Default::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            window_grow: None,
             renderer_check: RendererCheck::At(gpu::CHECKED_FRAME),
             blind_reads: 0,
             check_frames: 0,
@@ -788,7 +829,12 @@ impl eframe::App for Shell {
                 "the editor was built in {:.0} ms",
                 built.elapsed().as_secs_f64() * 1000.0
             );
-            splash::open_main_window(ui.ctx(), &app.settings);
+            // This frame shows plain, not the splash: the window system
+            // may grow the window before the next frame is drawn, and the
+            // last splash frame stayed in its corner meanwhile (#1673).
+            let fill = ui.ctx().global_style().visuals.panel_fill;
+            ui.painter().rect_filled(ui.max_rect(), 0.0, fill);
+            self.window_grow = Some(splash::open_main_window(ui.ctx(), &app.settings));
             // F8 held while TraceDraw started: ask before resetting.
             if reset {
                 app.dialog = ui::dialogs::Dialog::ConfirmResetSettings;
@@ -796,6 +842,19 @@ impl eframe::App for Shell {
             self.app = Some(app);
             ui.ctx().request_repaint();
             return;
+        }
+        // The window growing from the splash's size: drawn plain, the
+        // editor's first frame waits for the window's own size (#1673).
+        #[cfg(not(target_arch = "wasm32"))]
+        if let (Some(grow), Some(app)) = (self.window_grow.as_mut(), self.app.as_ref()) {
+            if !grow.step(ui) {
+                // A window that starts maximized is maximized meanwhile.
+                if self.window_settle.settling() {
+                    self.window_settle.step(ui.ctx(), &app.settings);
+                }
+                return;
+            }
+            self.window_grow = None;
         }
         #[cfg(not(target_arch = "wasm32"))]
         if self.build_deferred(ui) {

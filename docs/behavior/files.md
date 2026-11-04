@@ -205,6 +205,35 @@ objects open as drawn.
   the files the program that reads `.cdr` files saves have them (#1455,
   #1484; `write::tests::a_face_is_listed_as_the_face_its_font_file_holds`,
   `write::tests::bold_text_in_a_light_face_is_written_as_the_family_bold`).
+- Text drawn by another face of its font than the one it asks for, a
+  face TraceDraw draws as it is, is saved to `.cdr` as that face (with
+  or without Embed fonts): regular Khand text whose only installed file
+  is Khand Bold, drawn bold, is saved as Khand bold (style `weight` 4096
+  and the bold face's font record), as the program that reads `.cdr`
+  files saves the same drawing. Saved as regular beside the embedded
+  bold face, that program asked for "Khand-Normal", reported it missing
+  although Khand was installed and dropped the embedded font when saving
+  again. A face told by its style bits within its family (bold, italic)
+  or by its weight within its typographic family ("Khand Medium" drawing
+  "Khand" is saved at 500); bold that TraceDraw makes by thickening a
+  face stays as the text asks. The text reads back as that face (#1733;
+  `write::tests::regular_text_drawn_by_the_bold_file_is_written_bold`,
+  `write::tests::text_is_written_as_the_face_that_draws_it`).
+- Italic text whose font has no italic face, which TraceDraw slants
+  itself, is saved to `.cdr` upright, as the upright face that draws it
+  and that Embed fonts embeds: "RAJ 100" Bold Italic with only the
+  "RAJ 100" Bold file is saved as "RAJ 100" bold (style `italic` 0,
+  `weight` 4096, no italic font record or font table entry); the same
+  for the other weights ("Khand Light" Italic is saved as "Khand" at
+  300). Saved italic, the program that reads `.cdr` files looked for
+  "RAJ 100-Bold-Italic", a face neither the file nor the system has,
+  reported it missing and drew "RAJ 100-Bold"; it offers no italic for
+  such a font itself, so it shows the text upright. From version 14
+  the file's own member (`tracedraw/effects.json`) keeps the text, so
+  TraceDraw opens it italic again; a file saved again elsewhere opens
+  upright (#1733;
+  `write::tests::italic_text_slanted_from_an_upright_file_is_written_upright`,
+  `write::tests::italic_text_of_a_weight_without_an_italic_face_is_written_upright`).
 - A version 16+ `.cdr` that the program reading `.cdr` files saved again
   from a TraceDraw file, with embedded fonts, opens with its texts: its
   run records marked as applying nothing still carry a style string,

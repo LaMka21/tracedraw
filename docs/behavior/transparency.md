@@ -20,11 +20,35 @@ page, cut by the new outline, not squeezed into its new box (see
 
 The Transparency tool shows a gradient mask's nodes as Interactive Fill
 shows a fill's (`fill_tool.rs`, #448): start, end and skew handle, the
-nodes between and the midpoint slider of each blend; a drag across an
-object sets the line (a gradient mask there already keeps its nodes), a
-double click on the line adds a node and on a node removes it. Edits are
-one undo step "Transparency" per drag; the fill is left alone
+nodes between and the midpoint slider of each blend; a drag sets the
+line (a gradient mask there already keeps its nodes), a double click on
+the line adds a node and on a node removes it. A drag that starts on the
+line itself, away from the nodes and the midpoint sliders (within the
+pick distance of Options > Nodes and Handles), moves the whole mask by
+the pointer's way, the line keeping its length and angle; Ctrl keeps
+that move horizontal or vertical; the pointer is the move cursor over
+the line (`effect_line_tests::the_transparency_line_moves_the_whole_mask`). Edits are one undo step
+"Transparency" per drag; the fill is left alone
 (`fill_tool::tests::the_transparency_mask_has_nodes_and_a_midpoint`).
+
+What a drag that sets the line acts on (#1661,
+`pick_drag_tests::the_transparency_tool_drags_on_the_selection_and_ctrl_constrains`):
+
+- With a selection, pressed inside the box of a selected object (also
+  where another object covers it, or where its own mask makes it
+  see-through) or on no object: every selected object gets the line, as
+  it lies on the page, one undo step; the selection stays.
+- Pressed on an unselected object outside the selected ones: that object
+  is picked and gets the line, as Interactive Fill picks the object a
+  drag starts on.
+- With nothing selected: the object under the press is picked and gets
+  it; a drag over no object does nothing.
+
+Ctrl (Cmd on macOS) keeps the line in steps of the constrain angle
+(set in Options, 15 degrees at first) about where the drag
+began, as for lines and the other angle drags; Interactive Fill's drag
+does the same
+(`pick_drag_tests::ctrl_keeps_an_interactive_fill_drag_to_the_constrain_angle`).
 
 Clear Transparency, a button at the end of the Transparency tool's bar
 and of the Properties docker's transparency part (greyed while no
@@ -56,6 +80,27 @@ mode (`mockup_tests::mockup_steps`).
 
 Freeze is not offered: an earlier version of this page listed it, but it
 never existed (#1203).
+
+## Speed (#1335)
+
+A semi-transparent object's scratch layer covers only the pixels the
+object can reach (its bounds grown by what its outline may reach, as
+for culling, `Renderer::layer_area`), not the whole window: a page of
+2000 half transparent objects took 2.2 s to draw at 1600 x 1000 pixels
+and takes 0.11 s (`render_times_of_transparent_objects`). Pattern tiles
+stay anchored to the window's corner, so the result is the same pixel
+for pixel (`tests::a_transparent_object_takes_a_small_layer_and_draws_the_same`).
+An object with effects or a drop shadow, a symbol and the drag preview
+keep the whole window. A change from the Transparency part or the
+Properties docker is one command for the whole selection
+(`Command::SetEffectsAndOpacity`), which finds every object in one walk
+of the drawing; a command per object searched the drawing for each. With
+2000 objects selected a frame of a transparency slider drag took 39 ms
+and takes 11 ms (`frame_times_of_a_transparency_drag`).
+
+The mouse wheel steps a slider only while it has the focus or is being
+dragged, as every slider does (`sliders.md`, #1240); over a slider
+without the focus it scrolls the docker.
 
 ## Properties docker (#1439, #1203)
 

@@ -370,7 +370,10 @@ fn default_properties(app: &mut App, ui: &mut Ui) {
                     .rich_tip(tr("defaults.reset_hint"))
                     .clicked()
                 {
-                    let fresh = ObjectDefaults::default().get(kind).clone();
+                    // The defaults of the drawing's mode, their black
+                    // following the colour mode again.
+                    let mode = app.doc().metadata.primary_color_mode;
+                    let fresh = ObjectDefaults::for_mode(mode).get(kind).clone();
                     app.set_default_properties(kind, |p| *p = fresh);
                 }
                 let from = ui
@@ -382,9 +385,13 @@ fn default_properties(app: &mut App, ui: &mut Ui) {
                 if from.clicked() {
                     if let Some(s) = &first {
                         let (fill, stroke) = (s.fill.clone(), s.stroke.clone());
+                        // Colours taken from an object are the user's
+                        // own, even a black.
                         app.set_default_properties(kind, |p| {
                             p.fill = fill;
                             p.stroke = stroke;
+                            p.choose_fill(kind);
+                            p.choose_outline(kind);
                         });
                     }
                 }
@@ -940,13 +947,13 @@ fn scripts(app: &mut App, ui: &mut Ui) {
             ))
             .clicked()
         {
-            if let Some(p) = crate::files::Dialog::new()
+            // The save dialog, a download, or the system's save picker on
+            // Android (#1402).
+            let source = app.script_source.clone();
+            crate::files::Dialog::new()
                 .add_filter(lang, &[ext])
                 .set_file_name(format!("macro.{ext}"))
-                .save_path()
-            {
-                let _ = crate::files::write(p, &app.script_source);
-            }
+                .save_bytes(app, source);
         }
         if ui
             .button(tr("docker.clear"))
@@ -1158,106 +1165,7 @@ fn script_editor(app: &mut App, ui: &mut Ui) {
 }
 
 fn palettes(app: &mut App, ui: &mut Ui) {
-    let n = app.palettes.len();
-    for i in 0..n {
-        let name = app.palettes[i].display_name();
-        let count = app.palettes[i].colors.len();
-        let on = app.visible_palettes.contains(&i);
-        let locked = app.palette_locked(i);
-        let builtin = app.palettes[i].builtin;
-        ui.horizontal(|ui| {
-            let mut v = on;
-            if ui
-                .checkbox(&mut v, format!("{name} ({count})"))
-                .rich_tip_with(|| format!("{name}\n{}", tr("docker.palette_show_desc")))
-                .changed()
-            {
-                app.toggle_palette(i);
-            }
-            if ui
-                .small_button(tr("docker.edit"))
-                .rich_tip(crate::ui::tips::pair(
-                    "docker.edit",
-                    "docker.palette_edit_desc",
-                ))
-                .clicked()
-            {
-                app.dialog = crate::ui::dialogs::Dialog::PaletteEditor(
-                    crate::ui::dialogs::PaletteEditorState {
-                        palette: i,
-                        ..Default::default()
-                    },
-                );
-            }
-            // The padlock: a locked palette is not changed by the Palette
-            // Editor (built-in palettes never are) (#1343).
-            if !builtin {
-                let key = if locked {
-                    "docker.palette_unlock"
-                } else {
-                    "docker.palette_lock"
-                };
-                if ui
-                    .add(egui::Button::selectable(locked, tr(key)).small())
-                    .rich_tip(crate::ui::tips::pair(key, "docker.palette_lock_desc"))
-                    .clicked()
-                {
-                    app.toggle_palette_lock(i);
-                }
-            }
-        });
-    }
-    ui.separator();
-    ui.horizontal_wrapped(|ui| {
-        if ui
-            .button(tr("menu.window.palette_open"))
-            .rich_tip(crate::ui::tips::keyed("menu.window.palette_open"))
-            .clicked()
-        {
-            app.open_palette_file();
-        }
-        if ui
-            .button(tr("menu.window.palette_from_document"))
-            .rich_tip(crate::ui::tips::keyed("menu.window.palette_from_document"))
-            .clicked()
-        {
-            app.palette_from_document();
-        }
-        if ui
-            .button(tr("menu.window.palette_from_selection"))
-            .rich_tip(crate::ui::tips::keyed("menu.window.palette_from_selection"))
-            .clicked()
-        {
-            app.palette_from_selection();
-        }
-    });
-    let dp = app.doc().palette.clone();
-    ui.label(trf(
-        "docker.document_palette_n",
-        &[("n", &dp.len().to_string())],
-    ));
-    ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(1.0, 1.0);
-        for c in dp {
-            let [r, g, b] = c.to_rgb8();
-            let (rect, resp) = ui.allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::click());
-            let resp = resp.rich_tip_with(|| {
-                format!(
-                    "{}\n{}",
-                    crate::app::color_description(c),
-                    tr("docker.palette_chip_desc")
-                )
-            });
-            ui.painter()
-                .rect_filled(rect, 1.0, egui::Color32::from_rgb(r, g, b));
-            if resp.clicked() {
-                app.apply_fill(Fill::Solid(c));
-            }
-            if resp.secondary_clicked() {
-                app.apply_outline_color(Some(c));
-            }
-        }
-    });
+    crate::ui::palette_manager::show(app, ui);
 }
 
 fn current_effect<F: Fn(&Effect) -> bool>(app: &App, f: F) -> Option<Effect> {
@@ -2234,16 +2142,13 @@ fn bitmap_mask(app: &mut App, ui: &mut Ui) {
         })
         .clicked()
         {
+            // The save dialog, a download, or the system's save picker on
+            // Android (#1402).
             let text = app.mask.to_text();
-            if let Some(path) = crate::files::Dialog::new()
+            crate::files::Dialog::new()
                 .add_filter(tr("docker.mask_file"), &["msk"])
                 .set_file_name("mask.msk".to_string())
-                .save_path()
-            {
-                if let Err(e) = crate::files::write(&path, text) {
-                    app.status = e.to_string();
-                }
-            }
+                .save_bytes(app, text);
         }
         if icon_btn(ui, true, &tr("docker.mask_open"), |p, r, c| {
             crate::ui::icons::draw_action(p, r, crate::ui::icons::Action::Open, c)
@@ -2605,7 +2510,7 @@ fn pages(app: &mut App, ui: &mut Ui) {
             );
             if i > 0
                 && ui
-                    .small_button("\u{25B2}")
+                    .small_button("\u{23F6}")
                     .rich_tip(crate::ui::tips::keyed("docker.page_move_up"))
                     .clicked()
             {
@@ -2616,7 +2521,7 @@ fn pages(app: &mut App, ui: &mut Ui) {
             }
             if i + 1 < n
                 && ui
-                    .small_button("\u{25BC}")
+                    .small_button("\u{23F7}")
                     .rich_tip(crate::ui::tips::keyed("docker.page_move_down"))
                     .clicked()
             {
@@ -2774,10 +2679,20 @@ fn corners(app: &mut App, ui: &mut Ui) {
         );
     }
     app.corners = c;
-    // Preview what Apply would do.
+    ui.add_space(6.0);
+    ui.checkbox(&mut app.settings.corners_preview, tr("dialog.preview"))
+        .rich_tip(crate::ui::tips::pair(
+            "dialog.preview",
+            "docker.corners_preview_desc",
+        ));
+    // Preview what Apply would do, unless Preview is off (#1759).
     let preview = app.corner_preview();
     let valid = !preview.is_empty();
-    app.docker_preview = preview;
+    app.docker_preview = if app.settings.corners_preview {
+        preview
+    } else {
+        Vec::new()
+    };
     ui.add_space(8.0);
     if ui
         .add_enabled(valid, egui::Button::new(tr("docker.apply")))
@@ -3535,5 +3450,85 @@ mod find_properties_tests {
         app.undo();
         assert_eq!(fill(&app, a), Some(Fill::Solid(red)), "one undo step");
         assert_eq!(fill(&app, c), Some(Fill::Solid(red)));
+    }
+}
+
+#[cfg(test)]
+mod corners_docker_tests {
+    use super::*;
+
+    /// The Corners panel's Preview box hides the dashed result on the
+    /// drawing and brings it back; it is on at first, kept in the
+    /// settings, and Apply still works with it off (#1759).
+    #[test]
+    fn the_corners_preview_can_be_turned_off() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        let id = app
+            .new_shape(tracedraw_core::ShapeKind::Rect {
+                rect: tracedraw_core::geometry::Rect::new(10.0, 10.0, 60.0, 40.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect");
+        app.select(vec![id]);
+        let run = |app: &mut App, events: Vec<egui::Event>| -> Vec<(String, egui::Rect)> {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(300.0, 600.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let mut out = ctx.run_ui(input, |ui| corners(app, ui));
+            out.textures_delta.clear();
+            out.shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Text(t) => {
+                        Some((t.galley.text().to_string(), t.visual_bounding_rect()))
+                    }
+                    _ => None,
+                })
+                .collect()
+        };
+        let click = |app: &mut App, key: &str| {
+            let texts = run(app, Vec::new());
+            let at = texts
+                .iter()
+                .find(|(t, _)| *t == tr(key))
+                .map(|(_, r)| r.center())
+                .unwrap_or_else(|| panic!("{key} shown"));
+            let button = |pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            run(app, vec![egui::Event::PointerMoved(at)]);
+            run(app, vec![button(true)]);
+            run(app, vec![button(false)]);
+        };
+        assert!(app.settings.corners_preview, "on at first");
+        assert!(crate::settings::Settings::default().corners_preview);
+        run(&mut app, Vec::new());
+        assert_eq!(app.docker_preview.len(), 1, "the preview shows");
+        click(&mut app, "dialog.preview");
+        assert!(!app.settings.corners_preview, "the box turned it off");
+        run(&mut app, Vec::new());
+        assert!(app.docker_preview.is_empty(), "no preview on the drawing");
+        // Kept in the settings file.
+        let json = serde_json::to_string(&app.settings).expect("settings");
+        let back: crate::settings::Settings = serde_json::from_str(&json).expect("read back");
+        assert!(!back.corners_preview);
+        // Apply is still offered and works without the preview.
+        click(&mut app, "docker.apply");
+        assert!(matches!(
+            app.doc().find_shape(id).map(|s| &s.kind),
+            Some(tracedraw_core::ShapeKind::Path { .. })
+        ));
+        click(&mut app, "dialog.preview");
+        assert!(app.settings.corners_preview, "and back on");
     }
 }

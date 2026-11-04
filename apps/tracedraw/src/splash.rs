@@ -333,13 +333,43 @@ pub fn start_maximized(saved: [f32; 2], maximized: bool, monitor: Option<Vec2>) 
     wanted.x > m.x * 0.95 || wanted.y > m.y * 0.95
 }
 
-/// Where a window of `size` sits centred on a monitor of `monitor` (its
-/// top-left corner, never off the top or the left).
-pub fn centred_position(size: Vec2, monitor: Option<Vec2>) -> Option<Pos2> {
-    let m = monitor.filter(|m| m.x > 0.0 && m.y > 0.0)?;
-    let p = ((m - size) / 2.0).max(Vec2::ZERO);
-    Some(Pos2::new(p.x, p.y))
+/// Where a window of `size` sits centred on `monitor`, the monitor's
+/// rectangle on the desktop all monitors share (its top-left corner,
+/// never off the monitor's top or left). The monitor's own position
+/// counts: centred by the monitor's size from the desktop's corner, the
+/// window opened on the top-left monitor of a desktop whose primary
+/// monitor lies elsewhere (#1800).
+pub fn centred_position(size: Vec2, monitor: Option<Rect>) -> Option<Pos2> {
+    let m = monitor.filter(|m| m.width() > 0.0 && m.height() > 0.0)?;
+    let [x, y] = eframe_monitor_place::centred_on(
+        [m.min.x, m.min.y, m.width(), m.height()],
+        [size.x, size.y],
+    );
+    Some(Pos2::new(x, y))
 }
+
+/// The monitor the main window opens on, in system points: the primary
+/// monitor where it lies on the desktop, as the windowing layer gives it
+/// (`primary`, `[x, y, width, height]`; the splash screen is centred on
+/// it), else the monitor egui reports the window on (`current`, its size
+/// only), taken at the desktop's corner (Wayland, which places windows
+/// itself, tells no position).
+pub fn main_monitor(primary: Option<[f32; 4]>, current: Option<Vec2>) -> Option<Rect> {
+    let primary = primary
+        .filter(|[x, y, w, h]| x.is_finite() && y.is_finite() && *w > 0.0 && *h > 0.0)
+        .map(|[x, y, w, h]| Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, h)));
+    primary.or_else(|| {
+        current
+            .filter(|m| m.x > 0.0 && m.y > 0.0)
+            .map(|m| Rect::from_min_size(Pos2::ZERO, m))
+    })
+}
+
+/// The arithmetic of the patched eframe's window centring with its
+/// tests: the app centres the main window with it, and the copy in
+/// vendor/ is outside the workspace (vendor/README.md, #1800).
+#[path = "../../../vendor/eframe/src/native/monitor_place.rs"]
+mod eframe_monitor_place;
 
 /// The monitor's size in system points (pixels over the system's
 /// scaling), whatever the interface size: the unit the window's kept
@@ -370,10 +400,12 @@ pub fn main_window_builder(settings: &Settings, plain: bool) -> egui::ViewportBu
 /// points (see [`remember_window`]) and sent in interface points. A
 /// window that starts maximized is maximized by [`WindowSettle`] in the
 /// next frames, once the window system has applied this size (#787).
-pub fn open_main_window(ctx: &egui::Context, settings: &Settings) {
+/// The window is drawn plain until it has grown ([`WindowGrow`], #1673).
+pub fn open_main_window(ctx: &egui::Context, settings: &Settings) -> WindowGrow {
     use egui::ViewportCommand as V;
     let zoom = ctx.zoom_factor().max(0.01);
-    let monitor = monitor_in_system_points(ctx);
+    let screen = main_monitor(eframe::primary_monitor(), monitor_in_system_points(ctx));
+    let monitor = screen.map(|r| r.size());
     let size = main_window_size(settings.window_size, monitor);
     ctx.send_viewport_cmd(V::Decorations(true));
     // The splash window is made not resizable, which on X11 records its
@@ -390,10 +422,109 @@ pub fn open_main_window(ctx: &egui::Context, settings: &Settings) {
         maximize: true,
     });
     ctx.send_viewport_cmd(V::InnerSize(size / zoom));
-    if let Some(p) = centred_position(size, monitor) {
+    if let Some(p) = centred_position(size, screen) {
         ctx.send_viewport_cmd(V::OuterPosition((p.to_vec2() / zoom).to_pos2()));
     }
     ctx.send_viewport_cmd(V::Focus);
+    let maximize = start_maximized(settings.window_size, settings.window_maximized, monitor);
+    WindowGrow::new(size, maximize)
+}
+
+/// The longest time, in seconds, the main window is drawn plain while it
+/// grows from the splash's size to its own (see [`WindowGrow`]): a window
+/// system that never gives it that size still gets the editor.
+pub const GROW_SECONDS: f64 = 1.0;
+/// How far, in system points, the window's size may be from the size
+/// asked for and count as grown (a window manager rounding it to its
+/// increments or to the screen).
+const GROW_SLACK: f32 = 16.0;
+
+/// The main window growing from the splash's size to its own (#1673).
+/// The splash window becomes the main window by asking for a new size,
+/// which the window system applies a few frames later. Until then, or
+/// until the maximize a window that starts maximized gets, the window is
+/// drawn plain in the interface's background colour, not with the
+/// editor: an editor frame drawn at the old size, before the surface
+/// follows the window, left the last splash frame in one corner and the
+/// rest of the grown window unpainted (torn blocks and leftover pixels on
+/// X11) until the editor's slow first frame at the new size came, half a
+/// second to a second later. A plain frame is cheap, so the grown window
+/// is painted at once, and the editor's first frame is drawn at the
+/// window's final size.
+#[derive(Debug, Clone)]
+pub struct WindowGrow {
+    /// The size asked for, in system points.
+    asked: Vec2,
+    /// The window starts maximized ([`start_maximized`]).
+    maximize: bool,
+    /// The input time of the first frame.
+    started: Option<f64>,
+}
+
+impl WindowGrow {
+    /// The main window was asked for `asked` (system points), and is to
+    /// be maximized next when `maximize`.
+    pub fn new(asked: Vec2, maximize: bool) -> Self {
+        WindowGrow {
+            asked,
+            maximize,
+            started: None,
+        }
+    }
+
+    /// One frame while the window grows: true once the editor can be
+    /// drawn. Until then `ui` is painted plain and another frame asked for.
+    pub fn step(&mut self, ui: &mut egui::Ui) -> bool {
+        let ctx = ui.ctx().clone();
+        let (now, inner, maximized, monitor) = ctx.input(|i| {
+            let v = i.viewport();
+            (
+                i.time,
+                v.inner_rect.map(|r| r.size()),
+                v.maximized,
+                v.monitor_size,
+            )
+        });
+        let started = *self.started.get_or_insert(now);
+        let zoom = ctx.zoom_factor();
+        let state = WindowState {
+            inner: inner.map(|s| s * zoom),
+            maximized,
+            monitor: monitor.map(|m| m * zoom),
+        };
+        if now - started >= GROW_SECONDS || window_grown(self.asked, self.maximize, state) {
+            return true;
+        }
+        ui.painter()
+            .rect_filled(ui.max_rect(), 0.0, ui.visuals().panel_fill);
+        ctx.request_repaint();
+        false
+    }
+}
+
+/// What the window system reports of the window, in system points.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WindowState {
+    pub inner: Option<Vec2>,
+    pub maximized: Option<bool>,
+    pub monitor: Option<Vec2>,
+}
+
+/// Whether the main window has its own size: the size `asked` (system
+/// points), or, when it starts maximized (`maximize`), maximized and
+/// filling the monitor. A size not reported counts as grown, as there
+/// is nothing to wait for.
+pub fn window_grown(asked: Vec2, maximize: bool, state: WindowState) -> bool {
+    let Some(inner) = state.inner else {
+        return true;
+    };
+    if maximize {
+        let fills = state.monitor.is_none_or(|m| {
+            m.x <= 0.0 || m.y <= 0.0 || inner.x >= m.x * FILLS_SHARE || inner.y >= m.y * FILLS_SHARE
+        });
+        return state.maximized == Some(true) && fills;
+    }
+    (inner.x - asked.x).abs() <= GROW_SLACK && (inner.y - asked.y).abs() <= GROW_SLACK
 }
 
 /// Frames after the main window opens during which its state is still
@@ -663,7 +794,9 @@ mod tests {
             "{w} {h}"
         );
         // Opened again with the interface at 150 %: the same window.
-        let cmds = window_frame(1.5, info.clone(), |ctx| open_main_window(ctx, &settings));
+        let cmds = window_frame(1.5, info.clone(), |ctx| {
+            open_main_window(ctx, &settings);
+        });
         let size = cmds
             .iter()
             .find_map(|c| match c {
@@ -678,7 +811,9 @@ mod tests {
             monitor_size: Some(Vec2::new(2560.0, 1440.0)),
             ..info
         };
-        let cmds = window_frame(1.0, at_100, |ctx| open_main_window(ctx, &settings));
+        let cmds = window_frame(1.0, at_100, |ctx| {
+            open_main_window(ctx, &settings);
+        });
         assert!(cmds.iter().any(
             |c| matches!(c, V::InnerSize(s) if (*s - Vec2::new(1500.0, 900.0)).length() < 0.5)
         ));
@@ -819,7 +954,9 @@ mod tests {
         // The splash asks for the size and position only.
         let mut window = fake_windows_window();
         let info = window.info();
-        let cmds = window_frame(1.0, info, |ctx| open_main_window(ctx, &settings));
+        let cmds = window_frame(1.0, info, |ctx| {
+            open_main_window(ctx, &settings);
+        });
         assert!(
             !cmds.iter().any(|c| matches!(c, V::Maximized(_))),
             "{cmds:?}"
@@ -994,6 +1131,90 @@ mod tests {
         assert!(cmds.iter().any(|c| matches!(c, V::Decorations(true))));
     }
 
+    /// A frame of the growing main window at input time `time`, reported
+    /// as `inner` (maximized or not) on a 1600 x 1000 monitor: whether the
+    /// editor may draw, and whether the frame painted the window.
+    fn grow_frame(grow: &mut WindowGrow, time: f64, inner: Vec2, maximized: bool) -> (bool, bool) {
+        let ctx = egui::Context::default();
+        let mut input = egui::RawInput {
+            time: Some(time),
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, inner)),
+            ..Default::default()
+        };
+        input.viewports.insert(
+            egui::ViewportId::ROOT,
+            egui::ViewportInfo {
+                maximized: Some(maximized),
+                minimized: Some(false),
+                inner_rect: Some(Rect::from_min_size(Pos2::ZERO, inner)),
+                monitor_size: Some(Vec2::new(1600.0, 1000.0)),
+                ..Default::default()
+            },
+        );
+        let mut grown = false;
+        let mut out = ctx.run_ui(input, |ui| grown = grow.step(ui));
+        out.textures_delta.clear();
+        (grown, !out.shapes.is_empty())
+    }
+
+    /// #1673: the splash window grows into the main window a few frames
+    /// after it asks for its size. Until it has that size the window is
+    /// drawn plain, not with the editor: an editor frame drawn at the
+    /// splash's size left the last splash frame in a corner and the rest
+    /// of the grown window unpainted until the editor's slow first frame
+    /// at the new size.
+    #[test]
+    fn the_main_window_is_drawn_plain_until_it_has_grown() {
+        let ctx = egui::Context::default();
+        let mut grow = None;
+        let monitor = egui::ViewportInfo {
+            monitor_size: Some(Vec2::new(1920.0, 1080.0)),
+            ..Default::default()
+        };
+        let mut input = egui::RawInput::default();
+        input.viewports.insert(egui::ViewportId::ROOT, monitor);
+        let settings = Settings {
+            window_maximized: false,
+            ..Settings::default()
+        };
+        let mut out = ctx.run_ui(input, |ui| {
+            grow = Some(open_main_window(ui.ctx(), &settings));
+        });
+        out.textures_delta.clear();
+        let mut grow = grow.expect("the window grows");
+        // 1600 x 950 fits 95 % of 1920 x 1080: not maximized.
+        assert!(!grow.maximize);
+        assert_eq!(grow.asked, DEFAULT_SIZE);
+        // Still at the splash's size: a plain frame, painted.
+        assert_eq!(grow_frame(&mut grow, 0.0, SIZE, false), (false, true));
+        assert_eq!(
+            grow_frame(&mut grow, 0.1, Vec2::new(900.0, 600.0), false),
+            (false, true)
+        );
+        // At its size (a window manager may round it): the editor.
+        assert!(grow_frame(&mut grow, 0.2, DEFAULT_SIZE - Vec2::splat(4.0), false).0);
+    }
+
+    #[test]
+    fn a_window_that_starts_maximized_is_drawn_plain_until_it_fills_the_screen() {
+        let mut grow = WindowGrow::new(Vec2::new(1520.0, 950.0), true);
+        // At its normal size, then maximized but not resized yet.
+        assert!(!grow_frame(&mut grow, 0.0, SIZE, false).0);
+        assert!(!grow_frame(&mut grow, 0.1, Vec2::new(1520.0, 950.0), false).0);
+        assert!(!grow_frame(&mut grow, 0.2, Vec2::new(1520.0, 950.0), true).0);
+        assert!(grow_frame(&mut grow, 0.3, Vec2::new(1600.0, 975.0), true).0);
+    }
+
+    #[test]
+    fn a_window_that_never_grows_gets_the_editor_after_a_second() {
+        let mut grow = WindowGrow::new(DEFAULT_SIZE, false);
+        assert!(!grow_frame(&mut grow, 5.0, SIZE, false).0);
+        assert!(!grow_frame(&mut grow, 5.0 + GROW_SECONDS * 0.9, SIZE, false).0);
+        assert!(grow_frame(&mut grow, 5.0 + GROW_SECONDS, SIZE, false).0);
+        // Nothing reported: nothing to wait for.
+        assert!(window_grown(DEFAULT_SIZE, true, WindowState::default()));
+    }
+
     #[test]
     fn progress_waits_for_the_fonts_and_holds_nothing_back() {
         assert_eq!(progress(Duration::ZERO, false), 0.0);
@@ -1044,12 +1265,62 @@ mod tests {
 
     #[test]
     fn the_main_window_is_centred() {
-        let p = centred_position(Vec2::new(1600.0, 900.0), Some(Vec2::new(1920.0, 1080.0)));
+        let at_origin = |w: f32, h: f32| Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(w, h)));
+        let p = centred_position(Vec2::new(1600.0, 900.0), at_origin(1920.0, 1080.0));
         assert_eq!(p, Some(Pos2::new(160.0, 90.0)));
         // Larger than the monitor: pinned to the top left.
-        let p = centred_position(Vec2::new(2000.0, 900.0), Some(Vec2::new(1920.0, 800.0)));
+        let p = centred_position(Vec2::new(2000.0, 900.0), at_origin(1920.0, 800.0));
         assert_eq!(p, Some(Pos2::new(0.0, 0.0)));
         assert_eq!(centred_position(Vec2::new(10.0, 10.0), None), None);
+    }
+
+    /// The desktop of #1800 (X11, four monitors): the primary monitor,
+    /// 5120 x 2880 pixels at 150 %, lies at (1544, 2160), below a 3840 x
+    /// 2160 monitor at (0, 0) and one at (3840, 0), with a fourth at
+    /// (6664, 2160). The main window is centred on the primary monitor,
+    /// where it lies, not on the top-left one.
+    #[test]
+    fn the_main_window_opens_on_the_primary_monitor_where_it_lies() {
+        // The windowing layer's rectangle in system points: pixels over
+        // the monitor's 1.5.
+        let primary = [1544.0 / 1.5, 2160.0 / 1.5, 5120.0 / 1.5, 2880.0 / 1.5];
+        // egui reports the size of the monitor the splash is on.
+        let screen = main_monitor(Some(primary), Some(Vec2::new(5120.0 / 1.5, 2880.0 / 1.5)))
+            .expect("a monitor");
+        assert_eq!(screen.min, Pos2::new(1544.0 / 1.5, 1440.0));
+        let size = main_window_size([1600.0, 1000.0], Some(screen.size()));
+        let p = centred_position(size, Some(screen)).expect("a position");
+        // In pixels: the window lies on the primary monitor, centred.
+        let (x0, y0) = (p.x * 1.5, p.y * 1.5);
+        let (x1, y1) = ((p.x + size.x) * 1.5, (p.y + size.y) * 1.5);
+        assert!(x0 >= 1544.0 && y0 >= 2160.0, "{p:?}");
+        assert!(
+            x1 <= 1544.0 + 5120.0 && y1 <= 2160.0 + 2880.0,
+            "{p:?} {size:?}"
+        );
+        let centre = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+        assert!((centre.0 - (1544.0 + 2560.0)).abs() < 0.5, "{centre:?}");
+        assert!((centre.1 - (2160.0 + 1440.0)).abs() < 0.5, "{centre:?}");
+        // Not on the top-left monitor (0, 0, 3840, 2160), as before.
+        assert!(!(x0 < 3840.0 && y0 < 2160.0), "{p:?}");
+    }
+
+    /// Without the windowing layer's monitor (Wayland places windows
+    /// itself), the monitor egui reports is taken at the desktop's
+    /// corner; without either there is no monitor.
+    #[test]
+    fn without_a_primary_monitor_the_reported_one_is_used() {
+        let m = main_monitor(None, Some(Vec2::new(1920.0, 1080.0)));
+        assert_eq!(
+            m,
+            Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1920.0, 1080.0)))
+        );
+        assert_eq!(main_monitor(Some([0.0, 0.0, 0.0, 0.0]), None), None);
+        let m = main_monitor(
+            Some([-1920.0, 0.0, 1920.0, 1080.0]),
+            Some(Vec2::new(800.0, 600.0)),
+        );
+        assert_eq!(m.map(|r| r.min), Some(Pos2::new(-1920.0, 0.0)));
     }
 
     fn input() -> egui::RawInput {

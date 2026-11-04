@@ -60,6 +60,9 @@ pub struct ExportState {
     pub text_as_curves: bool,
     /// PDF only: 0 plain, 1 X-1a, 2 X-3, 3 X-4.
     pub pdf_standard: usize,
+    /// AI only: an index into [`AI_VERSIONS`], 0 the PDF-compatible
+    /// file, 1 the classic version 8 file (#1728).
+    pub ai_version: usize,
     pub bleed_mm: f64,
     pub output_condition: String,
     /// An installed script filter chosen instead of `format`, by name.
@@ -97,6 +100,7 @@ impl Default for ExportState {
             web: false,
             text_as_curves: false,
             pdf_standard: 0,
+            ai_version: 0,
             bleed_mm: 0.0,
             output_condition: "FOGRA39".into(),
             script: None,
@@ -203,6 +207,18 @@ impl ExportState {
         matches!(ext, "pdf" | "ai" | "ps" | "prn" | "html")
     }
 
+    /// The AI export writes the classic version 8 file (PostScript, one
+    /// artboard), not the PDF-compatible one (#1728).
+    pub fn classic_ai(&self) -> bool {
+        self.ai_version == 1
+    }
+
+    /// [`Self::one_file_for_all_pages`] with the choices made: a classic
+    /// AI file holds one page.
+    pub fn one_file_holds_the_pages(&self, ext: &str) -> bool {
+        Self::one_file_for_all_pages(ext) && !(ext == "ai" && self.classic_ai())
+    }
+
     /// The formats one file holds every page in (PDF, PostScript, PRN):
     /// they export the whole document unless their last export, or the
     /// person, chose the current page alone (#1161).
@@ -250,6 +266,12 @@ pub const EXPORT_FORMATS: [(&str, &str); 18] = [
     ("PostScript", "ps"),
     ("PRN", "prn"),
 ];
+
+/// The kinds of AI file the export writes, as translation keys: the
+/// PDF-compatible file (the default, as before) and the classic
+/// PostScript-based file of version 8 that programs reading only older
+/// `.ai` files need (#1728).
+pub const AI_VERSIONS: [&str; 2] = ["export.ai_pdf", "export.ai_classic"];
 
 /// The formats the Export list offers first, by index into
 /// [`EXPORT_FORMATS`]: JPG, PDF, AI and PNG.
@@ -913,6 +935,11 @@ pub enum Dialog {
     },
     GoToPage {
         page: usize,
+    },
+    /// Page > Page Spacing > Custom: the space between the pages of the
+    /// Multipage View, in the document's units.
+    PageSpacing {
+        value: f64,
     },
     InsertPage {
         count: u32,
@@ -1596,6 +1623,27 @@ pub fn show(app: &mut App, ctx: &Context) {
                 });
                 if ok_cancel(ui, &mut close) {
                     app.goto_page(page.saturating_sub(1));
+                }
+            });
+        }
+        Dialog::PageSpacing { value } => {
+            let u = app.units;
+            window(ctx, tr("dialog.page_spacing")).show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(tr("dialog.page_spacing_label"));
+                    ui.add(
+                        crate::ui::field::NumField::new(value)
+                            .range(0.0..=u.from_mm(tracedraw_core::document::MAX_PAGE_SPACING))
+                            .speed(0.1)
+                            .suffix(format!(" {}", u.short())),
+                    )
+                    .rich_tip(crate::ui::tips::pair(
+                        "dialog.page_spacing_label",
+                        "dialog.page_spacing_desc",
+                    ));
+                });
+                if ok_cancel(ui, &mut close) {
+                    app.set_page_spacing(u.to_mm(*value));
                 }
             });
         }
@@ -3361,8 +3409,7 @@ pub(crate) fn page_size_page(app: &mut App, ui: &mut Ui) {
             }
             ui.horizontal(|ui| {
                 let portrait = h >= w;
-                if ui
-                    .add(egui::Button::new("\u{25af}").selected(portrait))
+                if page_button(ui, true, portrait)
                     .rich_tip(crate::ui::tips::pair(
                         "options.portrait",
                         "options.portrait_tip",
@@ -3373,8 +3420,7 @@ pub(crate) fn page_size_page(app: &mut App, ui: &mut Ui) {
                     std::mem::swap(&mut w, &mut h);
                     changed = true;
                 }
-                if ui
-                    .add(egui::Button::new("\u{25ad}").selected(!portrait))
+                if page_button(ui, false, !portrait)
                     .rich_tip(crate::ui::tips::pair(
                         "options.landscape",
                         "options.landscape_tip",
@@ -3595,6 +3641,7 @@ fn export_preview_key(app: &App, st: &ExportState) -> u64 {
     st.page_list.hash(&mut h);
     st.pages.hash(&mut h);
     st.text_as_curves.hash(&mut h);
+    st.ai_version.hash(&mut h);
     st.quality.hash(&mut h);
     st.dpi.to_bits().hash(&mut h);
     st.scale_or_one().to_bits().hash(&mut h);
@@ -3787,7 +3834,7 @@ fn export_presets_row(app: &mut App, ui: &mut Ui, st: &mut ExportState) {
         }
         let chosen = !st.preset.is_empty();
         if ui
-            .add_enabled(chosen, egui::Button::new("\u{270e}").small())
+            .add_enabled(chosen, egui::Button::new("\u{270F}").small())
             .rich_tip(crate::ui::tips::keyed("dialog.export_preset_rename"))
             .clicked()
         {
@@ -4121,6 +4168,25 @@ fn export_dialog(app: &mut App, ctx: &Context, st: &mut ExportState, close: &mut
                         );
                     }
                 }
+                if !scripted && EXPORT_FORMATS[st.format.min(EXPORT_FORMATS.len() - 1)].1 == "ai" {
+                    // Which AI file: PDF-compatible or classic (#1728).
+                    ui.horizontal(|ui| {
+                        ui.label(tr("dialog.pdf_standard"));
+                        let v = st.ai_version.min(AI_VERSIONS.len() - 1);
+                        egui::ComboBox::from_id_salt("ai_version")
+                            .selected_text(tr(AI_VERSIONS[v]))
+                            .show_ui(ui, |ui| {
+                                for (i, k) in AI_VERSIONS.iter().enumerate() {
+                                    ui.selectable_value(&mut st.ai_version, i, tr(k));
+                                }
+                            })
+                            .response
+                            .rich_tip(crate::ui::tips::pair(
+                                "dialog.pdf_standard",
+                                "dialog.ai_version_desc",
+                            ));
+                    });
+                }
                 ui.checkbox(&mut st.selection_only, tr("dialog.selected_only"))
                     .rich_tip(crate::ui::tips::pair(
                         "dialog.selected_only",
@@ -4242,7 +4308,7 @@ fn export_range_fields(app: &App, ui: &mut Ui, st: &mut ExportState) {
     let n = st.page_indexes(count, current).len();
     if n > 1 && st.script.is_none() {
         let ext = EXPORT_FORMATS[st.format.min(EXPORT_FORMATS.len() - 1)].1;
-        let key = if ExportState::one_file_for_all_pages(ext) {
+        let key = if st.one_file_holds_the_pages(ext) {
             "dialog.export_pages_in_one_file"
         } else {
             "dialog.export_file_per_page"
@@ -6550,6 +6616,7 @@ fn palette_editor_dialog(
         // A locked palette shows as a built-in one does: nothing changes
         // it until it is unlocked in the Palette Manager (#1343).
         let locked = app.palette_locked(st.palette);
+        let mut save_as = None;
         let Some(pal) = app.palettes.get_mut(st.palette) else {
             *close = true;
             return;
@@ -6650,20 +6717,7 @@ fn palette_editor_dialog(
                     .rich_tip(crate::ui::tips::keyed("dialog.save_palette"))
                     .clicked()
                 {
-                    if let Some(p) = crate::files::Dialog::new()
-                        .add_filter(
-                            crate::palette::filter_label(&tr("file.palettes"), &["tdpal", "gpl"]),
-                            &["tdpal", "gpl"],
-                        )
-                        .set_file_name(format!("{}.tdpal", pal.name))
-                        .save_path()
-                    {
-                        if let Err(e) = crate::palette::save_palette(pal, &p) {
-                            log::warn!("{e}");
-                        } else {
-                            pal.path = Some(p);
-                        }
-                    }
+                    save_as = Some(pal.name.clone());
                 }
             });
         } else {
@@ -6676,6 +6730,26 @@ fn palette_editor_dialog(
                 .color(Tokens::text_dim())
                 .size(11.0),
             );
+        }
+        // The save dialog, a download, or the system's save picker on
+        // Android (#1402); the palette keeps the file it was saved as.
+        if let Some(name) = save_as {
+            let index = st.palette;
+            crate::files::Dialog::new()
+                .add_filter(
+                    crate::palette::filter_label(&tr("file.palettes"), &["tdpal", "gpl"]),
+                    &["tdpal", "gpl"],
+                )
+                .set_file_name(format!("{name}.tdpal"))
+                .save_file(app, move |app, p| {
+                    let Some(pal) = app.palettes.get_mut(index) else {
+                        return;
+                    };
+                    match crate::palette::save_palette(pal, &p) {
+                        Ok(()) => pal.path = Some(p),
+                        Err(e) => app.status = e.to_string(),
+                    }
+                });
         }
         if ui
             .button(tr("dialog.close"))
@@ -6784,6 +6858,7 @@ pub(crate) mod tests {
                 name: "Page".into(),
             },
             Dialog::GoToPage { page: 1 },
+            Dialog::PageSpacing { value: 30.0 },
             Dialog::InsertPage {
                 count: 1,
                 after: true,
@@ -7031,6 +7106,23 @@ pub(crate) mod tests {
         assert_eq!(m.rows.len(), 1, "past the end deletes nothing");
     }
 
+    /// Page > Page Spacing > Custom: the value is in the drawing's units
+    /// and OK sets the drawing's page spacing in mm, one undo step.
+    #[test]
+    fn the_page_spacing_dialog_sets_the_drawing_s_spacing() {
+        let mut app = App::headless();
+        app.units = crate::app::Units::Centimeters;
+        app.dialog = Dialog::PageSpacing { value: 1.5 };
+        let ctx = crate::theme::ui_context();
+        frame(&ctx, &mut app, false);
+        frame(&ctx, &mut app, true);
+        assert!(matches!(app.dialog, Dialog::None));
+        assert!((app.page_spacing() - 15.0).abs() < 1e-9);
+        assert_eq!(app.doc().metadata.page_spacing, Some(15.0));
+        app.undo();
+        assert_eq!(app.page_spacing(), 30.0);
+    }
+
     #[test]
     fn create_new_table_takes_rows_columns_and_size() {
         let mut app = App::headless();
@@ -7261,6 +7353,28 @@ fn selection_print_size(app: &App) -> Option<Size> {
         *c.borrow_mut() = Some((key, size));
         size
     })
+}
+
+/// A button showing a page upright (`tall`) or on its side, drawn as a
+/// rectangle: no bundled font has the rectangle characters (#1780).
+fn page_button(ui: &mut Ui, tall: bool, selected: bool) -> egui::Response {
+    let resp = ui.add(
+        egui::Button::new("")
+            .min_size(egui::vec2(24.0, 20.0))
+            .selected(selected),
+    );
+    let size = if tall {
+        egui::vec2(8.0, 12.0)
+    } else {
+        egui::vec2(12.0, 8.0)
+    };
+    ui.painter().rect_stroke(
+        egui::Rect::from_center_size(resp.rect.center(), size),
+        1.0,
+        egui::Stroke::new(1.2, ui.style().interact(&resp).fg_stroke.color),
+        egui::StrokeKind::Inside,
+    );
+    resp
 }
 
 #[cfg(test)]

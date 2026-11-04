@@ -77,6 +77,8 @@ pub mod outline_pen;
 pub mod overflow;
 pub mod package_dialog;
 pub mod palette;
+pub mod palette_bars;
+pub mod palette_manager;
 pub mod pdf_import_dialog;
 pub mod pdf_password;
 pub mod picture_mosaic_docker;
@@ -119,6 +121,7 @@ use crate::app::App;
 use crate::canvas;
 use crate::i18n::tr;
 use crate::theme::Tokens;
+use crate::ui::field::wheel_notch;
 use crate::ui::tips::RichTip;
 use egui::{Frame, Panel, Sense, Ui};
 pub use slider::Slider;
@@ -250,7 +253,11 @@ fn set_window_title(ctx: &egui::Context, title: String) {
 }
 
 pub fn root(app: &mut App, ui: &mut Ui) {
+    let steps = app.step_merge_start();
     root_frame(app, ui);
+    // The steps a number field made one after another are one undo step.
+    let time = ui.ctx().input(|i| i.time);
+    app.step_merge_end(steps, time);
     // The copies of the last Duplicate deselected: the next one takes the
     // offset again (#1494).
     app.forget_duplicate_unless_selected();
@@ -259,6 +266,39 @@ pub fn root(app: &mut App, ui: &mut Ui) {
     if !ui.ctx().input(|i| i.pointer.any_down()) {
         app.end_live_fill();
         app.end_live_stroke();
+    }
+}
+
+/// Tab with nothing of the window focused belongs to the drawing: it
+/// types a tab in the text being edited, goes to the next table cell,
+/// object or node. egui would also give the focus to the window's first
+/// widget (a field of the bars), which then took the keys typed after
+/// the tab (#1667). That move is called off before any widget is drawn.
+/// A dialog keeps its own Tab order (`chrome::keep_tab_in`), and a
+/// focused field passes the focus on as usual.
+fn keep_tab_on_the_drawing(app: &App, ctx: &egui::Context) {
+    if app.show_welcome
+        || !matches!(app.dialog, crate::ui::dialogs::Dialog::None)
+        || app.macros.modal()
+        || ctx.memory(|m| m.focused()).is_some()
+    {
+        return;
+    }
+    let tab = ctx.input(|i| {
+        i.raw.events.iter().any(|e| {
+            matches!(
+                e,
+                egui::Event::Key {
+                    key: egui::Key::Tab,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } if !modifiers.any() || modifiers.shift_only()
+            )
+        })
+    });
+    if tab {
+        ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
     }
 }
 
@@ -293,6 +333,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     }
     // Clones take up what the last frame changed on their masters.
     app.sync_object_clones();
+    keep_tab_on_the_drawing(app, &ctx);
     app.keyboard(&ctx);
     // A menu command run by a shortcut of the user's.
     if let Some(cmd) = app.pending_command.take() {
@@ -314,6 +355,11 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     // Closing the window with unsaved drawings asks about each first.
     #[cfg(not(target_arch = "wasm32"))]
     {
+        // So does a quit of the application on macOS (Command+Q, the
+        // application menu's and the Dock's Quit), which AppKit carries
+        // out without closing the window (#1669).
+        #[cfg(target_os = "macos")]
+        crate::system_quit::SYSTEM_QUIT.frame(app);
         if ctx.input(|i| i.viewport().close_requested())
             && !app.quit_now
             && !app.dirty_documents().is_empty()
@@ -441,7 +487,11 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     let palette_beside = palette_spot == bars::PaletteSpot::Beside;
     let palette_edge = palette_spot == bars::PaletteSpot::Edge;
     let show_palette = app.settings.palette.show_palette;
-    let show_doc_palette = show_palette && app.settings.palette.show_document;
+    // A document palette taken out into a bar of its own shows there, not
+    // in the row as well.
+    let show_doc_palette = show_palette
+        && app.settings.palette.show_document
+        && !app.extra_palettes.iter().any(|r| r.document);
     if show_palette && !palette_beside && palette_dock.horizontal() {
         palette_rows(app, ui, palette_dock == Dock::Top, palette_frame);
     }
@@ -460,20 +510,12 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
             )
             .frame(palette_frame)
             .show(ui, |ui| palette::palette_column(app, ui));
-            // A column for each further palette shown, inside it (#1164).
-            for which in palette::extra_rows(app) {
-                let id = egui::Id::new(("palette_extra", which));
-                let panel = if palette_dock == Dock::Left {
-                    Panel::left(id)
-                } else {
-                    Panel::right(id)
-                };
-                side(panel, palette::thickness(app, which))
-                    .frame(palette_frame)
-                    .show(ui, |ui| palette::extra_palette_column(app, ui, which));
-            }
         }
     }
+    // The palette bars docked at the left or the right: columns at the
+    // window's edge, inside the default palette there.
+    palette_bars::docked(app, ui, Dock::Left);
+    palette_bars::docked(app, ui, Dock::Right);
 
     // The toolbox: a column on a side, a row along the top or the bottom.
     if app.show_toolbox {
@@ -559,7 +601,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
             }
         };
         if show_doc_palette {
-            side(panel("document_palette"), palette::ROW_H)
+            side(panel("document_palette"), palette::row_h(app))
                 .frame(palette_frame)
                 .show(ui, |ui| palette::document_palette_row(app, ui));
         }
@@ -567,6 +609,10 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
             palette_rows(app, ui, palette_dock == Dock::Top, palette_frame);
         }
     }
+    // The palette bars docked along the top or the bottom: rows beside
+    // the drawing, inside the default palette there.
+    palette_bars::docked(app, ui, Dock::Bottom);
+    palette_bars::docked(app, ui, Dock::Top);
     // The AI prompt bar, over the palette rows, while a service is set up.
     if ai_bar::visible(app) {
         side(Panel::bottom("ai_prompt_bar"), ai_bar::BAR_H)
@@ -585,7 +631,9 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     bars::floating_bars(app, &ctx);
     let room = ui.available_rect_before_wrap();
     ctx.data_mut(|d| d.insert_temp(egui::Id::new(bars::DRAWING_ROOM), room));
+    palette_bars::floating(app, &ctx);
     bars::drag_overlay(app, &ctx, 24.0);
+    palette_bars::drag_overlay(app, &ctx, 24.0);
     bar_items::drop_overlay(app, &ctx);
     dockers::floating_dockers(app, &ctx);
     dockers::drag_overlay(app, &ctx, 24.0);
@@ -693,8 +741,8 @@ fn docker_column(
     rect
 }
 
-/// The default palette and each further palette shown as rows, at the top
-/// or the bottom of the room left (#1164).
+/// The default palette as a row, at the top or the bottom of the room
+/// left (the palette bars come in `palette_bars::docked`).
 fn palette_rows(app: &mut App, ui: &mut Ui, top: bool, frame: Frame) {
     let panel = |id: egui::Id| {
         if top {
@@ -709,18 +757,10 @@ fn palette_rows(app: &mut App, ui: &mut Ui, top: bool, frame: Frame) {
         .show_separator_line(false)
         .frame(frame)
         .show(ui, |ui| palette::palette_row(app, ui));
-    for which in palette::extra_rows(app) {
-        panel(egui::Id::new(("palette_extra", which)))
-            .exact_size(palette::thickness(app, which))
-            .resizable(false)
-            .show_separator_line(false)
-            .frame(frame)
-            .show(ui, |ui| palette::extra_palette_row(app, ui, which));
-    }
 }
 
-/// The default palette and each further palette shown as columns, at the
-/// left or the right of the room left (#1164).
+/// The default palette as a column, at the left or the right of the room
+/// left.
 fn palette_columns(app: &mut App, ui: &mut Ui, left: bool, frame: Frame) {
     let panel = |id: egui::Id| {
         if left {
@@ -735,29 +775,6 @@ fn palette_columns(app: &mut App, ui: &mut Ui, left: bool, frame: Frame) {
         .show_separator_line(false)
         .frame(frame)
         .show(ui, |ui| palette::palette_column(app, ui));
-    for which in palette::extra_rows(app) {
-        panel(egui::Id::new(("palette_extra", which)))
-            .exact_size(palette::thickness(app, which))
-            .resizable(false)
-            .show_separator_line(false)
-            .frame(frame)
-            .show(ui, |ui| palette::extra_palette_column(app, ui, which));
-    }
-}
-
-/// Raw wheel units one notch of a mouse wheel sends. The desktop
-/// backends report a notch as one line (or 50 points from a
-/// trackpad); browsers report it as three lines or as 100 pixels, so
-/// read as desktop notches a browser notch zoomed three or two notches
-/// at once (#1016).
-fn wheel_notch(unit: egui::MouseWheelUnit, web: bool) -> f32 {
-    match (unit, web) {
-        (egui::MouseWheelUnit::Line, false) => 1.0,
-        (egui::MouseWheelUnit::Line, true) => 3.0,
-        (egui::MouseWheelUnit::Point, false) => 50.0,
-        (egui::MouseWheelUnit::Point, true) => 100.0,
-        (egui::MouseWheelUnit::Page, _) => 0.1,
-    }
 }
 
 /// Points of egui's smoothed scroll delta that one wheel notch in
@@ -814,7 +831,7 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
                 .map(|e| match e {
                     egui::Event::MouseWheel { unit: u, delta, .. } => {
                         unit = Some(*u);
-                        delta.y / wheel_notch(*u, cfg!(target_arch = "wasm32"))
+                        delta.y / wheel_notch(*u, crate::ui::field::web_wheel())
                     }
                     _ => 0.0,
                 })
@@ -880,7 +897,7 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
                         unit,
                         line,
                         ui.ctx().content_rect().height(),
-                        cfg!(target_arch = "wasm32"),
+                        crate::ui::field::web_wheel(),
                     );
                     app.view.zoom_at(anchor, 1.15f32.powf(scroll.y / per_notch));
                 }
@@ -1531,6 +1548,7 @@ mod tests {
     /// measured captions widen the toolbox column.
     #[test]
     fn the_toolbox_draws_at_every_size_and_with_captions() {
+        let _sizes = crate::theme::button_sizes_lock();
         use crate::settings::{ButtonSize, Captions};
         use crate::ui::bars::{Bar, Dock};
         let ctx = crate::theme::ui_context();

@@ -216,6 +216,13 @@ mod pen_pressure;
 // TraceDraw: files the system asks to open on macOS (vendor/README.md).
 #[cfg(macos_platform)]
 pub(crate) mod opened_files;
+// TraceDraw: the program's say on a quit of the application on macOS
+// (vendor/README.md).
+#[cfg(macos_platform)]
+pub(crate) mod quit_request;
+// TraceDraw: files dragged over a window on Wayland (vendor/README.md).
+#[cfg(wayland_platform)]
+pub(crate) mod file_drop;
 mod platform_impl;
 mod utils;
 pub mod window;

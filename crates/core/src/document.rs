@@ -506,6 +506,144 @@ impl Corners {
         self.max() <= 1e-9
     }
 
+    /// Which corner lies where once the rectangle is drawn through `t`:
+    /// the local corner seen at the top left, top right, bottom left and
+    /// bottom right of the page (the radii's order). The local x axis
+    /// counts as horizontal when it leans that way more than it rises,
+    /// else as vertical, and the y axis as the other one; the sign of
+    /// each says which way it runs. So a rectangle turned by 180 degrees
+    /// or flipped shows its corners swapped, one turned by less than 45
+    /// degrees shows them where they were, and a skewed or stretched one
+    /// still has one corner at each position (#1670).
+    pub fn seen_through(t: Affine) -> [usize; 4] {
+        let [a, b, c, d, _, _] = t.as_coeffs();
+        let sign = |v: f64| if v < 0.0 { -1 } else { 1 };
+        let mut out = [0; 4];
+        for local in 0..4 {
+            // The corner's side along the local x (right: +) and y (top: +).
+            let (lx, ly) = match local {
+                Self::TOP_LEFT => (-1, 1),
+                Self::TOP_RIGHT => (1, 1),
+                Self::BOTTOM_LEFT => (-1, -1),
+                _ => (1, -1),
+            };
+            let (px, py) = if a.abs() >= b.abs() {
+                (lx * sign(a), ly * sign(d))
+            } else {
+                (ly * sign(c), lx * sign(b))
+            };
+            let seen = match (px, py) {
+                (-1, 1) => Self::TOP_LEFT,
+                (1, 1) => Self::TOP_RIGHT,
+                (-1, -1) => Self::BOTTOM_LEFT,
+                _ => Self::BOTTOM_RIGHT,
+            };
+            out[seen] = local;
+        }
+        out
+    }
+
+    /// These corners with the radii in the order they are seen through
+    /// `t` (see `seen_through`): the size at each position on the page.
+    pub fn as_seen(&self, t: Affine) -> Corners {
+        let order = Self::seen_through(t);
+        Corners {
+            radii: order.map(|local| self.radii[local]),
+            ..*self
+        }
+    }
+
+    /// The corners `seen` in page positions (as `as_seen` gives them) back
+    /// in the rectangle's own order.
+    pub fn from_seen(seen: Corners, t: Affine) -> Corners {
+        let order = Self::seen_through(t);
+        let mut radii = seen.radii;
+        for (position, local) in order.into_iter().enumerate() {
+            radii[local] = seen.radii[position];
+        }
+        Corners { radii, ..seen }
+    }
+
+    /// Corner `i`'s size, a negative or non-finite one counting as 0.
+    fn radius(&self, i: usize) -> f64 {
+        match self.radii.get(i) {
+            Some(r) if r.is_finite() => r.max(0.0),
+            _ => 0.0,
+        }
+    }
+
+    /// The radii with negative and non-finite sizes made 0 (square).
+    pub fn sanitized(&self) -> Corners {
+        Corners {
+            radii: [0, 1, 2, 3].map(|i| self.radius(i)),
+            ..*self
+        }
+    }
+
+    /// Page length of one unit of the rectangle along x and y as the
+    /// radii count it: `scale` for fixed corners, 1 for scaling ones.
+    fn units(&self, scale: (f64, f64)) -> (f64, f64) {
+        if self.fixed {
+            (scale.0.abs().max(1e-9), scale.1.abs().max(1e-9))
+        } else {
+            (1.0, 1.0)
+        }
+    }
+
+    /// The factor every corner is drawn at in `rect` (see `layout` for
+    /// `scale`): 1 while the two corners on each side together are at
+    /// most as long as the side, else the side's length over their sum
+    /// for the tightest side. So one corner can take a whole side when
+    /// its neighbours leave it room, and only corners too big together
+    /// are shrunk (#1757).
+    pub fn fit_factor(&self, rect: Rect, scale: (f64, f64)) -> f64 {
+        let rect = rect.abs();
+        let (sx, sy) = self.units(scale);
+        // Sizes in the units the radii are in.
+        let (w, h) = (rect.width() * sx, rect.height() * sy);
+        let fit = |side: f64, a: usize, b: usize| {
+            let side = if side.is_finite() { side.max(0.0) } else { 0.0 };
+            let sum = self.radius(a) + self.radius(b);
+            if sum > side && sum > 0.0 {
+                side / sum
+            } else {
+                1.0
+            }
+        };
+        fit(w, Self::TOP_LEFT, Self::TOP_RIGHT)
+            .min(fit(w, Self::BOTTOM_LEFT, Self::BOTTOM_RIGHT))
+            .min(fit(h, Self::TOP_LEFT, Self::BOTTOM_LEFT))
+            .min(fit(h, Self::TOP_RIGHT, Self::BOTTOM_RIGHT))
+    }
+
+    /// The largest size corner `i` can have in `rect` (see `layout` for
+    /// `scale`) with the other corners as they are and nothing shrunk:
+    /// what its neighbour leaves of each of the two sides it is on, in
+    /// the units the radii are in. The horizontal neighbour of a corner
+    /// is `i ^ 1`, the vertical one `i ^ 2`.
+    pub fn room(&self, i: usize, rect: Rect, scale: (f64, f64)) -> f64 {
+        let rect = rect.abs();
+        let (sx, sy) = self.units(scale);
+        let (w, h) = (rect.width() * sx, rect.height() * sy);
+        let room = (w - self.radius(i ^ 1)).min(h - self.radius(i ^ 2));
+        if room.is_finite() {
+            room.max(0.0)
+        } else {
+            0.0
+        }
+    }
+
+    /// These corners at the size they are drawn in `rect` (see
+    /// `fit_factor`), in the units the radii are in.
+    pub fn fitted(&self, rect: Rect, scale: (f64, f64)) -> Corners {
+        let k = self.fit_factor(rect, scale);
+        let c = self.sanitized();
+        Corners {
+            radii: c.radii.map(|r| r * k),
+            ..c
+        }
+    }
+
     /// Each corner in drawing order (counter-clockwise from the bottom
     /// right): its index, the corner point, the edge directions into and
     /// out of it, and how far the cut runs along each edge, all in the
@@ -513,42 +651,16 @@ impl Corners {
     /// the rectangle's x and y axes; fixed corners are divided by it so
     /// that they keep their size on the page. The two corners on a side
     /// together are at most as long as the side: when they would be
-    /// longer, every corner shrinks by the same factor, so equal corners
-    /// are at most half the shorter side and a single corner can take a
-    /// whole side.
+    /// longer, every corner shrinks by the same factor (`fit_factor`), so
+    /// equal corners are at most half the shorter side and a single
+    /// corner can take a whole side.
     fn layout(&self, rect: Rect, scale: (f64, f64)) -> [CornerAt; 4] {
         let rect = rect.abs();
-        let (sx, sy) = if self.fixed {
-            (scale.0.abs().max(1e-9), scale.1.abs().max(1e-9))
-        } else {
-            (1.0, 1.0)
-        };
-        // Sizes in the units the radii are in, then each corner as an
-        // ellipse in local space.
-        let (w, h) = (rect.width() * sx, rect.height() * sy);
-        let radius = |i: usize| {
-            let r = self.radii[i];
-            if r.is_finite() {
-                r.max(0.0)
-            } else {
-                0.0
-            }
-        };
-        let fit = |side: f64, a: usize, b: usize| {
-            let sum = radius(a) + radius(b);
-            if sum > side.max(0.0) && sum > 0.0 {
-                side.max(0.0) / sum
-            } else {
-                1.0
-            }
-        };
-        let shrink = fit(w, Self::TOP_LEFT, Self::TOP_RIGHT)
-            .min(fit(w, Self::BOTTOM_LEFT, Self::BOTTOM_RIGHT))
-            .min(fit(h, Self::TOP_LEFT, Self::BOTTOM_LEFT))
-            .min(fit(h, Self::TOP_RIGHT, Self::BOTTOM_RIGHT));
+        let (sx, sy) = self.units(scale);
+        let shrink = self.fit_factor(rect, scale);
         let (x0, y0, x1, y1) = (rect.x0, rect.y0, rect.x1, rect.y1);
         let at = |index: usize, p: Point, d_in: Vec2, d_out: Vec2| {
-            let r = radius(index) * shrink;
+            let r = self.radius(index) * shrink;
             // The part of the corner's size along a direction.
             let along = |d: Vec2| if d.x != 0.0 { r / sx } else { r / sy };
             CornerAt {
@@ -681,7 +793,10 @@ pub enum ShapeKind {
     /// star: each vertex joined to the one `complex + 1` further on, so the
     /// sides cross (`sharpness` and `twist` are then unused). `twist`
     /// turns the points between the vertices about the centre (radians,
-    /// counter-clockwise): a twisted star.
+    /// counter-clockwise): a twisted star. `sharpness` 0 is a polygon,
+    /// 0 to 1 a star whose inner points come in toward the centre, 0 to
+    /// -1 an inverted star whose inner points lie past it
+    /// (`geometry::star_inner_ratio`).
     Polygon {
         rect: Rect,
         points: u32,
@@ -1870,6 +1985,11 @@ pub struct Shape {
     /// object never set it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub cmyk_bitmap: bool,
+    /// A bitmap's ink channels as it prints (a `.cdr` CMYK image's C,
+    /// M, Y and K bytes), which colour separations print from while they
+    /// fit the pixels (#1659, [`crate::picture_inks`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture_inks: Option<Box<crate::picture_inks::PictureInks>>,
     /// Further fills, painted over `fill` in order (see [`Shape::layers`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_fills: Vec<Fill>,
@@ -2179,6 +2299,7 @@ impl Shape {
             opacity_mask: None,
             parked_effects: Vec::new(),
             cmyk_bitmap: false,
+            picture_inks: None,
             extra_fills: Vec::new(),
             extra_strokes: Vec::new(),
             raster_fx: None,
@@ -2479,29 +2600,37 @@ impl Shape {
         );
     }
 
+    /// A rectangle's corners as they are drawn, measured on the page:
+    /// `page_corners` with every corner shrunk by the factor that fits
+    /// the two corners on each side into it (`Corners::fit_factor`), the
+    /// sizes the property bar shows. `None` for other kinds.
+    pub fn drawn_page_corners(&self) -> Option<Corners> {
+        let (rect, c) = self.kind.rect_corners()?;
+        let k = c.fit_factor(rect, axis_scale(self.transform));
+        let page = self.page_corners()?.sanitized();
+        Some(Corners {
+            radii: page.radii.map(|r| r * k),
+            ..page
+        })
+    }
+
     /// This rectangle with corners measured on the page (as
-    /// `page_corners` gives them), each at most half the shorter side.
-    /// `None` for other kinds.
+    /// `page_corners` gives them). A corner is not cut to half the
+    /// shorter side: the sizes are kept as given, and the drawing shrinks
+    /// every corner by the same factor only when the two on a side
+    /// together are longer than it (`Corners::fit_factor`, #1757).
+    /// Negative and non-finite sizes become square corners. `None` for
+    /// other kinds.
     pub fn with_page_corners(&self, page: Corners) -> Option<ShapeKind> {
         let (rect, _) = self.kind.rect_corners()?;
         let rect = rect.abs();
-        let (sx, sy) = axis_scale(self.transform);
-        let limit = (rect.width() * sx).min(rect.height() * sy) / 2.0;
-        let mut c = page;
-        let fit = |r: f64, limit: f64| {
-            if r.is_finite() {
-                r.clamp(0.0, limit.max(0.0))
-            } else {
-                0.0
-            }
-        };
-        c.radii = c.radii.map(|r| fit(r, limit));
+        let mut c = page.sanitized();
         if !c.fixed {
+            let (sx, sy) = axis_scale(self.transform);
             let k = sx.min(sy).max(1e-9);
-            let local_limit = rect.width().min(rect.height()) / 2.0;
-            c.radii = c.radii.map(|r| fit(r / k, local_limit));
+            c.radii = c.radii.map(|r| r / k);
         }
-        Some(ShapeKind::rect_with_corners(rect, c))
+        Some(ShapeKind::rect_with_corners(rect, c.sanitized()))
     }
 
     /// Lay a parent's uniform transparency over the shape's own, as when a
@@ -2615,8 +2744,9 @@ impl Shape {
     }
 
     /// A rectangle that one round radius describes (what formats with a
-    /// single radius store): the rectangle, the radius in its space and the
-    /// transform that places it, usually the shape's own. A stretched
+    /// single radius store): the rectangle, the radius drawn in its space
+    /// (at most half the shorter side) and the transform that places it,
+    /// usually the shape's own. A stretched
     /// rectangle whose corners keep their size has the stretch moved into
     /// the rectangle's size, so that its corners stay circles of their page
     /// radius; not when the stretch also widens a scaling outline or the
@@ -2632,8 +2762,19 @@ impl Shape {
             return None;
         };
         let t = self.transform;
+        // The radius drawn: equal corners stop at half the shorter side,
+        // and files get that size rather than one they might draw
+        // differently.
+        let half = rect.width().abs().min(rect.height().abs()) / 2.0;
+        let local = |r: f64| {
+            if r.is_finite() {
+                r.clamp(0.0, half)
+            } else {
+                0.0
+            }
+        };
         let Some(c) = corners else {
-            return Some((*rect, *radius, t));
+            return Some((*rect, local(*radius), t));
         };
         if c.is_square() {
             return Some((*rect, 0.0, t));
@@ -2642,7 +2783,7 @@ impl Shape {
             return None;
         }
         if !c.fixed {
-            return Some((*rect, c.radii[0], t));
+            return Some((*rect, local(c.radii[0]), t));
         }
         let (sx, sy) = axis_scale(t);
         if sx < 1e-9 || sy < 1e-9 {
@@ -3416,6 +3557,70 @@ pub struct ObjectDefaults {
 pub struct DefaultProperties {
     pub fill: Fill,
     pub stroke: Option<Stroke>,
+    /// Which of the fill and outline colours are the untouched default
+    /// black, the one that follows the drawing's colour mode (see
+    /// [`ObjectDefaults::in_mode`]); a colour the user picked is never
+    /// marked. `None` in files and settings from before the mark: see
+    /// [`DefaultProperties::follows`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow: Option<FollowBlack>,
+}
+
+/// The parts of one kind's defaults that are the default black and
+/// follow the drawing's colour mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FollowBlack {
+    pub fill: bool,
+    pub outline: bool,
+}
+
+/// The blacks of the two colour modes.
+fn mode_blacks() -> [crate::Color; 2] {
+    [
+        PrimaryColorMode::Cmyk.black(),
+        PrimaryColorMode::Rgb.black(),
+    ]
+}
+
+impl DefaultProperties {
+    /// Which parts follow the drawing's black. Defaults saved before the
+    /// mark existed carry none; for them a black (CMYK 100 % K or RGB
+    /// black) where the built-in defaults put one counts as the
+    /// untouched default and follows: the outline of graphics and the
+    /// fill of text. Any other colour, and a black anywhere else, counts
+    /// as chosen.
+    pub fn follows(&self, kind: DefaultKind) -> FollowBlack {
+        if let Some(f) = self.follow {
+            return f;
+        }
+        let black = |c: &crate::Color| mode_blacks().contains(c);
+        match kind {
+            DefaultKind::Graphic => FollowBlack {
+                fill: false,
+                outline: self.stroke.as_ref().is_some_and(|s| black(&s.color)),
+            },
+            DefaultKind::ArtisticText | DefaultKind::ParagraphText => FollowBlack {
+                fill: matches!(&self.fill, Fill::Solid(c) if black(c)),
+                outline: false,
+            },
+        }
+    }
+
+    /// The fill is the user's own from now on (picked, even when it is
+    /// the same black).
+    pub fn choose_fill(&mut self, kind: DefaultKind) {
+        let mut f = self.follows(kind);
+        f.fill = false;
+        self.follow = Some(f);
+    }
+
+    /// The outline colour is the user's own from now on.
+    pub fn choose_outline(&mut self, kind: DefaultKind) {
+        let mut f = self.follows(kind);
+        f.outline = false;
+        self.follow = Some(f);
+    }
 }
 
 /// The kinds of new objects with their own defaults.
@@ -3452,27 +3657,91 @@ impl Default for ObjectDefaults {
 }
 
 impl ObjectDefaults {
-    /// Graphics: no fill and a 0.2 mm CMYK black outline; text: a black
-    /// fill in the drawing's primary colour mode (CMYK or RGB black) and
-    /// no outline.
+    /// Graphics: no fill and a 0.2 mm black outline; text: a black fill
+    /// and no outline. The black is the one of the drawing's primary
+    /// colour mode (100 % K in CMYK, RGB black in RGB).
     pub fn for_mode(mode: PrimaryColorMode) -> Self {
         let text = DefaultProperties {
             fill: Fill::Solid(mode.black()),
             stroke: None,
+            follow: Some(FollowBlack {
+                fill: true,
+                outline: false,
+            }),
         };
         ObjectDefaults {
             graphic: DefaultProperties {
                 fill: Fill::None,
                 stroke: Some(Stroke {
-                    color: crate::Color::cmyk_pct(0.0, 0.0, 0.0, 100.0),
+                    color: mode.black(),
                     width: 0.2,
                     ..Stroke::default()
+                }),
+                follow: Some(FollowBlack {
+                    fill: false,
+                    outline: true,
                 }),
             },
             artistic_text: text.clone(),
             paragraph_text: text,
             paragraph: ParagraphStyle::default(),
         }
+    }
+
+    /// These defaults as a drawing in `mode` takes them: a fill or
+    /// outline that is still the untouched default black (see
+    /// [`DefaultProperties::follows`]) becomes the mode's black, so new
+    /// objects are black in the drawing's own colour mode; a colour the
+    /// user picked, black or not, and everything else, stays exactly as
+    /// saved. The marks come out filled in.
+    pub fn in_mode(&self, mode: PrimaryColorMode) -> Self {
+        let mut out = self.clone();
+        for kind in DefaultKind::ALL {
+            let props = out.get_mut(kind);
+            let follow = props.follows(kind);
+            props.follow = Some(follow);
+            let to_mode = |c: &mut crate::Color| {
+                if mode_blacks().contains(c) {
+                    *c = mode.black();
+                }
+            };
+            if follow.fill {
+                if let Fill::Solid(c) = &mut props.fill {
+                    to_mode(c);
+                }
+            }
+            if follow.outline {
+                if let Some(stroke) = &mut props.stroke {
+                    to_mode(&mut stroke.color);
+                }
+            }
+        }
+        out
+    }
+
+    /// `self`, about to replace `before`, with the marks kept honest: a
+    /// part still marked as following the default black only because the
+    /// mark was copied along with the rest loses it when its colour
+    /// changed (the user picked another colour); a mark set afresh (a
+    /// reset to the defaults of the mode) stays. A width or anything
+    /// else changing leaves the mark.
+    pub fn settled(&self, before: &ObjectDefaults) -> Self {
+        let mut out = self.clone();
+        for kind in DefaultKind::ALL {
+            let old = before.get(kind);
+            let props = out.get_mut(kind);
+            let was = old.follows(kind);
+            let mut now = props.follows(kind);
+            if was.fill && now.fill && props.fill != old.fill {
+                now.fill = false;
+            }
+            let color = |s: &Option<Stroke>| s.as_ref().map(|s| s.color);
+            if was.outline && now.outline && color(&props.stroke) != color(&old.stroke) {
+                now.outline = false;
+            }
+            props.follow = Some(now);
+        }
+        out
     }
 }
 
@@ -3574,9 +3843,32 @@ pub struct Metadata {
     /// Document Options > General: Auto inflate bitmaps for effects is on
     /// unless this is set.
     pub no_auto_inflate: bool,
+    /// Space between the pages of the Multipage View, mm (Page > Page
+    /// Spacing, Document Setup > Layout); `None`: the default
+    /// [`DEFAULT_PAGE_SPACING`]. Left out of the file while unset, so
+    /// older drawings read and write as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_spacing: Option<f64>,
 }
 
+/// The space between pages in the Multipage View when a drawing sets
+/// none, mm.
+pub const DEFAULT_PAGE_SPACING: f64 = 30.0;
+
+/// The largest space between pages the Multipage View takes, mm.
+pub const MAX_PAGE_SPACING: f64 = 1000.0;
+
 impl Metadata {
+    /// The space between the pages of the Multipage View, mm: the
+    /// drawing's own, kept between 0 and [`MAX_PAGE_SPACING`], else the
+    /// default (also for a value that is not a number).
+    pub fn page_spacing(&self) -> f64 {
+        match self.page_spacing {
+            Some(v) if v.is_finite() => v.clamp(0.0, MAX_PAGE_SPACING),
+            _ => DEFAULT_PAGE_SPACING,
+        }
+    }
+
     /// Bitmap effects that spread past the edges grow the bitmap first.
     pub fn auto_inflate_bitmaps(&self) -> bool {
         !self.no_auto_inflate
@@ -5945,6 +6237,31 @@ mod tests {
     }
 
     #[test]
+    fn the_page_spacing_defaults_to_30_mm_and_round_trips() {
+        // A drawing saved before the setting existed.
+        let m: Metadata = serde_json::from_str(r#"{"author":"a"}"#).unwrap();
+        assert_eq!(m.page_spacing, None);
+        assert_eq!(m.page_spacing(), DEFAULT_PAGE_SPACING);
+        assert_eq!(DEFAULT_PAGE_SPACING, 30.0);
+        assert_eq!(Document::default().metadata.page_spacing(), 30.0);
+        // Unset, it stays out of the file.
+        let json = serde_json::to_string(&m).unwrap();
+        assert!(!json.contains("page_spacing"), "{json}");
+        // Set, it is saved and read back.
+        let mut m = m;
+        m.page_spacing = Some(12.5);
+        let back: Metadata = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(back.page_spacing(), 12.5);
+        // Out of range values are kept in range.
+        m.page_spacing = Some(-4.0);
+        assert_eq!(m.page_spacing(), 0.0);
+        m.page_spacing = Some(1e9);
+        assert_eq!(m.page_spacing(), MAX_PAGE_SPACING);
+        m.page_spacing = Some(f64::NAN);
+        assert_eq!(m.page_spacing(), DEFAULT_PAGE_SPACING);
+    }
+
+    #[test]
     fn json_round_trip() {
         let mut doc = Document::default();
         let id = doc.ids_mut().shape();
@@ -6240,6 +6557,66 @@ mod tests {
         assert!((area(&s) - (600.0 - 18.0)).abs() < 1e-9);
     }
 
+    /// The corner fields follow the corners as they lie on the page: a
+    /// rectangle turned by 180 degrees or flipped has its local top left
+    /// at another position (#1670).
+    #[test]
+    fn corners_are_read_where_they_are_seen() {
+        use std::f64::consts::PI;
+        let (tl, tr, bl, br) = (
+            Corners::TOP_LEFT,
+            Corners::TOP_RIGHT,
+            Corners::BOTTOM_LEFT,
+            Corners::BOTTOM_RIGHT,
+        );
+        assert_eq!(Corners::seen_through(Affine::IDENTITY), [tl, tr, bl, br]);
+        // Turned a little: where they were.
+        assert_eq!(Corners::seen_through(Affine::rotate(0.3)), [tl, tr, bl, br]);
+        assert_eq!(
+            Corners::seen_through(Affine::rotate(-0.3)),
+            [tl, tr, bl, br]
+        );
+        // Turned by 180 degrees (either way): every corner across.
+        assert_eq!(Corners::seen_through(Affine::rotate(PI)), [br, bl, tr, tl]);
+        assert_eq!(Corners::seen_through(Affine::rotate(-PI)), [br, bl, tr, tl]);
+        // Flipped across: left and right swap; upside down: top and bottom.
+        assert_eq!(
+            Corners::seen_through(Affine::scale_non_uniform(-1.0, 1.0)),
+            [tr, tl, br, bl]
+        );
+        assert_eq!(
+            Corners::seen_through(Affine::scale_non_uniform(1.0, -1.0)),
+            [bl, br, tl, tr]
+        );
+        // A quarter turn counter-clockwise: the local top left (x0, y1)
+        // goes to the bottom left.
+        assert_eq!(
+            Corners::seen_through(Affine::rotate(PI / 2.0)),
+            [tr, br, tl, bl]
+        );
+        // A stretch does not move them; a skew keeps one at each place.
+        assert_eq!(
+            Corners::seen_through(Affine::scale_non_uniform(4.0, 0.2)),
+            [tl, tr, bl, br]
+        );
+        let mut seen = Corners::seen_through(Affine::skew(1.5, 0.0));
+        seen.sort_unstable();
+        assert_eq!(seen, [0, 1, 2, 3]);
+        // Reading and writing the sizes by position.
+        let mut c = Corners::uniform(0.0, CornerKind::Round);
+        c.radii[tl] = 6.0;
+        let turned = Affine::rotate(PI);
+        assert_eq!(c.as_seen(turned).radii, [0.0, 0.0, 0.0, 6.0]);
+        assert_eq!(Corners::from_seen(c.as_seen(turned), turned), c);
+        let mut typed = Corners::uniform(0.0, CornerKind::Round);
+        typed.radii[tl] = 3.0;
+        assert_eq!(
+            Corners::from_seen(typed, turned).radii,
+            [0.0, 0.0, 0.0, 3.0]
+        );
+        assert_eq!(Corners::from_seen(typed, Affine::IDENTITY), typed);
+    }
+
     #[test]
     fn corner_ends_sit_on_the_edges() {
         let mut c = Corners::uniform(5.0, CornerKind::Round);
@@ -6317,6 +6694,79 @@ mod tests {
         assert!((ends[Corners::TOP_RIGHT].1.y - (37.0 - 30.0 * k)).abs() < 1e-9);
     }
 
+    /// A corner set on the page is not cut to half the shorter side: it
+    /// may take what its neighbours on both its sides leave (#1757).
+    #[test]
+    fn one_corner_may_take_what_its_neighbours_leave() {
+        // 100 x 80 mm, top left 10, top right 80: the top side holds 90
+        // of 100, the right side 80 of 80, so nothing shrinks.
+        for fixed in [true, false] {
+            let mut s = rect_shape(100.0, 80.0, Corners::default());
+            s.transform = Affine::scale(2.0);
+            let c = Corners {
+                radii: [20.0, 160.0, 0.0, 0.0],
+                fixed,
+                ..Corners::default()
+            };
+            s.kind = s.with_page_corners(c).unwrap();
+            assert_eq!(s.page_corners().unwrap().radii, [20.0, 160.0, 0.0, 0.0]);
+            assert_eq!(
+                s.drawn_page_corners().unwrap().radii,
+                [20.0, 160.0, 0.0, 0.0]
+            );
+            let ends = s
+                .kind
+                .rect_corners()
+                .unwrap()
+                .1
+                .ends(Rect::new(0.0, 0.0, 100.0, 80.0), axis_scale(s.transform));
+            // A quarter circle down the whole right side.
+            assert!((ends[Corners::TOP_RIGHT].1 - Point::new(100.0, 0.0)).hypot() < 1e-9);
+            assert!((ends[Corners::TOP_RIGHT].2 - Point::new(20.0, 80.0)).hypot() < 1e-9);
+        }
+    }
+
+    /// On a thin rectangle the corners of one long side can each be
+    /// larger than half the short side when their neighbours are smaller;
+    /// corners shrink, all by the same factor, only once the two on a
+    /// side together are longer than it (#1757).
+    #[test]
+    fn corners_shrink_only_when_a_side_is_too_short_for_its_two() {
+        let mut s = rect_shape(100.0, 20.0, Corners::default());
+        let mut c = Corners::uniform(0.0, CornerKind::Round);
+        c.fixed = true;
+        // A tab: 16 and 4 on the right side (20 of 20), 16 on the top left
+        // with 4 below it.
+        c.radii = [16.0, 16.0, 4.0, 4.0];
+        s.kind = s.with_page_corners(c).unwrap();
+        assert_eq!(s.page_corners().unwrap().radii, [16.0, 16.0, 4.0, 4.0]);
+        assert_eq!(
+            s.drawn_page_corners().unwrap().radii,
+            [16.0, 16.0, 4.0, 4.0]
+        );
+        // The area cut matches four quarter circles of those sizes (drawn
+        // as cubics, a hair outside the circle).
+        let cut = (4.0 - std::f64::consts::PI) / 4.0 * (2.0 * 256.0 + 2.0 * 16.0);
+        assert!((area(&s) - (2000.0 - cut)).abs() < 0.2, "{}", area(&s));
+        // 18 over 4 on the right side: 22 on 20, so every corner is drawn
+        // at 20 / 22 of its size; what was typed is kept.
+        c.radii = [16.0, 18.0, 4.0, 4.0];
+        s.kind = s.with_page_corners(c).unwrap();
+        assert_eq!(s.page_corners().unwrap().radii, [16.0, 18.0, 4.0, 4.0]);
+        let k = 20.0 / 22.0;
+        let drawn = s.drawn_page_corners().unwrap().radii;
+        for (d, r) in drawn.iter().zip([16.0, 18.0, 4.0, 4.0]) {
+            assert!((d - r * k).abs() < 1e-9, "{drawn:?}");
+        }
+        // Equal corners still stop at half the shorter side.
+        s.kind = s
+            .with_page_corners(Corners::uniform(30.0, CornerKind::Round))
+            .unwrap();
+        assert_eq!(s.drawn_page_corners().unwrap().radii, [10.0; 4]);
+        // Formats with one radius get the size that is drawn.
+        assert_eq!(s.plain_rect().unwrap().1, 10.0);
+    }
+
     #[test]
     fn fixed_corners_keep_their_size_when_scaled() {
         let r = 4.0;
@@ -6380,11 +6830,19 @@ mod tests {
             s.plain_rect(),
             Some((Rect::new(0.0, 0.0, 20.0, 10.0), 3.0, s.transform))
         );
-        // Fixed corners are stored as page sizes, limited by the page box.
+        // Fixed corners are stored as page sizes, as typed, and drawn
+        // fitted to the page box.
         let mut c = Corners::uniform(50.0, CornerKind::Scallop);
         c.fixed = true;
         let kind = s.with_page_corners(c).unwrap();
-        assert_eq!(kind.rect_corners().unwrap().1.radii, [10.0; 4]);
+        assert_eq!(kind.rect_corners().unwrap().1.radii, [50.0; 4]);
+        let mut fitted = s.clone();
+        fitted.kind = kind;
+        assert_eq!(fitted.drawn_page_corners().unwrap().radii, [10.0; 4]);
+        // Negative and non-finite sizes are square corners.
+        c.radii = [-1.0, f64::NAN, f64::INFINITY, 2.0];
+        let kind = s.with_page_corners(c).unwrap();
+        assert_eq!(kind.rect_corners().unwrap().1.radii, [0.0, 0.0, 0.0, 2.0]);
         // A fixed round radius on a uniformly scaled rectangle is still one radius.
         c.kind = CornerKind::Round;
         c.radii = [4.0; 4];
@@ -6463,6 +6921,19 @@ mod tests {
         let json = serde_json::to_string(&twisted).unwrap();
         assert!(json.contains("twist"));
         assert_eq!(serde_json::from_str::<ShapeKind>(&json).unwrap(), twisted);
+        // An inverted star (#1331) keeps its negative sharpness; an older
+        // file's star reads with the sharpness it had.
+        assert!(matches!(old, ShapeKind::Polygon { sharpness, .. } if sharpness == 0.5));
+        let inverted = ShapeKind::Polygon {
+            rect: Rect::new(0.0, 0.0, 2.0, 2.0),
+            points: 5,
+            sharpness: -0.3,
+            complex: None,
+            twist: 0.0,
+        };
+        let json = serde_json::to_string(&inverted).unwrap();
+        assert!(json.contains("\"sharpness\":-0.3"), "{json}");
+        assert_eq!(serde_json::from_str::<ShapeKind>(&json).unwrap(), inverted);
     }
 
     #[test]

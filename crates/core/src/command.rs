@@ -112,7 +112,10 @@ pub enum Command {
         shapes: Vec<ShapeId>,
         style: Option<u32>,
     },
-    /// Replace the fill and outline new objects get.
+    /// Replace the fill and outline new objects get. A fill or outline
+    /// colour that changed from the default black is the user's own and
+    /// stops following the drawing's colour mode
+    /// ([`crate::document::ObjectDefaults::settled`]).
     SetObjectDefaults {
         defaults: crate::document::ObjectDefaults,
     },
@@ -257,6 +260,14 @@ pub enum Command {
         shape: ShapeId,
         effects: Vec<crate::live::Effect>,
     },
+    /// The effect stack and the opacity of each of many objects, as a
+    /// transparency set on a selection gives them: found in one walk of
+    /// the drawing, where a [`Command::SetEffects`] and a
+    /// [`Command::SetOpacity`] for each object searched it twice each
+    /// (a transparency slider dragged over 2000 objects, #1335).
+    SetEffectsAndOpacity {
+        changes: Vec<EffectsAndOpacity>,
+    },
     /// The whole effect stack of `shape`: the effects drawn and the ones
     /// switched off (see `Shape::effect_stack`).
     SetEffectStack {
@@ -388,6 +399,14 @@ pub enum Command {
     },
 }
 
+/// One object's change in [`Command::SetEffectsAndOpacity`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EffectsAndOpacity {
+    pub shape: ShapeId,
+    pub effects: Vec<crate::live::Effect>,
+    pub opacity: f64,
+}
+
 /// How many nodes a curve has (0 for other kinds).
 fn node_count(kind: &ShapeKind) -> usize {
     match kind {
@@ -479,6 +498,7 @@ impl Command {
             Command::SetEffects { effects, .. } if effects.is_empty() => "Clear Effects",
             Command::SetEffects { .. } => "Effect",
             Command::SetEffectStack { .. } => "Effects",
+            Command::SetEffectsAndOpacity { .. } => "Transparency",
             Command::SetExtraPaint { .. } => "Fills and Outlines",
             Command::SetOverprint { .. } => "Overprint",
             Command::SetLink { .. } => "Hyperlink",
@@ -572,6 +592,11 @@ impl Command {
                 doc.page_mut(*page)?.background = background.clone();
             }
             Command::SetMetadata { metadata } => {
+                // A new primary colour mode takes the black defaults of
+                // new objects along (Document Color Settings).
+                if metadata.primary_color_mode != doc.metadata.primary_color_mode {
+                    doc.defaults = doc.defaults.in_mode(metadata.primary_color_mode);
+                }
                 doc.metadata = metadata.clone();
             }
             Command::SetSavedView { view } => {
@@ -644,7 +669,9 @@ impl Command {
                 }
             }
             Command::SetObjectDefaults { defaults } => {
-                doc.defaults = defaults.clone();
+                // A colour picked in place of the default black is the
+                // user's own and no longer follows the colour mode.
+                doc.defaults = defaults.settled(&doc.defaults);
             }
             Command::SetColorStyles { styles } => {
                 doc.color_styles = styles.clone();
@@ -948,6 +975,27 @@ impl Command {
             }
             Command::SetEffects { shape, effects } => {
                 any_mut(doc, *shape)?.effects = effects.clone();
+            }
+            Command::SetEffectsAndOpacity { changes } => {
+                // The last change of an object counts, as when applied
+                // one after another.
+                let wanted: std::collections::HashMap<ShapeId, &EffectsAndOpacity> =
+                    changes.iter().map(|c| (c.shape, c)).collect();
+                let mut found = std::collections::HashSet::with_capacity(wanted.len());
+                each_shape(doc, &mut |s| {
+                    if wanted.contains_key(&s.id) {
+                        found.insert(s.id);
+                    }
+                });
+                if let Some(c) = changes.iter().find(|c| !found.contains(&c.shape)) {
+                    return Err(Error::ShapeNotFound(c.shape));
+                }
+                each_shape_mut(doc, &mut |s| {
+                    if let Some(c) = wanted.get(&s.id) {
+                        s.effects = c.effects.clone();
+                        s.opacity = c.opacity.clamp(0.0, 1.0);
+                    }
+                });
             }
             Command::SetEffectStack {
                 shape,
@@ -1394,6 +1442,43 @@ impl Command {
 /// Any object, nested ones too.
 fn any(doc: &Document, id: ShapeId) -> Result<&Shape> {
     doc.find_shape(id).ok_or(Error::ShapeNotFound(id))
+}
+
+/// Every object of the drawing, nested ones too (the objects of groups,
+/// the frames and contents of clip frames), as [`any`] finds them.
+fn each_shape(doc: &Document, f: &mut dyn FnMut(&Shape)) {
+    fn walk(s: &Shape, f: &mut dyn FnMut(&Shape)) {
+        f(s);
+        match &s.kind {
+            ShapeKind::Group { children } => children.iter().for_each(|c| walk(c, f)),
+            ShapeKind::ClipFrame { frame, contents } => {
+                walk(frame, f);
+                contents.iter().for_each(|c| walk(c, f));
+            }
+            _ => {}
+        }
+    }
+    for s in doc.all_layers().flat_map(|l| &l.shapes) {
+        walk(s, f);
+    }
+}
+
+/// [`each_shape`], to change them.
+fn each_shape_mut(doc: &mut Document, f: &mut dyn FnMut(&mut Shape)) {
+    fn walk(s: &mut Shape, f: &mut dyn FnMut(&mut Shape)) {
+        f(s);
+        match &mut s.kind {
+            ShapeKind::Group { children } => children.iter_mut().for_each(|c| walk(c, f)),
+            ShapeKind::ClipFrame { frame, contents } => {
+                walk(frame, f);
+                contents.iter_mut().for_each(|c| walk(c, f));
+            }
+            _ => {}
+        }
+    }
+    for s in doc.all_layers_mut().flat_map(|l| &mut l.shapes) {
+        walk(s, f);
+    }
 }
 
 /// Any object to change, nested ones too.
@@ -2452,6 +2537,78 @@ mod tests {
         }
     }
 
+    /// Effects and opacity for many objects in one command (#1335): the
+    /// objects of groups and clip frames too, the last change of an
+    /// object counting, and nothing changed when one is missing.
+    #[test]
+    fn effects_and_opacity_reach_nested_objects_at_once() {
+        let mut doc = Document::default();
+        let layer = doc.pages[0].layers[0].id;
+        let shapes: Vec<Shape> = (0..4).map(|i| rect(&mut doc, i as f64 * 20.0)).collect();
+        let ids: Vec<ShapeId> = shapes.iter().map(|s| s.id).collect();
+        for shape in shapes {
+            Command::AddShape { layer, shape }.apply(&mut doc).unwrap();
+        }
+        Command::Group {
+            shapes: vec![ids[1], ids[2]],
+        }
+        .apply(&mut doc)
+        .unwrap();
+        Command::PlaceInside {
+            frame: ids[3],
+            contents: vec![ids[0]],
+        }
+        .apply(&mut doc)
+        .unwrap();
+        let glow = vec![crate::live::Effect::Transparency {
+            mask: Fill::Solid(Color::rgb8(128, 128, 128)),
+            merge: crate::live::MergeMode::Normal,
+            target: 2,
+        }];
+        let change =
+            |shape: ShapeId, effects: Vec<crate::live::Effect>, opacity: f64| EffectsAndOpacity {
+                shape,
+                effects,
+                opacity,
+            };
+        let before = doc.clone();
+        let missing = Command::SetEffectsAndOpacity {
+            changes: vec![
+                change(ids[1], Vec::new(), 0.5),
+                change(ShapeId(9999), Vec::new(), 0.5),
+            ],
+        };
+        assert!(matches!(
+            missing.apply(&mut doc),
+            Err(Error::ShapeNotFound(ShapeId(9999)))
+        ));
+        assert_eq!(doc, before, "nothing changed");
+        Command::SetEffectsAndOpacity {
+            changes: vec![
+                change(ids[0], glow.clone(), 1.0),
+                change(ids[1], Vec::new(), 0.3),
+                change(ids[2], Vec::new(), 2.0),
+                change(ids[1], Vec::new(), 0.6),
+                change(ids[3], glow.clone(), 0.25),
+            ],
+        }
+        .apply(&mut doc)
+        .unwrap();
+        let get = |id: ShapeId| doc.find_shape(id).expect("shape");
+        assert_eq!(get(ids[0]).effects, glow, "inside the clip frame");
+        assert_eq!(get(ids[1]).opacity, 0.6, "the last change counts");
+        assert_eq!(get(ids[2]).opacity, 1.0, "clamped");
+        assert_eq!(get(ids[3]).opacity, 0.25, "the clip frame");
+        assert_eq!(get(ids[3]).effects, glow);
+        assert_eq!(
+            Command::SetEffectsAndOpacity {
+                changes: Vec::new()
+            }
+            .label(),
+            "Transparency"
+        );
+    }
+
     #[test]
     fn group_and_ungroup_keep_page_positions() {
         let mut doc = Document::default();
@@ -3075,6 +3232,162 @@ mod tests {
         assert_eq!((old.id, old.opacity), (0, 1.0));
     }
 
+    /// New graphics get their black outline in the drawing's primary
+    /// colour mode, and a change of mode takes the black defaults along
+    /// while a colour of the user's own stays (#1665).
+    #[test]
+    fn default_blacks_follow_the_drawings_colour_mode() {
+        use crate::document::{ObjectDefaults, PrimaryColorMode};
+        use crate::{Color, Fill, Stroke};
+        let k100 = Color::cmyk_pct(0.0, 0.0, 0.0, 100.0);
+        let outline = |d: &ObjectDefaults| d.graphic.stroke.as_ref().map(|k| (k.color, k.width));
+        let cmyk = ObjectDefaults::for_mode(PrimaryColorMode::Cmyk);
+        let rgb = ObjectDefaults::for_mode(PrimaryColorMode::Rgb);
+        assert_eq!(outline(&cmyk), Some((k100, 0.2)));
+        assert_eq!(outline(&rgb), Some((Color::BLACK, 0.2)));
+        assert_eq!(rgb.graphic.fill, Fill::None);
+        assert_eq!(rgb.artistic_text.fill, Fill::Solid(Color::BLACK));
+
+        let mut doc = Document::default();
+        let red = Fill::Solid(Color::rgb8(200, 0, 0));
+        doc.defaults.paragraph_text.fill = red.clone();
+        let mut md = doc.metadata.clone();
+        md.primary_color_mode = PrimaryColorMode::Rgb;
+        Command::SetMetadata { metadata: md }
+            .apply(&mut doc)
+            .unwrap();
+        assert_eq!(outline(&doc.defaults), Some((Color::BLACK, 0.2)));
+        assert_eq!(doc.defaults.artistic_text.fill, Fill::Solid(Color::BLACK));
+        assert_eq!(doc.defaults.paragraph_text.fill, red, "the user's own");
+        // Back to CMYK; other metadata changes leave the defaults alone.
+        let mut md = doc.metadata.clone();
+        md.primary_color_mode = PrimaryColorMode::Cmyk;
+        Command::SetMetadata { metadata: md }
+            .apply(&mut doc)
+            .unwrap();
+        assert_eq!(outline(&doc.defaults), Some((k100, 0.2)));
+        doc.defaults.graphic.stroke = Some(Stroke {
+            color: Color::BLACK,
+            ..Stroke::default()
+        });
+        let mut md = doc.metadata.clone();
+        md.resolution_dpi += 1.0;
+        Command::SetMetadata { metadata: md }
+            .apply(&mut doc)
+            .unwrap();
+        assert_eq!(
+            doc.defaults.graphic.stroke.as_ref().map(|k| k.color),
+            Some(Color::BLACK)
+        );
+    }
+
+    /// Only the untouched default black follows the colour mode; a black
+    /// the user picked stays exactly as picked, and Reset makes the
+    /// default black follow again (#1665).
+    #[test]
+    fn chosen_blacks_stay_as_chosen_when_the_mode_changes() {
+        use crate::document::{DefaultKind, ObjectDefaults, PrimaryColorMode};
+        use crate::Color;
+        let k100 = PrimaryColorMode::Cmyk.black();
+        let outline = |d: &ObjectDefaults| d.graphic.stroke.as_ref().map(|k| k.color);
+        let set_mode = |doc: &mut Document, mode| {
+            let mut md = doc.metadata.clone();
+            md.primary_color_mode = mode;
+            Command::SetMetadata { metadata: md }.apply(doc).unwrap();
+        };
+        let set = |doc: &mut Document, d: ObjectDefaults| {
+            Command::SetObjectDefaults { defaults: d }
+                .apply(doc)
+                .unwrap();
+        };
+
+        // Untouched defaults follow both ways, a width change keeps that.
+        let mut doc = Document::default();
+        let mut d = doc.defaults.clone();
+        if let Some(k) = d.graphic.stroke.as_mut() {
+            k.width = 0.5;
+        }
+        set(&mut doc, d);
+        set_mode(&mut doc, PrimaryColorMode::Rgb);
+        assert_eq!(outline(&doc.defaults), Some(Color::BLACK));
+        set_mode(&mut doc, PrimaryColorMode::Cmyk);
+        assert_eq!(outline(&doc.defaults), Some(k100));
+
+        // A CMYK black picked for the outline (even the same colour)
+        // stays CMYK in RGB.
+        let mut d = doc.defaults.clone();
+        d.graphic.choose_outline(DefaultKind::Graphic);
+        set(&mut doc, d);
+        set_mode(&mut doc, PrimaryColorMode::Rgb);
+        assert_eq!(outline(&doc.defaults), Some(k100));
+        assert_eq!(
+            doc.defaults.artistic_text.fill,
+            Fill::Solid(Color::BLACK),
+            "the untouched text black still follows"
+        );
+
+        // Reset: the defaults of the mode, following again.
+        let mut d = doc.defaults.clone();
+        d.graphic = ObjectDefaults::for_mode(PrimaryColorMode::Rgb).graphic;
+        set(&mut doc, d);
+        set_mode(&mut doc, PrimaryColorMode::Cmyk);
+        assert_eq!(outline(&doc.defaults), Some(k100));
+
+        // A colour changed by editing the defaults (the mark copied
+        // along) is chosen: going red and back to RGB black keeps the
+        // RGB black in CMYK.
+        for c in [Color::rgb8(200, 0, 0), Color::BLACK] {
+            let mut d = doc.defaults.clone();
+            if let Some(k) = d.graphic.stroke.as_mut() {
+                k.color = c;
+            }
+            set(&mut doc, d);
+        }
+        set_mode(&mut doc, PrimaryColorMode::Rgb);
+        set_mode(&mut doc, PrimaryColorMode::Cmyk);
+        assert_eq!(outline(&doc.defaults), Some(Color::BLACK));
+
+        // The marks are saved with the drawing.
+        let back = Document::from_json(&doc.to_json().unwrap()).unwrap();
+        assert_eq!(back.defaults, doc.defaults);
+    }
+
+    /// Drawings saved before the mark: the stock black outline of
+    /// graphics and black text follow, any other black is chosen.
+    #[test]
+    fn older_drawings_work_out_which_blacks_follow() {
+        use crate::document::{ObjectDefaults, PrimaryColorMode};
+        use crate::Color;
+        let k100 = PrimaryColorMode::Cmyk.black();
+        let mut doc = Document::default();
+        doc.defaults.graphic.fill = Fill::Solid(k100);
+        let mut json: serde_json::Value = serde_json::from_str(&doc.to_json().unwrap()).unwrap();
+        for kind in ["graphic", "artistic_text", "paragraph_text"] {
+            json["defaults"][kind]
+                .as_object_mut()
+                .unwrap()
+                .remove("follow");
+        }
+        let mut old = Document::from_json(&json.to_string()).unwrap();
+        assert!(old.defaults.graphic.follow.is_none());
+        let mut md = old.metadata.clone();
+        md.primary_color_mode = PrimaryColorMode::Rgb;
+        Command::SetMetadata { metadata: md }
+            .apply(&mut old)
+            .unwrap();
+        let d: &ObjectDefaults = &old.defaults;
+        assert_eq!(
+            d.graphic.stroke.as_ref().map(|k| k.color),
+            Some(Color::BLACK)
+        );
+        assert_eq!(d.artistic_text.fill, Fill::Solid(Color::BLACK));
+        assert_eq!(
+            d.graphic.fill,
+            Fill::Solid(k100),
+            "not where the default black goes"
+        );
+    }
+
     #[test]
     fn new_objects_take_the_defaults_of_their_kind() {
         use crate::document::{DefaultKind, ObjectDefaults};
@@ -3086,7 +3399,11 @@ mod tests {
         }
         .apply(&mut doc)
         .unwrap();
-        assert_eq!(doc.defaults, defaults);
+        assert_eq!(
+            doc.defaults.paragraph_text.fill,
+            defaults.paragraph_text.fill
+        );
+        assert_eq!(doc.defaults.graphic, defaults.graphic);
         let mut s = rect(&mut doc, 0.0);
         s.fill = Fill::Solid(Color::BLACK);
         doc.defaults.apply_to(&mut s);

@@ -24,7 +24,8 @@ button) 480 points wide:
 ## Splash screen
 
 While TraceDraw starts, a borderless 640 x 380 point window centred on
-the screen shows the same artwork as the About banner at a larger size
+the primary monitor (where that monitor lies on the desktop, see below)
+shows the same artwork as the About banner at a larger size
 (two selected nodes on the main curve), the 96 px icon, the name at
 46 px with the tagline, and a darker strip along the bottom with the
 status line, a thin progress bar and the footer (copyright on the left,
@@ -68,6 +69,30 @@ the version on the right).
   than 95 % of the monitor) centred on the monitor, then maximized in
   the next frames when it was left maximized or when that size does
   not fit the monitor (a small screen; see Window state below).
+- The monitor is the primary one, at its own place on the desktop all
+  monitors share: its top-left corner plus half of what its size leaves
+  around the window, in system points (the windowing layer's
+  rectangle of the primary monitor, `eframe::primary_monitor`). Until
+  #1800 both windows were centred by the monitor's size from the
+  desktop's top-left corner, so a primary monitor that does not hold
+  that corner (X11, four monitors: the primary 5120 x 2880 at (1544,
+  2160) below two others) got none of them: the window opened on the
+  top-left monitor. Where the windowing layer tells no monitor
+  (Wayland, which places windows itself) the monitor egui reports is
+  taken at the desktop's corner, as before.
+- The window system applies that size a few frames later. The frame
+  that asks for it and every frame until the window has its size (or,
+  when it starts maximized, until it is maximized and fills the screen)
+  are drawn plain in the interface's background colour, for at most one
+  second (`splash::GROW_SECONDS`); the editor's first frame is drawn at
+  the window's final size. The editor used to draw at once: its first
+  frames came at the splash's size while the window grew, so the grown
+  window showed the last splash frame in its top left corner, the
+  editor squeezed below it and torn, leftover pixels over the rest for
+  half a second to a second on X11 (#1673,
+  `splash::tests::the_main_window_is_drawn_plain_until_it_has_grown`,
+  `splash::tests::a_window_that_starts_maximized_is_drawn_plain_until_it_fills_the_screen`,
+  `splash::tests::a_window_that_never_grows_gets_the_editor_after_a_second`).
 - The splash window is made resizable too, though it has no frame to
   drag: a window made not resizable stays at its size for good under
   some window managers (Xfwm4), and the main window could then neither
@@ -125,7 +150,21 @@ and `--reset-settings` starts open windows of their own.
   command line (`instance::with_files_opened_by_system`), since the
   window that failed had them only in its inbox. The
   `CFBundleDocumentTypes` of `packaging/macos/Info.plist` offer TraceDraw
-  for `.tdraw` and `.cdr`. Not yet tried on a Mac.
+  for `.tdraw` and `.cdr` by content type, not by extension only: Finder
+  keeps the default program of a file per content type (Get Info >
+  Open with > Change All, and a double click go through it), and a type
+  given by extension only matches none of the system's. The system types
+  `.cdr` files as disk images (`com.apple.disk-image-cdr`, kind
+  "DVD/CD-R Master Image", opened by the disk image mounter), so the
+  `.cdr` entry names that type and `dev.tracedraw.cdr` (imported, for
+  systems without a `.cdr` type of their own), as an Editor with the rank
+  Alternate: TraceDraw never takes `.cdr` files over by itself, but Change
+  All makes it their default program and a double click then opens them
+  in TraceDraw. `.tdraw` is TraceDraw's own type (`dev.tracedraw.tdraw`,
+  exported, Owner). The same two formats as the Linux launcher and the
+  Windows installers (#1504). Checked by
+  `macos_package::tests`; the association itself is not yet tried on a
+  Mac.
 - Android: the app is offered for opening, editing and sharing drawings,
   pictures, SVG and PDF from other apps (a file manager's Open with, a
   mail's attachment, Share; the intent filters of
@@ -401,6 +440,12 @@ screen, and after 6 requests; each request is logged (#787,
 - `splash::tests::the_status_names_the_file_being_opened`
 - `splash::tests::the_main_window_keeps_a_sensible_size`
 - `splash::tests::the_main_window_is_centred`
+- `splash::tests::the_main_window_opens_on_the_primary_monitor_where_it_lies`
+- `splash::tests::without_a_primary_monitor_the_reported_one_is_used`
+- `splash::eframe_monitor_place::tests::a_window_is_centred_where_the_monitor_lies`
+- `splash::tests::the_main_window_is_drawn_plain_until_it_has_grown`
+- `splash::tests::a_window_that_starts_maximized_is_drawn_plain_until_it_fills_the_screen`
+- `splash::tests::a_window_that_never_grows_gets_the_editor_after_a_second`
 - `splash::tests::a_splash_frame_draws_and_then_starts_the_editor`
 - `splash::tests::the_editor_does_not_wait_for_system_fonts_the_language_does_not_need`
 - `splash::tests::a_language_that_needs_a_system_font_waits_for_it`

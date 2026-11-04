@@ -2055,12 +2055,22 @@ impl App {
         else {
             return;
         };
+        // The colour mode asked for (#1777): a grayscale picture is stored
+        // as a grayscale PNG; a CMYK one shows its pixels as the inks
+        // print them and is marked CMYK, as Image > Mode > CMYK does
+        // (#1254).
+        use crate::bitmap_modes::ConvertMode;
         let png = match o.mode {
-            crate::bitmap_modes::ConvertMode::Rgb | crate::bitmap_modes::ConvertMode::Cmyk => png,
-            _ => match crate::bitmap_fx::decode(&png)
-                .map(|img| crate::bitmap_modes::convert_pixels(&img, o))
-                .and_then(|img| crate::bitmap_fx::encode(&img))
-            {
+            ConvertMode::Rgb => png,
+            mode => match crate::bitmap_fx::decode(&png).and_then(|img| match mode {
+                ConvertMode::Cmyk => {
+                    crate::bitmap_fx::encode(&crate::bitmap_fx::through_cmyk(&img))
+                }
+                ConvertMode::Grayscale => {
+                    crate::bitmap_fx::encode_gray(&crate::bitmap_modes::convert_pixels(&img, o))
+                }
+                _ => crate::bitmap_fx::encode(&crate::bitmap_modes::convert_pixels(&img, o)),
+            }) {
                 Some(p) => p,
                 None => return,
             },
@@ -2079,6 +2089,7 @@ impl App {
         bitmap.fill = Fill::None;
         bitmap.stroke = None;
         bitmap.overprint_fill = o.overprint_black;
+        bitmap.cmyk_bitmap = o.mode == ConvertMode::Cmyk;
         let ids: Vec<ShapeId> = shapes.iter().map(|s| s.id).collect();
         let cmds = vec![
             Command::DeleteShapes { shapes: ids },
@@ -2591,13 +2602,19 @@ impl App {
     }
 
     /// The characters the paragraph settings act on in text `id`: the
-    /// selection (or the caret) while it is being edited; `None`, every
-    /// paragraph, when the whole object is selected.
+    /// selection (or the caret) while it is being edited, else the
+    /// characters chosen with the Shape tool; `None`, every paragraph,
+    /// when the whole object is selected.
     pub fn paragraph_range(&self, id: ShapeId) -> Option<(usize, usize)> {
-        self.text_edit
-            .as_ref()
-            .filter(|te| te.shape == id)
-            .map(|te| te.selection())
+        if let Some(te) = &self.text_edit {
+            return (te.shape == id).then(|| te.selection());
+        }
+        // The characters chosen with the Shape tool: from the first to
+        // the last (#1662).
+        let chosen = self.chosen_chars(id);
+        let first = chosen.iter().min()?;
+        let last = chosen.iter().max()?;
+        Some((*first, last + 1))
     }
 
     /// The alignment and paragraph style the paragraph controls show for a
@@ -3128,12 +3145,14 @@ impl App {
                     para,
                     on_path,
                 } => {
-                    let mut spans = spans.clone();
                     // The bar's size is the size as seen: before the text's
                     // own scale it is smaller (or larger). A size the bar
                     // shows unchanged leaves each character's as it was.
                     let scale = self.text_scale(s.id);
-                    for sp in spans.iter_mut() {
+                    // The characters chosen with the Shape tool, else all
+                    // of them (#1662).
+                    let chosen = self.chosen_chars(s.id);
+                    let spans = crate::text_nodes::apply_to_chars(spans, &chosen, |sp| {
                         if set_font {
                             sp.font_family = self.text_font.clone();
                         }
@@ -3149,7 +3168,7 @@ impl App {
                         if set_underline {
                             sp.underline = self.text_underline;
                         }
-                    }
+                    });
                     Some(Command::SetShapeKind {
                         shape: s.id,
                         kind: ShapeKind::Text {
@@ -3222,47 +3241,345 @@ impl App {
 
     // ----- palettes -----------------------------------------------------------------------
 
+    /// Window > Color Palettes, the Palette Manager's tick: show palette
+    /// `i` in a bar of its own, or close its bar. The default bar's
+    /// palette gives way to the first palette bar's (whose bar closes);
+    /// the last palette shown stays.
     pub fn toggle_palette(&mut self, i: usize) {
-        if let Some(pos) = self.visible_palettes.iter().position(|p| *p == i) {
-            if self.visible_palettes.len() > 1 {
-                self.visible_palettes.remove(pos);
-            }
+        let Some(p) = self.palettes.get(i) else {
+            return;
+        };
+        let id = crate::settings::palette_id(p);
+        if self.visible_palettes.first() == Some(&i) {
+            let Some(k) = self
+                .settings
+                .palette_bars
+                .iter()
+                .position(|b| b.palette != crate::settings::DOCUMENT_PALETTE)
+            else {
+                return;
+            };
+            let bar = self.settings.palette_bars.remove(k);
+            self.settings.main_palette = bar.palette;
+        } else if let Some(k) = self
+            .settings
+            .palette_bars
+            .iter()
+            .position(|b| b.palette == id)
+        {
+            self.settings.palette_bars.remove(k);
         } else {
-            self.visible_palettes.push(i);
+            self.open_palette_bar(&id);
+            return;
         }
         self.rebuild_palette();
     }
 
-    /// The main palette strip shows the first visible palette, and each
-    /// further visible palette gets a strip of its own (#1164), keeping
-    /// how far it was scrolled.
-    pub fn rebuild_palette(&mut self) {
-        if let Some(i) = self.visible_palettes.first() {
-            if let Some(p) = self.palettes.get(*i) {
-                self.palette = p.colors.clone();
-                self.palette_rgb = crate::ui::palette::as_rgb(&self.palette);
-                self.palette_scroll = 0;
+    /// Open the palette `id` ([`crate::settings::palette_id`], or
+    /// [`crate::settings::DOCUMENT_PALETTE`]) in a bar of its own, where
+    /// the default palette is docked (at the bottom while that floats),
+    /// with its swatch size. A palette shown already is not opened twice.
+    pub fn open_palette_bar(&mut self, id: &str) {
+        let shown = self.settings.palette_bars.iter().any(|b| b.palette == id)
+            || self
+                .visible_palettes
+                .first()
+                .and_then(|i| self.palettes.get(*i))
+                .is_some_and(|p| crate::settings::palette_id(p) == id);
+        if shown || id.is_empty() {
+            return;
+        }
+        let dock = match self.settings.bars.dock(crate::ui::bars::Bar::Palette) {
+            crate::ui::bars::Dock::Floating => crate::ui::bars::Dock::Bottom,
+            d => d,
+        };
+        let k = self.settings.palette_bars.len() as f32;
+        self.settings
+            .palette_bars
+            .push(crate::settings::PaletteBarPrefs {
+                palette: id.to_string(),
+                dock,
+                pos: [320.0 + 24.0 * k, 420.0 - 24.0 * k],
+                swatch_size: self.settings.palette.swatch_size,
+                ..Default::default()
+            });
+        self.rebuild_palette();
+    }
+
+    /// The palette with `id`, its index in [`Self::palettes`]; a palette
+    /// file not open yet is opened (on the desktop) and joins the list.
+    pub fn find_palette(&mut self, id: &str) -> Option<usize> {
+        if id.is_empty() {
+            return None;
+        }
+        if let Some(i) = self
+            .palettes
+            .iter()
+            .position(|p| crate::settings::palette_id(p) == id)
+        {
+            return Some(i);
+        }
+        let path = std::path::Path::new(id);
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase)
+            .unwrap_or_default();
+        if crate::files::WEB || !crate::palette::PALETTE_EXTENSIONS.contains(&ext.as_str()) {
+            return None;
+        }
+        match crate::palette::load_palette(path) {
+            Ok(p) => {
+                self.palettes.push(p);
+                Some(self.palettes.len() - 1)
+            }
+            Err(e) => {
+                log::warn!("palette bar: {id}: {e}");
+                None
             }
         }
-        let old = std::mem::take(&mut self.extra_palettes);
-        self.extra_palettes = self
-            .visible_palettes
+    }
+
+    /// The default palette bar shows the palette the preferences name
+    /// (the default palette when it is gone), and each palette bar its
+    /// palette (#1164), keeping how far it was scrolled. A bar whose
+    /// palette cannot be found any more closes, and a palette shown
+    /// twice keeps its first bar; [`Self::visible_palettes`] follows.
+    pub fn rebuild_palette(&mut self) {
+        let main_id = self.settings.main_palette.clone();
+        let default = self
+            .palettes
             .iter()
-            .skip(1)
-            .filter_map(|&index| {
-                let p = self.palettes.get(index)?;
-                let scroll = old
+            .position(|p| p.key == "palette.default_cmyk")
+            .unwrap_or(0);
+        let main = self.find_palette(&main_id).unwrap_or(default);
+        if main == default {
+            self.settings.main_palette.clear();
+        }
+        if self.visible_palettes.first() != Some(&main) {
+            self.palette_scroll = 0;
+        }
+        self.visible_palettes = vec![main];
+        if let Some(p) = self.palettes.get(main) {
+            self.palette = p.colors.clone();
+            self.palette_rgb = crate::ui::palette::as_rgb(&self.palette);
+        }
+        let old = std::mem::take(&mut self.extra_palettes);
+        let bars = std::mem::take(&mut self.settings.palette_bars);
+        let mut kept = Vec::with_capacity(bars.len());
+        let mut rows = Vec::with_capacity(bars.len());
+        for mut bar in bars {
+            bar.sanitize();
+            let document = bar.palette == crate::settings::DOCUMENT_PALETTE;
+            let index = if document {
+                if rows
                     .iter()
-                    .find(|r| r.index == index)
-                    .map_or(0, |r| r.scroll);
-                Some(crate::ui::palette::ExtraRow {
-                    index,
-                    rgb: crate::ui::palette::as_rgb(&p.colors),
-                    colors: p.colors.clone(),
-                    scroll,
-                })
-            })
-            .collect();
+                    .any(|r: &crate::ui::palette::ExtraRow| r.document)
+                {
+                    continue;
+                }
+                usize::MAX
+            } else {
+                match self.find_palette(&bar.palette) {
+                    Some(i) if !self.visible_palettes.contains(&i) => i,
+                    Some(_) => continue,
+                    None => {
+                        log::warn!("palette bar: no palette {}", bar.palette);
+                        continue;
+                    }
+                }
+            };
+            let scroll = old
+                .iter()
+                .find(|r| r.index == index && r.document == document)
+                .map_or(0, |r| r.scroll);
+            let colors = self
+                .palettes
+                .get(index)
+                .map(|p| p.colors.clone())
+                .unwrap_or_default();
+            if !document {
+                self.visible_palettes.push(index);
+            }
+            rows.push(crate::ui::palette::ExtraRow {
+                index,
+                document,
+                rgb: crate::ui::palette::as_rgb(&colors),
+                colors,
+                scroll,
+            });
+            kept.push(bar);
+        }
+        self.settings.palette_bars = kept;
+        self.extra_palettes = rows;
+    }
+
+    /// The name palette `i` shows with: the one the user gave it, else its
+    /// own.
+    pub fn palette_name(&self, i: usize) -> String {
+        let Some(p) = self.palettes.get(i) else {
+            return String::new();
+        };
+        self.settings
+            .palette_names
+            .get(&crate::settings::palette_id(p))
+            .filter(|n| !n.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| p.display_name())
+    }
+
+    /// The document palette's name, as the user gave it or its own.
+    pub fn document_palette_name(&self) -> String {
+        self.settings
+            .palette_names
+            .get(crate::settings::DOCUMENT_PALETTE)
+            .filter(|n| !n.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| tr("palette.show_document"))
+    }
+
+    /// Give the palette `id` the name `name`; an empty name, or its own,
+    /// takes the user's name away (Reset Name). A palette of the user's
+    /// kept in a file whose format holds a name (`.gpl`, `.tdpal`,
+    /// `.json`) gets it in the file too, unless locked; built-in palettes
+    /// and their files never change.
+    pub fn rename_palette(&mut self, id: &str, name: &str) {
+        let name = name.trim();
+        let i = self
+            .palettes
+            .iter()
+            .position(|p| crate::settings::palette_id(p) == id);
+        let own = match i {
+            Some(i) => self.palettes[i].display_name(),
+            None => tr("palette.show_document"),
+        };
+        if name.is_empty() || name == own {
+            self.settings.palette_names.remove(id);
+        } else {
+            self.settings
+                .palette_names
+                .insert(id.to_string(), name.chars().take(120).collect());
+        }
+        let Some(i) = i else {
+            return;
+        };
+        let p = &self.palettes[i];
+        let in_file = p.path.as_ref().filter(|path| {
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(str::to_ascii_lowercase)
+                .unwrap_or_default();
+            matches!(ext.as_str(), "gpl" | "tdpal" | "json")
+        });
+        if let (false, false, Some(path), false) = (
+            p.builtin,
+            self.palette_locked(i),
+            in_file.cloned(),
+            name.is_empty(),
+        ) {
+            self.palettes[i].name = name.to_string();
+            if let Err(e) = crate::palette::save_palette(&self.palettes[i], &path) {
+                log::warn!("could not keep the name in {}: {e}", path.display());
+            }
+        }
+    }
+
+    /// A copy of palette `i` as a palette of the user's (no file), named
+    /// after it, at the end of the list.
+    pub fn duplicate_palette(&mut self, i: usize) -> Option<usize> {
+        let p = self.palettes.get(i)?;
+        let base = trf("palette.copy_name", &[("name", &self.palette_name(i))]);
+        let mut name = base.clone();
+        let mut n = 2;
+        while self
+            .palettes
+            .iter()
+            .any(|q| q.name == name && q.key.is_empty())
+        {
+            name = format!("{base} {n}");
+            n += 1;
+        }
+        let copy = crate::palette::Palette {
+            name,
+            key: "",
+            colors: p.colors.clone(),
+            builtin: false,
+            path: None,
+        };
+        self.palettes.push(copy);
+        Some(self.palettes.len() - 1)
+    }
+
+    /// Move palette `from` to `to` in the list (the Palette Manager's
+    /// order, Window > Color Palettes too); the bars keep their palettes.
+    pub fn move_palette_in_list(&mut self, from: usize, to: usize) {
+        let n = self.palettes.len();
+        if from >= n || to >= n || from == to {
+            return;
+        }
+        let p = self.palettes.remove(from);
+        self.palettes.insert(to, p);
+        let moved = |k: usize| {
+            if k == from {
+                to
+            } else if from < to && k > from && k <= to {
+                k - 1
+            } else if to < from && k >= to && k < from {
+                k + 1
+            } else {
+                k
+            }
+        };
+        for k in &mut self.locked_palettes {
+            *k = moved(*k);
+        }
+        if let Some(main) = self.visible_palettes.first().copied() {
+            // The default bar keeps its palette wherever it went.
+            if let Some(p) = self.palettes.get(moved(main)) {
+                let id = crate::settings::palette_id(p);
+                let is_default = p.key == "palette.default_cmyk";
+                self.settings.main_palette = if is_default { String::new() } else { id };
+            }
+        }
+        self.visible_palettes.clear();
+        self.rebuild_palette();
+    }
+
+    /// Clear: the document palette holds no colour (one undo step).
+    pub fn clear_document_palette(&mut self) {
+        if self.has_document() && !self.doc().palette.is_empty() {
+            self.run(Command::SetDocumentPalette { colors: Vec::new() });
+            self.doc_palette_current = None;
+        }
+    }
+
+    /// Take palette `i` of the user's out of the list (its file stays):
+    /// its bar closes; the default bar shows the default palette if it
+    /// showed this one. Built-in palettes stay.
+    pub fn delete_palette(&mut self, i: usize) {
+        let Some(p) = self.palettes.get(i) else {
+            return;
+        };
+        if p.builtin {
+            return;
+        }
+        let id = crate::settings::palette_id(p);
+        self.settings.palette_bars.retain(|b| b.palette != id);
+        if self.settings.main_palette == id {
+            self.settings.main_palette.clear();
+        }
+        self.settings.palette_names.remove(&id);
+        self.palettes.remove(i);
+        self.locked_palettes.retain(|k| *k != i);
+        for k in &mut self.locked_palettes {
+            if *k > i {
+                *k -= 1;
+            }
+        }
+        // The indices after it moved: the bars find their palettes again.
+        self.visible_palettes.clear();
+        self.rebuild_palette();
     }
 
     pub fn open_palette_file(&mut self) {
@@ -3308,9 +3625,159 @@ impl App {
             }
         };
         if !self.visible_palettes.contains(&i) {
-            self.visible_palettes.push(i);
+            if let Some(p) = self.palettes.get(i) {
+                let id = crate::settings::palette_id(p);
+                self.open_palette_bar(&id);
+            }
         }
         self.rebuild_palette();
+    }
+
+    /// The name New Palette suggests: "Palette 1", "Palette 2"... the
+    /// first no palette has yet.
+    pub fn next_palette_name(&self) -> String {
+        let taken = |name: &str| {
+            (0..self.palettes.len()).any(|i| {
+                self.palettes
+                    .get(i)
+                    .is_some_and(|p| crate::settings::palette_id(p) == name)
+                    || self.palette_name(i) == name
+            })
+        };
+        (1..)
+            .map(|n| trf("palette.new_default", &[("n", &n.to_string())]))
+            .find(|name| !taken(name))
+            .unwrap_or_default()
+    }
+
+    /// New Palette: an empty palette of the user's named `name` (made
+    /// unique), under My Palettes, shown at once in a bar of its own
+    /// docked at the bottom (under the bars there). Its index.
+    pub fn new_palette(&mut self, name: &str) -> Option<usize> {
+        let base = name.trim();
+        let base = if base.is_empty() {
+            self.next_palette_name()
+        } else {
+            base.to_string()
+        };
+        let taken = |app: &Self, n: &str| {
+            app.palettes
+                .iter()
+                .any(|p| crate::settings::palette_id(p) == n)
+                || n == crate::settings::DOCUMENT_PALETTE
+        };
+        let mut name = base.clone();
+        let mut k = 2;
+        while taken(self, &name) {
+            name = format!("{base} {k}");
+            k += 1;
+        }
+        self.palettes.push(crate::palette::Palette {
+            name: name.clone(),
+            key: "",
+            colors: Vec::new(),
+            builtin: false,
+            path: None,
+        });
+        let i = self.palettes.len() - 1;
+        self.open_palette_bar(&name);
+        if let Some(b) = self
+            .settings
+            .palette_bars
+            .iter_mut()
+            .find(|b| b.palette == name)
+        {
+            b.dock = crate::ui::bars::Dock::Bottom;
+        }
+        self.store_user_palettes();
+        self.palette_manager.selected = crate::ui::palette_manager::Selected::Palette(i);
+        Some(i)
+    }
+
+    /// Palette `i` takes colours dropped on it or added from the
+    /// selection: one of the user's, not locked.
+    pub fn palette_takes_colors(&self, i: usize) -> bool {
+        self.palettes.get(i).is_some_and(|p| !p.builtin) && !self.palette_locked(i)
+    }
+
+    /// Add `colors` to the user's palette `i` (those it has not got yet),
+    /// its bar shows them at once. Says whether any was added.
+    pub fn add_colors_to_palette(&mut self, i: usize, colors: &[Color]) -> bool {
+        if !self.palette_takes_colors(i) {
+            return false;
+        }
+        let named: Vec<(String, Color)> = colors
+            .iter()
+            .map(|c| (crate::ui::palette::name_of(self, *c), *c))
+            .collect();
+        let Some(p) = self.palettes.get_mut(i) else {
+            return false;
+        };
+        let mut added = false;
+        for (name, c) in named {
+            if !p.colors.iter().any(|(_, x)| *x == c) {
+                p.colors.push((name, c));
+                added = true;
+            }
+        }
+        if added {
+            if let Some(path) = p.path.clone() {
+                if let Err(e) = crate::palette::save_palette(p, &path) {
+                    log::warn!("palette {}: {e}", path.display());
+                }
+            }
+            self.store_user_palettes();
+            self.rebuild_palette();
+        }
+        added
+    }
+
+    /// The fill and outline colours of the selection join the user's
+    /// palette `i`.
+    pub fn add_selection_colors_to_palette(&mut self, i: usize) -> bool {
+        if !self.has_document() {
+            return false;
+        }
+        let mut colors = Vec::new();
+        Self::colors_of(&self.selected_shapes(), &mut colors);
+        self.add_colors_to_palette(i, &colors)
+    }
+
+    /// Keep the palettes made in TraceDraw (no file behind them) in the
+    /// preferences.
+    pub fn store_user_palettes(&mut self) {
+        self.settings.user_palettes = self
+            .palettes
+            .iter()
+            .filter(|p| !p.builtin && p.key.is_empty() && p.path.is_none())
+            .map(|p| crate::settings::UserPalette {
+                name: p.name.clone(),
+                colors: p.colors.clone(),
+            })
+            .collect();
+    }
+
+    /// The palettes made in TraceDraw, from the preferences, back in the
+    /// list (those not in it yet).
+    pub fn restore_user_palettes(&mut self) {
+        let stored = self.settings.user_palettes.clone();
+        for u in stored {
+            if u.name.is_empty()
+                || self
+                    .palettes
+                    .iter()
+                    .any(|p| crate::settings::palette_id(p) == u.name)
+            {
+                continue;
+            }
+            self.palettes.push(crate::palette::Palette {
+                name: u.name,
+                key: "",
+                colors: u.colors,
+                builtin: false,
+                path: None,
+            });
+        }
     }
 
     /// Palette `i` is locked: the Palette Editor shows it without changing
@@ -4557,6 +5024,76 @@ mod tests {
         assert_eq!(o.bytes(10, 3), 6);
         assert_eq!(ConvertOptions::default().bytes(10, 3), 90);
         assert!(!ConvertMode::Rgb.can_dither() && ConvertMode::Paletted.can_dither());
+    }
+
+    /// #1777: Grayscale gives a grayscale picture and CMYK a CMYK one whose
+    /// pixels show as the inks print them; RGB stays an RGB picture.
+    #[test]
+    fn convert_to_bitmap_gives_the_colour_mode_asked_for() {
+        use crate::bitmap_modes::{ConvertMode, ConvertOptions};
+        let convert = |mode| {
+            let mut app = App::headless();
+            let id = app
+                .new_shape(ShapeKind::Rect {
+                    rect: Rect::new(0.0, 0.0, 20.0, 20.0),
+                    radius: 0.0,
+                    corners: None,
+                })
+                .expect("rectangle");
+            // A green no ink mix can print, so the CMYK pixels differ.
+            app.run(Command::SetFill {
+                shapes: vec![id],
+                fill: Fill::Solid(Color::rgb8(0, 255, 0)),
+            });
+            app.select(vec![id]);
+            app.convert_to_bitmap_with(&ConvertOptions {
+                dpi: 72.0,
+                mode,
+                transparent: false,
+                ..Default::default()
+            });
+            let s = app.selected_shapes().into_iter().next().expect("bitmap");
+            let ShapeKind::Bitmap { png, .. } = &s.kind else {
+                panic!("not a bitmap");
+            };
+            let info = crate::ui::status::object_info(&app);
+            (png.to_vec(), s.cmyk_bitmap, info)
+        };
+        let middle = |png: &[u8]| {
+            let img = crate::bitmap_fx::decode(png).expect("png");
+            *img.get_pixel(img.width() / 2, img.height() / 2)
+        };
+        let (rgb, rgb_cmyk, rgb_info) = convert(ConvertMode::Rgb);
+        assert!(!rgb_cmyk && !crate::bitmap_fx::png_is_gray(&rgb));
+        assert!(rgb_info.contains(&tr("convert_colors.rgb")), "{rgb_info}");
+        let (gray, gray_cmyk, gray_info) = convert(ConvertMode::Grayscale);
+        assert!(crate::bitmap_fx::png_is_gray(&gray), "a grayscale PNG");
+        assert!(!gray_cmyk);
+        assert!(
+            gray_info.contains(&tr("convert_colors.gray")),
+            "{gray_info}"
+        );
+        let g = middle(&gray);
+        assert!(g[0] == g[1] && g[1] == g[2] && g[3] == 255);
+        // 0.587 x 255 for the green.
+        assert!((g[0] as i32 - 150).abs() <= 2, "{g:?}");
+        // The exporters' decoder reads it too.
+        let pm = tiny_skia::Pixmap::decode_png(&gray).expect("decodes");
+        assert_eq!(
+            pm.pixel(pm.width() / 2, pm.height() / 2).map(|p| p.red()),
+            Some(g[0])
+        );
+        let (cmyk, cmyk_flag, cmyk_info) = convert(ConvertMode::Cmyk);
+        assert!(cmyk_flag, "marked as a CMYK picture");
+        assert!(
+            cmyk_info.contains(&tr("convert_colors.cmyk")),
+            "{cmyk_info}"
+        );
+        let (c, r) = (middle(&cmyk), middle(&rgb));
+        assert_eq!(r, image::Rgba([0, 255, 0, 255]));
+        assert_ne!(c, r, "the pixels go through the inks");
+        let expected = crate::bitmap_fx::through_cmyk(&image::RgbaImage::from_pixel(1, 1, r));
+        assert_eq!(c, *expected.get_pixel(0, 0));
     }
 
     #[test]

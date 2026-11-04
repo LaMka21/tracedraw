@@ -523,47 +523,136 @@ impl Tokens {
 
     pub const RULER: f32 = 18.0;
 
-    /// The side of a toolbox button: 32 px at the medium size, scaled by
-    /// the toolbox's button size (the bars' menu > Customize).
+    /// The side of a toolbox button at the toolbox's button size (the
+    /// bars' menu > Customize): 32 px at Medium.
     pub fn tool_button() -> f32 {
-        (32.0 * button_scale(&TOOLBOX_SCALE)).round()
+        toolbox_size().metrics().button
     }
 
-    /// The side of a standard toolbar button: 32 px at the medium size,
-    /// scaled by the default button size.
+    /// The side of a toolbox icon's box (its 24 unit grid) in a button
+    /// of the full side: 24 px at Medium.
+    pub fn tool_icon() -> f32 {
+        toolbox_size().metrics().icon
+    }
+
+    /// The side of a standard toolbar button at the default button size:
+    /// 32 px at Medium.
     pub fn bar_button() -> f32 {
-        (32.0 * button_scale(&BAR_SCALE)).round()
+        bar_size().metrics().button
     }
 
-    /// The side of a property bar button: 28 px at the medium size,
-    /// scaled by the default button size.
+    /// The side of a standard toolbar icon's box: 24 px at Medium, 28
+    /// and 34 px at Large and Extra Large (smaller than the toolbox's,
+    /// see `ButtonMetrics`).
+    pub fn bar_icon() -> f32 {
+        bar_size().metrics().bar_icon
+    }
+
+    /// The side of a property bar button at the default button size:
+    /// 28 px at Medium.
     pub fn prop_button() -> f32 {
-        (28.0 * button_scale(&BAR_SCALE)).round()
+        bar_size().metrics().prop_button
+    }
+
+    /// The side of a property bar icon's box: 22 px at Medium, 24 and
+    /// 28 px at Large and Extra Large.
+    pub fn prop_icon() -> f32 {
+        bar_size().metrics().prop_icon
     }
 }
 
-/// The default button size's scale and the toolbox's, as f32 bits.
-static BAR_SCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-static TOOLBOX_SCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-
-fn button_scale(cell: &std::sync::atomic::AtomicU32) -> f32 {
-    let bits = cell.load(Ordering::Relaxed);
-    if bits == 0 {
-        1.0
+/// The icon box for a button of side `side` whose full size is `button`
+/// with an icon box `icon`: the full icon in a full button, shrunk in the
+/// same proportion (to whole pixels) in a button squeezed to fit, as the
+/// docked toolbox's column does on a short window.
+pub fn icon_in(side: f32, button: f32, icon: f32) -> f32 {
+    if side >= button || button <= 0.0 {
+        icon
     } else {
-        f32::from_bits(bits)
+        (side * icon / button).round().max(1.0)
     }
 }
 
-/// Size the bars' buttons from now on: `bars` for every bar, `toolbox`
-/// for the toolbox (the bars' menu > Customize > Default Button Size and
-/// Toolbox Toolbar > Button Size).
+/// The default button size and the toolbox's, as an index into
+/// `ButtonSize::ALL` plus one (0: not set yet, Medium). Tests run on
+/// threads of their own and each keeps its own sizes, so a test that sizes
+/// the buttons never changes the layout another test is checking.
+#[cfg(not(test))]
+static BAR_SIZE: AtomicU8 = AtomicU8::new(0);
+#[cfg(not(test))]
+static TOOLBOX_SIZE: AtomicU8 = AtomicU8::new(0);
+#[cfg(test)]
+thread_local! {
+    static BAR_SIZE: AtomicU8 = const { AtomicU8::new(0) };
+    static TOOLBOX_SIZE: AtomicU8 = const { AtomicU8::new(0) };
+}
+
+fn size_of_index(n: u8) -> crate::settings::ButtonSize {
+    use crate::settings::ButtonSize;
+    match n {
+        0 => ButtonSize::Medium,
+        n => ButtonSize::ALL
+            .get(usize::from(n) - 1)
+            .copied()
+            .unwrap_or(ButtonSize::Medium),
+    }
+}
+
+#[cfg(not(test))]
+fn stored_size(cell: &AtomicU8) -> crate::settings::ButtonSize {
+    size_of_index(cell.load(Ordering::Relaxed))
+}
+
+#[cfg(test)]
+fn stored_size(cell: &'static std::thread::LocalKey<AtomicU8>) -> crate::settings::ButtonSize {
+    size_of_index(cell.with(|c| c.load(Ordering::Relaxed)))
+}
+
+#[cfg(not(test))]
+fn store_size(cell: &AtomicU8, n: u8) {
+    cell.store(n, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+fn store_size(cell: &'static std::thread::LocalKey<AtomicU8>, n: u8) {
+    cell.with(|c| c.store(n, Ordering::Relaxed));
+}
+
+fn size_index(size: crate::settings::ButtonSize) -> u8 {
+    crate::settings::ButtonSize::ALL
+        .iter()
+        .position(|s| *s == size)
+        .map_or(0, |i| i as u8 + 1)
+}
+
+/// The default button size the bars draw at now.
+pub fn bar_size() -> crate::settings::ButtonSize {
+    stored_size(&BAR_SIZE)
+}
+
+/// The button size the toolbox draws at now.
+pub fn toolbox_size() -> crate::settings::ButtonSize {
+    stored_size(&TOOLBOX_SIZE)
+}
+
+/// Held by the tests that set the button sizes in force to another size
+/// than the default, or that count on them: the sizes are shared by the
+/// whole process.
+#[cfg(test)]
+pub(crate) fn button_sizes_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Size the bars' buttons and icons from now on: `bars` for every bar,
+/// `toolbox` for the toolbox (the bars' menu > Customize > Default Button
+/// Size and Toolbox Toolbar > Button Size).
 pub fn set_button_sizes(
     bars: crate::settings::ButtonSize,
     toolbox: Option<crate::settings::ButtonSize>,
 ) {
-    BAR_SCALE.store(bars.scale().to_bits(), Ordering::Relaxed);
-    TOOLBOX_SCALE.store(toolbox.unwrap_or(bars).scale().to_bits(), Ordering::Relaxed);
+    store_size(&BAR_SIZE, size_index(bars));
+    store_size(&TOOLBOX_SIZE, size_index(toolbox.unwrap_or(bars)));
 }
 
 pub fn visuals() -> Visuals {
@@ -1010,5 +1099,152 @@ mod shadow_tests {
         assert_eq!(visuals().window_shadow, egui::epaint::Shadow::NONE);
         set_shadows(true);
         assert_eq!(shadow(s), s);
+    }
+}
+
+#[cfg(test)]
+mod glyph_tests {
+    use super::*;
+
+    /// The symbol characters (`U+2010` to `U+2BFF`: punctuation, arrows,
+    /// shapes, dingbats; and the pictographs from `U+1F000`) in the string
+    /// and character literals of `src`, outside comments and the test
+    /// module, with their line numbers. Letters of other scripts (language
+    /// names, sample text) are left to the system fonts.
+    fn symbols_in(src: &str) -> Vec<(usize, char)> {
+        let code = src.split("#[cfg(test)]").next().unwrap_or(src);
+        let symbol =
+            |c: char| matches!(c as u32, 0x2010..=0x2027 | 0x2030..=0x2BFF | 0x1F000..=0x1FAFF);
+        let mut out = Vec::new();
+        for (n, line) in code.lines().enumerate() {
+            if line.trim_start().starts_with("//") {
+                continue;
+            }
+            let line = line.split(" // ").next().unwrap_or(line);
+            // Literal text: what lies between quotes, escapes decoded.
+            let mut chars = line.chars().peekable();
+            let mut quote: Option<char> = None;
+            while let Some(c) = chars.next() {
+                match quote {
+                    None if c == '"' => quote = Some('"'),
+                    // A character literal, not a lifetime: 'x' or '\u{..}'.
+                    None if c == '\'' => {
+                        let rest: String = chars.clone().take(12).collect();
+                        if rest.chars().nth(1) == Some('\'') || rest.starts_with("\\u{") {
+                            quote = Some('\'');
+                        }
+                    }
+                    None => {}
+                    Some(q) if c == q => quote = None,
+                    Some(_) if c == '\\' => {
+                        if chars.peek() == Some(&'u') {
+                            chars.next();
+                            let hex: String = chars
+                                .by_ref()
+                                .skip_while(|c| *c == '{')
+                                .take_while(|c| *c != '}')
+                                .collect();
+                            if let Some(c) = u32::from_str_radix(&hex, 16)
+                                .ok()
+                                .and_then(char::from_u32)
+                                .filter(|c| symbol(*c))
+                            {
+                                out.push((n + 1, c));
+                            }
+                        } else {
+                            chars.next();
+                        }
+                    }
+                    Some(_) if symbol(c) => out.push((n + 1, c)),
+                    Some(_) => {}
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn symbols_are_found_in_literals_only() {
+        let src = "// \u{25b4} in a comment\nlet a = \"x \\u{25BE}\"; let b = '\u{25b4}';\nfn f<'a>(x: &'a str) {} // \u{2192}\n";
+        assert_eq!(symbols_in(src), [(2, '\u{25BE}'), (2, '\u{25B4}')]);
+    }
+
+    /// Every symbol the interface writes is in the bundled fonts (the UI
+    /// font and egui's own), so no system font is needed to show it: the
+    /// panels' and toolbox's scroll arrows were U+25B4 and U+25BE, which
+    /// none of them has, and Windows showed empty boxes (#1780).
+    #[test]
+    fn every_interface_symbol_is_in_the_bundled_fonts() {
+        // Not interface text: the bullet characters Bullets puts into the
+        // drawing's text (its fonts draw them), and the quote marks a
+        // printer name is escaped for.
+        let in_the_drawing: &[(&str, char)] = &[
+            ("ui/dialogs.rs", '\u{25E6}'),
+            ("ui/dialogs.rs", '\u{25AA}'),
+            ("ui/dialogs.rs", '\u{2713}'),
+            ("ui/dialogs.rs", '\u{27A4}'),
+            ("printers.rs", '\u{2018}'),
+            ("printers.rs", '\u{2019}'),
+            ("printers.rs", '\u{201A}'),
+            ("printers.rs", '\u{201B}'),
+        ];
+        // Each family's faces, read from their character maps (egui's own
+        // `has_glyph` calls every character of the face holding its
+        // replacement mark missing).
+        let defs = bundled_font_definitions();
+        let families = [
+            egui::FontFamily::Proportional,
+            egui::FontFamily::Name(BOLD.into()),
+        ];
+        let has = |family: &egui::FontFamily, c: char| {
+            defs.families.get(family).is_some_and(|names| {
+                names.iter().any(|n| {
+                    defs.font_data.get(n).is_some_and(|d| {
+                        ttf_parser::Face::parse(&d.font, d.index)
+                            .is_ok_and(|f| f.glyph_index(c).is_some())
+                    })
+                })
+            })
+        };
+        assert!(has(&families[0], 'A') && !has(&families[0], '\u{25B4}'));
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = vec![root.clone()];
+        let mut missing = Vec::new();
+        let mut seen = 0;
+        while let Some(path) = files.pop() {
+            if path.is_dir() {
+                for e in std::fs::read_dir(&path).expect("source folder").flatten() {
+                    files.push(e.path());
+                }
+                continue;
+            }
+            let name = path
+                .strip_prefix(&root)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            if !name.ends_with(".rs") || name.ends_with("tests.rs") {
+                continue;
+            }
+            let src = std::fs::read_to_string(&path).expect("source file");
+            for (line, c) in symbols_in(&src) {
+                seen += 1;
+                if in_the_drawing.contains(&(name.as_str(), c)) {
+                    continue;
+                }
+                for f in &families {
+                    if !has(f, c) {
+                        missing.push(format!("{name}:{line}: U+{:04X} {c} ({f:?})", c as u32));
+                    }
+                }
+            }
+        }
+        assert!(seen > 20, "the scan found the interface's symbols");
+        missing.sort();
+        missing.dedup();
+        assert!(
+            missing.is_empty(),
+            "symbols no bundled font has:\n{}",
+            missing.join("\n")
+        );
     }
 }

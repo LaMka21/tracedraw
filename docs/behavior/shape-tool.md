@@ -162,18 +162,25 @@ A curve being edited shows a small white circle with a ring in the node
 colour inside each corner (a node where two segments meet at an angle,
 as the Corners panel counts them), 18 px from the node along the middle
 of the corner (#635), when Options > Nodes and Handles > Show corner
-rounding rings on curve nodes is on. That preference is off at first, so
-the widgets do not get in the way of node editing (#884); it is saved
-with the other preferences. With it off no widget shows and a press where
+rounding rings on curve nodes is on. That preference is on at first; it
+can be turned off so the widgets do not get in the way of node editing
+(#884), and it is saved with the other preferences. With it off no widget shows and a press where
 one would sit works as any other press of the Shape tool. Rectangles
 round their corners with their own handles either way.
 
-- With no node chosen every corner has one (a curve with more than 32
-  corners shows none, so a traced outline is not covered in them); with
-  nodes chosen only their corners do.
-- Dragging a widget into its corner rounds the corners with a fillet,
-  live: with no node chosen every corner of the curve, with nodes chosen
-  only theirs. The radius is the one whose arc's middle has moved into
+- Every corner has one (a curve with more than 32 corners shows them
+  only on chosen nodes, so a traced outline is not covered in them). A
+  chosen corner's widget is filled with the node colour.
+- Options > Nodes and Handles > Round one corner at a time (on at first,
+  under the rings option): a Ctrl+click (Cmd on macOS) on a widget
+  chooses its corner, a second Ctrl+click takes it out, so one corner or
+  several can be chosen. Turned off, the widgets work as before: with
+  nodes chosen only their corners show one, a drag rounds every corner
+  or the chosen nodes' corners, and Shift and Ctrl change nothing.
+- Dragging a widget into its corner rounds that corner alone with a
+  fillet, live. When its node is one of the chosen nodes, the chosen
+  nodes' corners round together; with Shift held at the press, every
+  corner of the curve rounds together. The radius is the one whose arc's middle has moved into
   the dragged corner as far as the pointer has moved along it
   (`r = d / (1 / sin(theta / 2) - 1)` for a corner of angle `theta`), at
   most the largest radius every rounded corner still fits (a side two
@@ -190,10 +197,10 @@ round their corners with their own handles either way.
   radius is read back from the arc. Its widget sits 18 px off the
   middle of the arc, along the middle of the corner. Dragging it takes
   the corner back to the sharp corner its sides meet at and rounds that
-  again, starting from the radius it had: with no node chosen every
-  corner of the curve (sharp or rounded) takes the new radius, with
-  nodes chosen only theirs (a rounded corner is chosen by any node of
-  its arc). Dragging back past the corner makes it sharp. Arcs between
+  again, starting from the radius it had: that corner alone, the chosen
+  nodes' corners when it is one of them, or with Shift every corner of
+  the curve (sharp or rounded) takes the new radius (a rounded corner is
+  chosen by any node of its arc). Dragging back past the corner makes it sharp. Arcs between
   curved sides, scallops and chamfers are not found again.
 - On a stretched or skewed curve corners round on the page, so a new
   rounding is round, also on a curve stretched after other corners were
@@ -218,12 +225,12 @@ round their corners with their own handles either way.
 
 | Action | Behaviour |
 |---|---|
-| Drag a rectangle corner node | every corner grows or shrinks by the same amount, in the current corner style; a square corner has one node, a cut one a node at each end |
-| Ctrl+drag a corner node | that corner only; Ctrl counts as it is held during the drag, also pressed after the button (#1325) |
+| Drag a rectangle corner node | every corner grows or shrinks by the same amount, in the current corner style, until two corners fill a side; a square corner has one node, a cut one a node at each end |
+| Ctrl+drag a corner node | that corner only, as far as the neighbouring corners leave it room on both its sides (past half the shorter side when they are smaller, a whole side when they are square; #1757, `kind_nodes::tests::one_corner_dragged_takes_what_its_neighbours_leave`); Ctrl counts as it is held during the drag, also pressed after the button (#1325) |
 | Click a corner node; Shift+click or Ctrl+click; marquee or freehand marquee over corner nodes | chooses that corner alone; adds the corner to the chosen ones or takes it out; chooses the corners with a node inside (on every selected rectangle). Chosen corners' nodes are filled (#671) |
 | Drag a chosen corner node | the chosen corners only, all by the same amount, so two or three corners round together and the others keep theirs (#671) |
 | Drag an ellipse node | pie when the pointer is inside the ellipse, arc outside; a whole ellipse's node starts at the top and the way it turns picks which end it becomes; with Ctrl held (at the press or later) the angle goes in steps of the constrain angle (15 degrees at first; a whole ellipse's node counts its turn from the top) (#1340) |
-| Drag a polygon node | its mirrored nodes follow: a vertex moves every vertex in or out (the points between them stay, and keep their turn); a point between two vertices moves all of those: in or out sharpens the star, around the centre turns them (a twisted star; within 1 degree of straight it stays untwisted; Ctrl keeps the turn they have, held at the press or later; it was read at the press for rectangle corners only, so it did nothing on a star, #1331) |
+| Drag a polygon node | its mirrored nodes follow: a vertex moves every vertex in or out (the points between them stay, and keep their turn); a point between two vertices moves all of those: in or out sharpens the star, and through the centre it comes out on the far side, an inverted star (negative sharpness, down to -0.99; dragged back through the centre it is a plain star again). The pointer's turn is read on the near or the far side of the centre, whichever is nearer the turn the points had at the press, so a drag straight through inverts the star rather than turning its points half a turn; with Ctrl the side is the one the pointer is on along the kept turn. It used to stop short of the centre, sharpness held to 0.001..0.999 (#1331, `kind_nodes::tests::inner_nodes_cross_the_centre_into_an_inverted_star`). Around the centre turns them (a twisted star; within 1 degree of straight it stays untwisted; Ctrl keeps the turn they have, held at the press or later; it was read at the press for rectangle corners only, so it did nothing on a star, #1331) |
 
 Rectangles, ellipses and polygons show these nodes and the property bar
 shows their controls (corners, pie and arc, points) while the Shape tool
@@ -325,6 +332,7 @@ Reduce Nodes, Curve smoothness.
 - `kind_nodes::tests::the_ellipse_node_opens_a_pie_inside_and_an_arc_outside`
 - `kind_nodes::tests::polygon_nodes_move_together`
 - `kind_nodes::tests::points_between_the_vertices_twist_the_star`
+- `kind_nodes::tests::inner_nodes_cross_the_centre_into_an_inverted_star` (#1331)
 - `pick_drag_tests::a_bspline_keeps_its_control_points_for_the_shape_tool`
 - `tracedraw_core::command::tests::a_spline_follows_its_control_points_until_the_outline_is_changed_otherwise`
 - `geometry::tests::twisting_turns_the_points_between_the_vertices` (core): the
