@@ -341,6 +341,10 @@ pub struct Settings {
     /// symmetry is edited (off at first: outlines in red).
     #[serde(default)]
     pub symmetry_full_preview: bool,
+    /// The Corners docker's Preview: the result drawn on the page as a
+    /// dashed outline while the docker is open (on at first, #1759).
+    #[serde(default = "default_true")]
+    pub corners_preview: bool,
     /// Options > Edit: decimal places of distances in the property bar
     /// and the status bar.
     #[serde(default = "default_precision")]
@@ -1723,6 +1727,7 @@ impl Default for Settings {
             constrain_angle: default_constrain_angle(),
             symmetry_show_lines: true,
             symmetry_full_preview: false,
+            corners_preview: true,
             precision: default_precision(),
             nodes: NodePrefs::default(),
             clip_frame: ClipFramePrefs::default(),
@@ -2591,6 +2596,37 @@ mod tests {
         s.touch_recent(std::path::Path::new("/f11.tdraw"));
         assert_eq!(s.recent_files.len(), 10);
         assert_eq!(s.recent_files[0], PathBuf::from("/f11.tdraw"));
+    }
+
+    /// A settings file of an older version keeps its language, whatever
+    /// the installer or the system say; a new one has none picked.
+    #[test]
+    fn old_settings_files_keep_their_language() {
+        for code in ["en", "de", "pt-BR"] {
+            let old: Settings =
+                serde_json::from_str(&format!("{{\"language\":\"{code}\"}}")).expect("old file");
+            assert_eq!(
+                crate::i18n::startup_language(&old.language, Some("ja"), &["fr-FR"]),
+                code
+            );
+        }
+        let fresh: Settings = serde_json::from_str("{}").expect("empty file");
+        assert_eq!(fresh.language, "");
+        assert_eq!(Settings::default().language, "");
+        assert_eq!(
+            crate::i18n::startup_language(&fresh.language, Some("ja"), &["fr-FR"]),
+            "ja"
+        );
+        assert_eq!(
+            crate::i18n::startup_language(&fresh.language, None, &["fr-FR"]),
+            "fr"
+        );
+        // System language picked in Options is saved as such.
+        let mut s = Settings::default();
+        s.language = crate::i18n::SYSTEM.into();
+        let back: Settings =
+            serde_json::from_str(&serde_json::to_string(&s).expect("json")).expect("back");
+        assert_eq!(back.language, crate::i18n::SYSTEM);
     }
 
     #[test]
